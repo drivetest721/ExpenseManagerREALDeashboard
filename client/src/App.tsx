@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import PlaceholderPage from './pages/PlaceholderPage';
+import AllowanceDetailsPage from './pages/AllowanceDetailsPage';
 
 function App() {
   return (
@@ -35,10 +36,7 @@ function App() {
         path="/allowance"
         element={
           <ProtectedRoute>
-            <PlaceholderPage
-              title="Allowance Details"
-              phase="Phase 4 — Categories & Allowance"
-            />
+            <AllowanceDetailsPage />
           </ProtectedRoute>
         }
       />

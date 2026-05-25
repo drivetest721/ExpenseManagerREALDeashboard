@@ -41,11 +41,22 @@ class EnvSettings(BaseSettings):
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT signing algorithm")
     JWT_EXPIRY_MINUTES: int = Field(default=480, description="Access-token validity (minutes)")
 
+    # Legacy SMTP_* fields (kept for backwards compat — prefer MAIL_* below)
     SMTP_HOST: str = Field(default="", description="SMTP host for outbound mail")
     SMTP_PORT: int = Field(default=587, description="SMTP port")
     SMTP_USERNAME: str = Field(default="", description="SMTP username")
     SMTP_PASSWORD: str = Field(default="", description="SMTP password")
     SMTP_FROM: str = Field(default="no-reply@example.com", description="Default From address")
+
+    # Primary mail settings (read from MAIL_* keys in .env)
+    MAIL_SERVER: str = Field(default="", description="SMTP server hostname")
+    MAIL_PORT: int = Field(default=465, description="SMTP port (465=SSL, 587=STARTTLS)")
+    MAIL_USERNAME: str = Field(default="", description="SMTP login username")
+    MAIL_PASSWORD: str = Field(default="", description="SMTP login password")
+    MAIL_FROM: str = Field(default="", description="Sender email address")
+    MAIL_FROM_NAME: str = Field(default="", description="Sender display name")
+    MAIL_SSL: bool = Field(default=True, description="Use implicit SSL (port 465)")
+    MAIL_TLS: bool = Field(default=False, description="Use STARTTLS (port 587)")
 
     CORS_ORIGINS: str = Field(
         default="http://localhost:5173,http://localhost:3000",

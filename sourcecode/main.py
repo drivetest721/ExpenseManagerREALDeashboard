@@ -127,10 +127,14 @@ async def health_check():
 from routes.auth_routes import router as objAuthRouter
 from routes.user_routes import router as objUserRouter
 from routes.department_routes import router as objDeptRouter
+from routes.category_routes import router as objCategoryRouter
+from routes.allowance_routes import router as objAllowanceRouter
 
 objApp.include_router(objAuthRouter)
 objApp.include_router(objUserRouter)
 objApp.include_router(objDeptRouter)
+objApp.include_router(objCategoryRouter)
+objApp.include_router(objAllowanceRouter)
 
 
 if __name__ == "__main__":

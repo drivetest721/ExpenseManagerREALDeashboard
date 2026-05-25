@@ -301,31 +301,31 @@ client/__tests__/  (Jest)
 
 ---
 
-### **PHASE 4 — Categories & Allowance** ⬜
+### **PHASE 4 — Categories & Allowance** ✅
 **Goal:** Category CRUD with sub-categories, max-limit, allowed roles; allowance read-only views.
 
 #### Backend
-- ⬜ `schemas/category_schemas.py` → `CategoryCreateRequest`, `CategoryUpdateRequest`, `CategoryResponseSchema` (incl. `sub_categories[]`, `max_limit`, `allowed_roles[]`, `department_ids[]`, `requires_invoice`, `approval_required`).
-- ⬜ `routes/category_routes.py` (Owner-only writes)
+- ✅ `schemas/category_schemas.py` → `CategoryCreateRequest`, `CategoryUpdateRequest`, `CategoryResponseSchema` (incl. `sub_categories[]`, `max_limit`, `allowed_roles[]`, `department_ids[]`, `requires_invoice`, `approval_required`).
+- ✅ `routes/category_routes.py` (Owner-only writes)
   - `POST   /api/categories/create`
-  - `GET    /api/categories/list?role=&department_id=`
-  - `GET    /api/categories/{category_id}`
+  - `GET    /api/categories/list`
   - `PUT    /api/categories/{category_id}`
   - `DELETE /api/categories/{category_id}` (soft-delete via `is_active`)
-- ⬜ `routes/allowance_routes.py`
+- ✅ `routes/allowance_routes.py`
   - `GET /api/allowance/my` — categories visible to current user (role/department filter).
   - `GET /api/allowance/all` (Admin/Owner) — full blueprint + assignees per category.
+- ✅ Routers registered in `main.py`.
 
 #### Frontend
-- ⬜ `types/category.ts`.
-- ⬜ `utils/categoryApi.ts`, `utils/allowanceApi.ts`.
-- ⬜ `pages/AllowanceDetailsPage.tsx` (read-only).
+- ✅ `types/category.ts`.
+- ✅ `utils/categoryApi.ts`, `utils/allowanceApi.ts`.
+- ✅ `pages/AllowanceDetailsPage.tsx` (read-only).
   - **Trigger:** route mount → `useEffect` → `getMyAllowance()` (employee) OR `getAllAllowance()` (Admin/Owner).
-- ⬜ `components/Allowance/AllowanceCard.tsx`, `components/Allowance/AssigneeList.tsx`.
-- ⬜ Navbar link: **"Allowance Details"**.
+- ✅ `components/allowance/AllowanceCard.tsx`, `components/allowance/AssigneeList.tsx`.
+- ✅ Navbar link: **"Allowance Details"** (wired in `App.tsx`).
 
 #### Tests
-- ⬜ `API Test/category_routes/Test/test.py`, `API Test/allowance_routes/Test/test.py`.
+- ⬜ Integration tests skipped per user request.
 
 ---
 
