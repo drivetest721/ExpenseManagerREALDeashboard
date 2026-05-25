@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — sourced from .augment/skills/frontend/ui_schema_guidelines.md
+ * Primary brand: #00703C (Deep Green) · hover #005a30
+ */
+@theme {
+  --color-brand: #00703C;
+  --color-brand-hover: #005a30;
+  --color-brand-foreground: #ffffff;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font-sans);
+}
+
+body {
+  background-color: #f9fafb; /* Tailwind gray-50 — page background per UI guidelines */
+  color: #111827;            /* Tailwind gray-900 — primary text */
+}

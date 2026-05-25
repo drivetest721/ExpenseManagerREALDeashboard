@@ -1,0 +1,674 @@
+Real dashboard Application
+ - This is Internal Application for River edge analytics pvt. ltd. used by 50+ users daily
+ - Currently It's Used for redirecting the user's to other website and register for meal(Dinner).
+ - Please once go through readme.md files for better understanding the tools and the technologies.
+
+New component: Expense Management
+ - This is the New Feature i want to build for company's use case that help solves offline HRMS.
+ - The Expense Management is the tool used for Reimbursement. When employee pay's money in behalf of the company called Reimbursement.
+    > Example: The company allows employee to spend (INR) Rs. 150 for food on any day, right now company not pay for this food, but employee pays then after some time company pays the money (INR) Rs. 150  to the Employee who temporary pays amount. This is allowance and only allowed employee can do this.
+    > Right now this all done offline: employee pays and go to CA office, CA then take some time and Ask owner and then owner and CA take the final decisions.
+    > I want to make this work flow online.
+    > above is just an example given to you to understand the offline HRMS.
+
+Online HRMS tool:
+ - this is the "Expense Management" Component lies under the Real Dashboard application.
+ - The company has some hierarchy set for upcoming online system. The Expense Management should follow the hierarchy and take care the requirements of owner.
+
+
+> Owner:
+ - there is two ultimate owner "Anirudh Sureka", "Smeeta Sureka".
+ - there are department under those owner.
+> Accountants:
+ - the accountants right now is teh one who pays money to the employee.
+> Employee:
+ - There are two types of employee:
+ - Junior:
+   - End/Leaf Employee who does not have any employee working under them.
+ - Manager:
+   - Who has employee working under them.
+
+Category:
+ - every Reimbursement has category attached to it.
+    > for example: if employee order Sandwich and pizza then category is Food and sub category can be :  break fast/ lunch/ dinner/ snacks
+    > If employee can go with client on cab then category is travel and sub category can be cab/taxi/train/flight/bus
+ - Each category has limits and each category can be assigned to mention employees only, not all employee can demand for exclusive category.
+    > For example: Sr. Product manager can go with client on trip and purchase gift in behlf of companey to aquire client's attention (This is Coapany's Expense). But this allowance not for some employee like Interns or junior manager Understood.
+ - The category has (maximum) limitation amount. This is the maximum amount of this category allowance which can companey pays to the employee.
+ - The employee can only demand for category which allowed by Owner of the company to the Employee, and employee can demand for higher amont but comapney pay's as max as defined in the limitation amount of category.
+ - This is the Configurable bu Owner Throgh Settings Page. Like owner can add new category, change names, update limitation, assign user's to this category.
+
+Chaining:
+ - This is the most critical task and heart of the application lies in this workflow.
+ - An employee can apply for new Reimbursement through the page. then this application notified to thier 1st manager. and then that manager eithe approve or soft reject.
+ - After Approve: 
+     > the application approved by 1st manager of Base-Employee/Initiator then this applocation goes to 2nd manager of Initiator (manager of manager of Initiator) this chain goes until the Owner becase the nth manager of n-1 th manager of every employee is Owner it-self. If the Onwer Approve the Application then it will go to CA by notification system. The CA either Paid the Employee or reject the Application.
+ - Soft Reject
+     == The term Soft Reject is Highly dangerous so we use query or Ask
+   Type 1 : Query
+     > This Word means the Manger return the application to the Initiator and query (ask some question or leads the missing data. Example the Initiator not upload the iage correctly then manager reject/query that "You have not uploaded the Document properly please Upload it properly."),
+     > This action do not notify it next manager. It Notify The Initiator and then  Initiator Can Re Apply after updating Details. and this notify the Manager who is Currently Query the Reimbursement.
+     > To Query the Reimbursement employee required valid Description.
+
+   Type 2: Ask
+     > This action is Same as Query but it's Private. It Exactly Notify Initiator and Do not notify the Next manger.
+ - Note: 
+     > If the xth Manager is part of Reimbursement and query the In Initiator then it's only Notified to teh Initiator only and Re apply by Initiator can only Notify to the xth Employee not (x-1)th Emplyee or (x-2)th Employee whcih is part of Reimbursement cycle.
+     > The Employee can see the Chain by Expanding the Reimbursement.
+     > To Ask the Reimbursement employee required valid Description.
+
+
+Owner:
+ - The Owner is the Ultimate Powerful Entity of Whole System.
+ - Owner has the Permission to Creation/Edition of category and assign Those Category to the Employee
+ - Owner can edit the hierarchy: Decide who is manager of whom. Who is eligible for Any allowance.
+ - Owner can decide the Limitation of each category/add new category/edit category/delete category
+ - Everyone Can view "Chaining" of the Reimbursement if they are part of it's. and all query which is done in between employee's but not every can be able to view "Ask" beacuse it is Private.
+ - Owner can view the Query and Ask conversation between the Employee.
+ - Owner can add or remove the employee, manage the Manager's. etc.
+ - Owner has access the Analytics and Statistics of the Entire Application.
+
+CA:
+ - The final Power for Accept or Reject the Reimbursement is only with CA.
+ - The CA can Only Paid the amount to the user. and compelete the chain.
+ - After the CA's paid the Reimbursement the Initiator has to acknowlegde the Recieve Money And after "Recieve Money" the Reimbursement is Closd and Goes to History.
+ - All the envolve Employee find the Notification regarding Reimbursement "Recieve Money".
+ - CA can Query the Reimbursement only one time and Initiator have to Provide vaild reason about query and then Re-Apply the Reimbursement. After that if CA has only two option Reject and Paid.
+ - So Initiator has many chances to Re Apply Reimbursement when manager or Owner Query but with CA the Initiator can have only one chance to Re Apply. If the Initiator Reject then It will not Re Apply by the Initiator.
+
+
+Initiator:
+ - The Smallest Entity of this Reimbursement Cycle.
+ - Initiator Starts The Reimbursement Cycle by create new Reimbursement and Upload the details and images(jpg, jpeg, png)/pdf/docx/webp
+ - Then it is notified to the manager of Initiator.
+ - the manager Either approve or Query the Reimbursement; if approve by the manager then it is notify to the manager of the current manager; if manager of the current manager Query the Reimbursement then it the Reimbursement send/notify to Initiator directly..
+
+
+Technical Specification:
+Front End Design:
+ - The navbar should consist Two links : "Expense Management" and "Allowance Details"
+ - The "Allowance Details" page is describe the allowance which is given to current user's category. If the Current Logged In user is Intern then Show the Assigned Intern level Allowance
+ - The Admin Can See whole Blue Print of The Allowance and also who are Assignee of that Allowance.
+  > Example: The Food Allowance is for Intern, Manager or Senior Manager then Show all the Deatils about allowance and it's limit and who are the Assignee of the Allowance.
+ - The Allowance Details is only for Read Only Page where Employee or Admin can see the detils.
+ - The Expense Management Link should the main componenet for the work flow.
+
+Expense Management:
+ - This Page should have one button "New Reimbursement" and on click of the button the new Form will open One modal that has two options "Upload Invoice" and "Business Trip".
+ - Collapsable Views:
+    Personal Reimbursement
+       |-> Draft (Current User's Saved Draft which are not Send to the Manager)
+       |-> Pending (Current User's Reimbursement which are Send to the Manager and Waititng for Either Query or Ask or Paid)
+       |-> History (Current User's Reimbursement which are Send to the Manager and Recieved Money Or Reject Permenently)
+    > When user click on Any Reimbursement it should be visible the Chaining and Current status
+    Team Reimbursement (For Manager)
+       |-> Pending (It's Junior User's Reimbursement which are Need to Review)
+            |-> Pending Approvals (Pending Approval from Current user )
+            |-> Pending compeletion (Pending Approval from next manager's)
+       |-> History (Current User's Reimbursement which are Send to the Manager and Recieved Money Or Reject Permenently)
+    > When user click on Any Reimbursement it should be visible the Chaining and Current status
+ - The "Upload Invoice" Page:
+    > It is Table format Form.
+    > headers are "Category" | "Amount" | "Description" | "Attachments" | "Date of Payment"
+    > Row 1: This is act as 1st Reimbursement 
+    > Row 2: This is act as 2nd Reimbursement 
+    > Button for (+ Add New Row)
+    > I want Cancel Button on top right Corner which Close this form and ask to Discrd the Details and one Save to Draft button Below Right Corner of the Form.
+    > The "Save Draft Button" Should temporary Stores the Data.
+    > The user can see the Details inside the Personal Reimbursement's Draft Component From here user can still edit the Reimbursement or Forward to Manager
+    > After user Forward to Manager the Reimbursement is visible in the Pending Component.
+  - The "Business Trip"
+    > This should Open the Predefined Form first it ask the From and To date.
+    > After that the First Row Consist the Days/Dates (dd/mm/yyyy)
+    > The First Column should be the Category
+    > Example:
+       From: 01-02-2026 
+       To: 05-02-2026
+       Then Form Will be like this:
+        | Sr No. | Category                | Sub category     | 01-02-2026 | 02-02-2026 | 03-02-2026 | 04-02-2026 | 05-02-2026 | Total | Invoice Upload | Description
+        | 1      | Ticket  from xyz to abc | Train            | 500        |            |            |            |            |  500  |                |            
+        | 2      | Food                    | Lunch            |            |            |            |            |  200       |  200  |                |             
+        | 3      | Food                    | dinner           |            |            |            |  200       |            |  200  |                |             
+        | 4      | Food                    | breakfast        |            |   200      |            |            |            |  200  |                |             
+        | 5      | Other - Secify what     | Sub category(opt)|            |            |            |            |            |  000  |                |             
+        | 6      | -                       | -   |            |  -         |   200      |  -         |  200       |  200       |  1100 |                |            
+
+ - For Each Reimbursement Make sure you store the following details:
+  - ID: Unique for Each user's each Reimbursement
+  - Form: the data of the Details.
+  - FormType: Business Trip or General
+  - if the FormType is Business trip then the details should be verified like from and to date, the data enter by the user should be there for calculation
+  - Store every details like Form craeted date, last updated date
+
+Chaining:
+ - Show the Reimbursement's to the user's which are the part of Reimbursement.
+ - To identify add the id's of the user in the Reimbursement entry.
+ - for Reimbursement the user who create it is the part of Reimbursement, and ther manager and it's manager of manager are part of Reimbursement.
+ - But right now only the user is part of Reimbursement and after created the Reimbursement the manager of current user can be paret of Reimbursement. not thier manegr can see anything.
+ - to query the Initiator the manager's need the reason/description.
+ - this description can see by all the partcipate(who are part of the Reimbursement) by click on the Reimbursement.
+ - The manager who approved the Reimbursement can see this details from Team Approval > Pending > Pending compeletion.
+ - The current manager who not approved the Reimbursement can see the details from Team Approval > Pending > Pending Approvals.
+ - The manager who Ask(Private Query) then only that manager and Initiator but Admin can see the Whole conversation.
+ - For each Query/Ask/Paid/Payment Recieve/Approved/Rejected/Draft : Maintain Logs
+ - For each user action add logs which act as the Chain View and User and Admin can see the Chain and it's details like what is the Current Chaining, Who Approved and And what is the reaso to Reject it. and what action happned at what days and on what time.
+ - create use the private key of two user(one Initiator and one Manager who Ask) and add this to the Ask log. while Opening the Chain the user whoi matches the Private Key can see the Ask. or Admin can see the Ask else other manager who are part of the chain can only view the Query and Other desctipion details.
+ - Each manager has to Either Approve/Query/Ask the Reimbursement withing Configurable Day's. if Fails to Do that then send Email regarding Late ness of the Action to the Admin and Manager or the Current user who failes to action on Reimbursement whichin given days.
+
+Approval Chain Rules
+  Chain Generation
+   -  The reimbursement approval chain MUST be generated dynamically during reimbursement submission.
+
+  The chain should:
+    Identify reimbursement category.
+    Identify related department.
+    Fetch assigned managers.
+    Sort by priority.
+    Build approval chain.
+    End at Owner.
+    Then move to CA.
+
+Approval Types
+  Mandatory
+    Reimbursement cannot move ahead without approval.
+
+  Optional
+    If optional manager skips:
+
+  workflow continues.
+
+Category Assignment Rules
+  - Categories can be assigned:
+    globally
+    department-wise
+    employee-wise
+
+Category Structure
+  {
+    "_id": ObjectId,
+
+    "name": "Travel",
+
+    "department_ids": [ObjectId],
+
+    "allowed_roles": [
+      "manager",
+      "senior_manager"
+    ],
+
+    "max_limit": 10000,
+
+    "approval_required": true
+  }
+
+Settings Page:
+ - The Settings Page should only visible to Admin.
+ - It can Configure the details like add new Employee or Chnage the Place of Employee.
+ - add category and configure it's limitation amount
+ - edit the days to action: The no of day's in which the user have to perform the action either Approve/Query/Ask the Reimbursement.
+ - the details of each user and it's department.
+
+payment:
+ - user has two option UPI Id or Scanner. when user forword the Reimbursement then it prompt's the user to add new UPI method (ID or Scnner) if user not added it.
+ - Do not Forward the Reimbursement if the user has no payment method uploade. 
+ - The User has profile page in which it can upload the payment methods.
+ - Once the Payment added then forward the request to manager.
+ - For ech Creation of New Reimbursement prompt the user to update payment method.
+ - do not ask the update payment method on re apply existing Reimbursement. ask only when user creates new Reimbursement.
+ - unilt the user not acknowlegde the Recieve the payment tyhe mnager and thier manager and super admin can fount the Reimbursement in the Team Pending.
+ - Once the payment Recieve or reject and user fails to Reject 2nd time after the CA's Query then Close the Reimbursement by add rejected Status and Now every one can see the Reimbursement on the History Component.
+ - user has to reason for any Query withing 2 days else the System will auto reject the Reimbursement.
+
+INFO:
+ - The 15 Days of Reimbursement or Action period in 2 days this all we taling about Business day (Remove sunday/ saturday and holiday) for holiday craete the data base Table on which Admin can create the Holiday.
+
+
+Status System:
+  Status	Meaning
+  DRAFT:	Saved In DB but do not forward it to manager or anyone it' visible in the draft
+  SUBMITTED:	Sent to first manager of current User.
+  IN_REVIEW:	Current manager reviewing
+  QUERY_RAISED:	Public query
+  PRIVATE_ASK:	Private query
+  REAPPLIED:	User resubmitted. this notification goes to the Person who query the Reimbursement
+  OWNER_APPROVED:	Approved by owner
+  CA_PENDING:	Waiting for accountant
+  CA_QUERY:	CA asked clarification
+  CA_REAPPLIED	User replied to CA
+  PAID:	CA marked paid
+  PAYMENT_ACKNOWLEDGED:	Employee confirmed payment
+  REJECTED	Permanently rejected
+  AUTO_REJECTED:	SLA timeout
+  CLOSED:	Final state
+
+State Transition Rules
+  Current State	| Action	|Next State
+  DRAFT	|Submit	|SUBMITTED
+  SUBMITTED	| Approve	| NEXT_MANAGER_PENDING
+  SUBMITTED	|Query	| QUERY_RAISED
+  QUERY_RAISED	|Reapply	| IN_REVIEW
+  OWNER_APPROVED	|Send to CA	| CA_PENDING
+  CA_PENDING	|Paid	| PAID
+  PAID	|Acknowledge	|CLOSED
+
+reimbursements
+{
+  "_id": ObjectId,
+  "reimbursement_code": "RB-2026-00001",
+
+  "initiator_id": ObjectId,
+
+  "form_type": "general",
+
+  "status": "PENDING_MANAGER_APPROVAL",
+
+  "current_reviewer_id": ObjectId,
+
+  "approval_chain": [
+    ObjectId
+  ],
+
+  "participants": [
+    ObjectId
+  ],
+
+  "total_claim_amount": 1200,
+
+  "total_approved_amount": 1000,
+
+  "is_closed": false,
+
+  "ca_query_used": false,
+
+  "payment_acknowledged": false,
+
+  "created_at": IST Local date time,
+
+  "updated_at": IST Local date time
+}
+
+
+reimbursement_items
+{
+  "_id": ObjectId,
+
+  "reimbursement_id": ObjectId,
+
+  "category_id": ObjectId,
+
+  "sub_category": "Lunch",
+
+  "amount": 250,
+
+  "approved_amount": 150,
+
+  "expense_date": IST Local date time,
+
+  "description": "Client Lunch",
+
+  "attachments": [
+    {
+      "file_name": "invoice.pdf",
+      "file_url": "uploads/abc.pdf",
+      "uploaded_at": IST Local date time
+    }
+  ]
+}
+
+
+reimbursement_logs
+{
+  "_id": ObjectId,
+
+  "reimbursement_id": ObjectId,
+
+  "action_by": ObjectId,
+
+  "action": "QUERY",
+
+  "visibility": "PUBLIC",
+
+  "message": "Invoice image unclear",
+
+  "created_at": IST Local Time
+}
+
+{
+  "_id": ObjectId,
+
+  "reimbursement_id": ObjectId,
+
+  "sender_id": ObjectId,
+
+  "receiver_id": ObjectId,
+
+  "message": "Need clarification",
+
+  "visible_to": [
+    ObjectId
+  ],
+
+  "created_at": ISODate
+}
+
+{
+  "_id": ObjectId,
+
+  "user_id": ObjectId,
+
+  "title": "Reimbursement Approved",
+
+  "message": "Your reimbursement moved to next manager",
+
+  "is_read": false,
+
+  "type": "REIMBURSEMENT",
+
+  "reference_id": ObjectId,
+
+  "created_at": ISODate
+}
+
+{
+  "_id": ObjectId,
+
+  "user_id": ObjectId,
+
+  "type": "UPI_ID",
+
+  "upi_id": "abc@oksbi",
+
+  "qr_image_url": "",
+
+  "is_default": true,
+
+  "created_at": ISODate
+}
+
+departments:
+{
+  "_id": ObjectId,
+  "name": "Engineering",
+  "owner_ids": [ObjectId],
+  "created_at": IST local Time
+}
+
+
+reimbursement_categories
+{
+  "_id": ObjectId,
+  "name": "Food",
+  "sub_categories": [
+    "Breakfast",
+    "Lunch",
+    "Dinner"
+  ],
+  "max_limit": 150,
+  "allowed_roles": [
+    "manager",
+    "senior_manager"
+  ],
+  "requires_invoice": true,
+  "is_active": true,
+  "created_by": ObjectId,
+  "created_at": IST Local Time
+}
+
+Role Permission Matrix
+
+Example:
+
+Feature	| Employee	| Manager	| CA	| Owner
+Create reimbursement	Yes	Yes	Yes	Yes
+Approve	No	Yes	No	Yes
+Final payment	| No	No	Yes	Yes
+Edit hierarchy | 	No	No	No	Yes
+View private ask |	Only related	Only related	No	Yes
+
+Notification System
+ - In-app
+
+Notification Triggers:
+  Submitted
+  Query
+  Ask
+  Re-applied
+  Approved
+  Paid
+  SLA overdue
+
+
+Workflow Rules
+  Approval Flow
+  Submit
+    Employee submits reimbursement.
+    System identifies manager hierarchy dynamically.
+    First manager becomes current reviewer.
+    Only current reviewer can approve/query/ask.
+
+  Approve
+    Move reimbursement to next manager.
+    If next reviewer is owner:
+    after approval move to CA.
+    If no next reviewer:
+    move directly to CA.
+
+  Query
+    Public visible message.
+    Requires description.
+    Sent back ONLY to initiator.
+    Re-apply returns ONLY to querying manager.
+
+  Ask
+    Private communication.
+    Visible only to:
+    sender
+    initiator
+    owner/admin
+
+  CA Query
+    Allowed only one time.
+    After initiator re-applies:
+    CA only has:
+    Paid
+    Reject
+
+  Payment
+    CA marks reimbursement as PAID.
+    Employee must acknowledge.
+    After acknowledgment:
+    reimbursement CLOSED.
+
+  SLA Rules
+    Configurable
+    {
+      "approval_sla_days": 3,
+      "query_response_days": 2
+    }
+
+SLA Engine Rules
+  Scheduler runs every 1 hour.
+  Detect overdue reimbursements.
+  Send reminder notification.
+  Send escalation email to admin.
+  Auto reject query if employee fails to respond in configured days.
+
+User Structure
+{
+  "_id": ObjectId,
+
+  "employee_id": "EMP001",
+
+  "name": "John Doe",
+
+  "departments": [
+    {
+      "department_id": ObjectId,
+      "role": "manager",
+      "is_primary": true
+    },
+    {
+      "department_id": ObjectId,
+      "role": "reviewer",
+      "is_primary": false
+    }
+  ],
+
+  "is_active": true,
+
+  "created_at": ISODate
+}
+
+
+Manager Hierarchy Design
+
+DO NOT use:
+
+manager_id
+
+Instead use:
+
+"managers": [
+  {
+    "manager_id": ObjectId,
+    "priority": 1,
+    "department_id": ObjectId,
+    "approval_type": "mandatory"
+  },
+  {
+    "manager_id": ObjectId,
+    "priority": 2,
+    "department_id": ObjectId,
+    "approval_type": "optional"
+  }
+]
+
+
+SAVE COMPLETE CHAIN SNAPSHOT.
+
+DO NOT dynamically recalculate chain later.
+
+Example:
+
+{
+  "approval_chain_snapshot": [
+    {
+      "user_id": ObjectId,
+      "name": "Manager A",
+      "priority": 1
+    },
+    {
+      "user_id": ObjectId,
+      "name": "Owner",
+      "priority": 2
+    }
+  ]
+}
+
+
+Current Reviewer Rule
+  Only ONE reviewer active at a time.
+
+  Example:
+  {
+    "current_reviewer_id": ObjectId,
+    "current_step": 2
+  }
+  Escalation Rule
+
+  If reviewer exceeds SLA:
+    notify reviewer
+    notify admin
+    notify owner optionally
+
+  DO NOT auto-approve.
+
+Required MongoDB Indexes
+  reimbursements
+  [
+      ("initiator_id", 1),
+      ("current_reviewer_id", 1),
+      ("status", 1),
+      ("department_id", 1),
+      ("created_at", -1),
+  ]
+
+Reimbursement Numbering
+
+  Use centralized counter collection.
+  Example:
+    - RB-2026-000001
+
+Notification Rules Update
+
+  When reimbursement moves:
+    notify ONLY current reviewer
+    not all future managers
+
+  When queried:
+    notify ONLY initiator
+
+  When ask/private:
+    notify ONLY private participants
+
+Important Workflow Rule
+
+  Managers who already approved:
+    - cannot modify reimbursement
+    - cannot query later
+
+Reapply Rule
+  When queried:
+    reimbursement returns ONLY to querying manager
+    not restart entire chain
+
+Audit Rules
+  Every change must store:
+  {
+    "before": {},
+    "after": {},
+    "action": "UPDATE"
+  }
+  for traceability.
+
+Attachment Storage Rules
+ - store binary files inside MongoDB
+
+Concurrency Rules
+  Prevent double approval.
+
+    Use:
+
+    optimistic locking
+    OR
+    atomic MongoDB update filters.
+
+    Example:
+
+    {
+        "_id": reimbursement_id,
+        "current_reviewer_id": current_user.id
+    }
+
+approval_steps
+  Tracks every approval stage separately.
+
+sla_events
+  Tracks overdue actions.
+
+audit_events
+  Tracks all mutations.
+
+organization_hierarchy
+  Stores reporting structure.
+
+generate:
+
+SYSTEM_ARCHITECTURE.md
+MONGODB_SCHEMA.md
+WORKFLOW_ENGINE.md
+APPROVAL_CHAIN_ENGINE.md
+RBAC_MATRIX.md
+STATE_MACHINE.md
+
+WITHOUT WRITING APPLICATION CODE FIRST.
