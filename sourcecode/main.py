@@ -122,10 +122,15 @@ async def health_check():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Future router includes (added per phase):
-#   from routes.auth_routes        import router as objAuthRouter
-#   objApp.include_router(objAuthRouter)
+# Router includes (one block added per phase)
 # ──────────────────────────────────────────────────────────────────────────────
+from routes.auth_routes import router as objAuthRouter
+from routes.user_routes import router as objUserRouter
+from routes.department_routes import router as objDeptRouter
+
+objApp.include_router(objAuthRouter)
+objApp.include_router(objUserRouter)
+objApp.include_router(objDeptRouter)
 
 
 if __name__ == "__main__":

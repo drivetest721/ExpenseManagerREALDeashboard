@@ -231,73 +231,73 @@ client/__tests__/  (Jest)
 
 ---
 
-### **PHASE 1 — Database Core: Indexes, Counters, Audit, Utils** ⬜
+### **PHASE 1 — Database Core: Indexes, Counters, Audit, Utils** ✅
 **Goal:** Plumbing that every later phase will rely on.
 
 #### Backend
-- ⬜ `config/mongodb_config.py` → `ensureIndexes()` per §3 (incl. `reimbursements` required indexes).
-- ⬜ `controllers/ReimbursementCounter.py` → `getNextReimbursementCode(strYear)` (atomic `$inc`).
-- ⬜ `controllers/AuditLogger.py` → `logMutation(strCollection, dictBefore, dictAfter, strAction, strActorId)`.
-- ⬜ `utils/date_utils.py` → `getCurrentIst()`, `toIst(dtUtc)`.
-- ⬜ `utils/business_day_utils.py` → `getBusinessDayDelta(dtStart, iDays)`, `isBusinessDay(dtDate)`.
-- ⬜ `utils/response_utils.py` → `successResponse(...)`, `errorResponse(...)`.
-- ⬜ `utils/crypto_utils.py` → `generateAskKeyPair()`, `encryptAskMessage(...)`, `decryptAskMessage(...)`.
-- ⬜ `schemas/common_enums.py` → `ReimbursementStatusEnum`, `ActionTypeEnum`, `VisibilityEnum`, `FormTypeEnum`, `PaymentMethodTypeEnum`, `ApprovalTypeEnum`, `NotificationTypeEnum`, `UserRoleEnum`.
+- ✅ `config/mongodb_config.py` → `ensureIndexes()` per §3 (incl. `reimbursements` required indexes).
+- ✅ `controllers/ReimbursementCounter.py` → `getNextReimbursementCode(strYear)` (atomic `$inc`).
+- ✅ `controllers/AuditLogger.py` → `logMutation(strCollection, dictBefore, dictAfter, strAction, strActorId)`.
+- ✅ `utils/date_utils.py` → `getCurrentIst()`, `toIst(dtUtc)`.
+- ✅ `utils/business_day_utils.py` → `getBusinessDayDelta(dtStart, iDays)`, `isBusinessDay(dtDate)`.
+- ✅ `utils/response_utils.py` → `successResponse(...)`, `errorResponse(...)`.
+- ✅ `utils/crypto_utils.py` → `generateAskKeyPair()`, `encryptAskMessage(...)`, `decryptAskMessage(...)`.
+- ✅ `schemas/common_enums.py` → `ReimbursementStatusEnum`, `ActionTypeEnum`, `VisibilityEnum`, `FormTypeEnum`, `PaymentMethodTypeEnum`, `ApprovalTypeEnum`, `NotificationTypeEnum`, `UserRoleEnum`.
 
 #### Tests
-- ⬜ `API Test/utils/Test/test.py` — business-day skip, counter atomicity, audit insert.
+- ✅ `API Test/utils/Test/test.py` — business-day skip, counter atomicity, audit insert.
 
 ---
 
-### **PHASE 2 — Authentication & JWT Middleware** ⬜
+### **PHASE 2 — Authentication & JWT Middleware** ✅
 **Goal:** Login, JWT issue, role/department-aware `Depends` helpers.
 
 #### Backend
-- ⬜ `middleware/jwt_middleware.py` → `getCurrentUserDependency`, `getAdminUserDependency`, `getOwnerUserDependency`, `getCaUserDependency`.
-- ⬜ `routes/auth_routes.py`
-  - `POST /api/auth/login` (body `LoginRequestSchema` → `LoginResponseSchema`)
-  - `POST /api/auth/logout`
-  - `GET  /api/auth/me`
-- ⬜ `schemas/auth_schemas.py` → `LoginRequestSchema`, `LoginResponseSchema`, `MeResponseSchema`.
+- ✅ `middleware/jwt_middleware.py` → `getCurrentUserDependency`, `getAdminUserDependency`, `getOwnerUserDependency`, `getCaUserDependency`.
+- ✅ `routes/auth_routes.py`
+  - ✅ `POST /api/auth/login` (body `LoginRequestSchema` → `LoginResponseSchema`)
+  - ✅ `POST /api/auth/logout`
+  - ✅ `GET  /api/auth/me`
+- ✅ `schemas/auth_schemas.py` → `LoginRequestSchema`, `LoginResponseSchema`, `MeResponseSchema`.
 
 #### Frontend
-- ⬜ `hooks/useAuth.tsx` — `login`, `logout`, `isAuthenticated`, `user`; stores JWT in `localStorage`.
-- ⬜ `utils/userApi.ts` — `login`, `logout`, `getMe`.
-- ⬜ `pages/LoginPage.tsx` — react-hook-form + zod. **Trigger:** form `onSubmit` → `login()`.
-- ⬜ `context/AuthContext.tsx`.
+- ✅ `hooks/useAuth.tsx` — `login`, `logout`, `isAuthenticated`, `user`; stores JWT in `localStorage`.
+- ✅ `utils/userApi.ts` — `login`, `logout`, `getMe`.
+- ✅ `pages/LoginPage.tsx` — react-hook-form + zod. **Trigger:** form `onSubmit` → `login()`.
+- ✅ `context/AuthContext.tsx`.
 
 #### Tests
-- ⬜ `API Test/auth_routes/Test/test.py` — happy path + invalid creds + expired token.
+- ✅ `API Test/auth_routes/Test/test.py` — happy path + invalid creds + expired token.
 
 ---
 
-### **PHASE 3 — Users, Departments, Hierarchy** ⬜
+### **PHASE 3 — Users, Departments, Hierarchy** ✅
 **Goal:** CRUD for `users` & `departments` and the multi-manager hierarchy model.
 
 #### Backend
-- ⬜ `schemas/department_schemas.py` → `DepartmentCreateRequest`, `DepartmentUpdateRequest`, `DepartmentResponseSchema`.
-- ⬜ `schemas/user_schemas.py` → `UserCreateRequest`, `UserUpdateRequest`, `UserResponseSchema`, `ManagerEntrySchema`, `UserDepartmentEntrySchema`.
-- ⬜ `routes/department_routes.py`
-  - `POST   /api/departments/create` (Admin/Owner)
-  - `GET    /api/departments/list`
-  - `PUT    /api/departments/{department_id}` (Admin/Owner)
-  - `DELETE /api/departments/{department_id}` (Owner)
-- ⬜ `routes/user_routes.py`
-  - `POST   /api/users/create` (Admin/Owner)
-  - `GET    /api/users/list?department_id=&role=`
-  - `GET    /api/users/{user_id}`
-  - `PUT    /api/users/{user_id}` (Admin/Owner)
-  - `PUT    /api/users/{user_id}/managers` (Owner) — update `managers[]` (priority + approval_type).
-  - `DELETE /api/users/{user_id}` (Owner)
-- ⬜ Validation: `managers[]` must contain unique priorities; cannot self-manage.
+- ✅ `schemas/department_schemas.py` → `DepartmentCreateRequest`, `DepartmentUpdateRequest`, `DepartmentResponseSchema`.
+- ✅ `schemas/user_schemas.py` → `UserCreateRequest`, `UserUpdateRequest`, `UserResponseSchema`, `ManagerEntrySchema`, `UserDepartmentEntrySchema`.
+- ✅ `routes/department_routes.py`
+  - ✅ `POST   /api/departments/create` (Admin/Owner)
+  - ✅ `GET    /api/departments/list`
+  - ✅ `PUT    /api/departments/{department_id}` (Admin/Owner)
+  - ✅ `DELETE /api/departments/{department_id}` (Owner)
+- ✅ `routes/user_routes.py`
+  - ✅ `POST   /api/users/create` (Admin/Owner)
+  - ✅ `GET    /api/users/list?department_id=&role=`
+  - ✅ `GET    /api/users/{user_id}`
+  - ✅ `PUT    /api/users/{user_id}` (Admin/Owner)
+  - ✅ `PUT    /api/users/{user_id}/managers` (Owner) — update `managers[]` (priority + approval_type).
+  - ✅ `DELETE /api/users/{user_id}` (Owner)
+- ✅ Validation: `managers[]` must contain unique priorities; cannot self-manage.
 
 #### Frontend
-- ⬜ `types/user.ts`, `types/department.ts`.
-- ⬜ `utils/userApi.ts` extend with `listUsers`, `createUser`, `updateUser`, `updateManagers`.
-- ⬜ Reusable `UserDropdown.tsx` for picker.
+- ✅ `types/user.ts`, `types/department.ts`.
+- ✅ `utils/userApi.ts` extend with `listUsers`, `createUser`, `updateUser`, `updateManagers`.
+- ✅ Reusable `UserDropdown.tsx` for picker.
 
 #### Tests
-- ⬜ `API Test/user_routes/Test/test.py`, `API Test/department_routes/Test/test.py`.
+- ✅ `API Test/user_routes/Test/test_user_routes.py`, `API Test/department_routes/Test/test_department_routes.py`.
 
 ---
 

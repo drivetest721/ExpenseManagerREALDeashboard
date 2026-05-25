@@ -1,52 +1,73 @@
 /**
  * App — root route table for the Expense Management frontend.
- * Real page implementations land in later phases; placeholders keep the
- * navigation wired during Phase 0 scaffolding.
+ * Protected routes require authentication (handled by ProtectedRoute).
+ * Placeholder pages are swapped out as each phase lands.
  */
 import { Routes, Route, Navigate } from 'react-router-dom';
-import HomePage from './pages/HomePage';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 function App() {
   return (
     <Routes>
+      {/* Public */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+
+      {/* Root redirect → protected expense page */}
       <Route path="/" element={<Navigate to="/expense" replace />} />
-      <Route path="/home" element={<HomePage />} />
-      <Route
-        path="/login"
-        element={<PlaceholderPage title="Login" phase="Phase 2 — Authentication" />}
-      />
+
+      {/* Protected routes */}
       <Route
         path="/expense"
         element={
-          <PlaceholderPage
-            title="Expense Management"
-            phase="Phase 7 — Reimbursement Core"
-          />
+          <ProtectedRoute>
+            <PlaceholderPage
+              title="Expense Management"
+              phase="Phase 7 — Reimbursement Core"
+            />
+          </ProtectedRoute>
         }
       />
       <Route
         path="/allowance"
         element={
-          <PlaceholderPage
-            title="Allowance Details"
-            phase="Phase 4 — Categories & Allowance"
-          />
+          <ProtectedRoute>
+            <PlaceholderPage
+              title="Allowance Details"
+              phase="Phase 4 — Categories & Allowance"
+            />
+          </ProtectedRoute>
         }
       />
       <Route
         path="/profile"
         element={
-          <PlaceholderPage title="Profile" phase="Phase 5 — Payment Methods" />
+          <ProtectedRoute>
+            <PlaceholderPage title="Profile" phase="Phase 5 — Payment Methods" />
+          </ProtectedRoute>
         }
       />
       <Route
         path="/settings"
         element={
-          <PlaceholderPage title="Settings" phase="Phase 13 — Settings Page" />
+          <ProtectedRoute requiredRole="owner">
+            <PlaceholderPage title="Settings" phase="Phase 13 — Settings Page" />
+          </ProtectedRoute>
         }
       />
-      <Route path="*" element={<HomePage />} />
+
+      {/* 404 — redirect to expense (ProtectedRoute handles unauthed redirect) */}
+      <Route
+        path="*"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/expense" replace />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }
