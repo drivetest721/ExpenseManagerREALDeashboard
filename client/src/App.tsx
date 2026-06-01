@@ -11,6 +11,7 @@ import AllowanceDetailsPage from './pages/AllowanceDetailsPage';
 import ProfilePage from './pages/ProfilePage';
 import ExpenseManagementPage from './pages/ExpenseManagementPage';
 import NewReimbursementPage from './pages/NewReimbursementPage';
+import ReimbursementDetailPage from './pages/ReimbursementDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import NotificationsInboxPage from './pages/NotificationsInboxPage';
@@ -39,6 +40,22 @@ function App() {
         element={
           <ProtectedRoute>
             <NewReimbursementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expense/edit/:id"
+        element={
+          <ProtectedRoute>
+            <NewReimbursementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expense/detail/:id"
+        element={
+          <ProtectedRoute>
+            <ReimbursementDetailPage />
           </ProtectedRoute>
         }
       />

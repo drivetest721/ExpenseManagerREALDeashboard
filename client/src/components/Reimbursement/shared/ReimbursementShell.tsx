@@ -51,10 +51,13 @@ interface Props {
   strSelectedPaymentMethod: string;
   onSelectPaymentMethod: (id: string) => void;
 
-  // Footer
-  bIsSaving: boolean;
-  onSaveDraft: () => void;
-  onSubmit: () => void;
+  // Optional: override right panel (e.g., for detail view activity logs)
+  rightPanelOverride?: ReactNode;
+
+  // Footer (optional - if not provided, footer is hidden)
+  bIsSaving?: boolean;
+  onSaveDraft?: () => void;
+  onSubmit?: () => void;
 }
 
 export default function ReimbursementShell(props: Props) {
@@ -65,6 +68,7 @@ export default function ReimbursementShell(props: Props) {
     leftPanel,
     lsAllAttachments, iPreviewIdx, setIPreviewIdx, objPreviewMeta, strPreviewUrl, bScanning,
     lsPaymentMethods, strSelectedPaymentMethod, onSelectPaymentMethod,
+    rightPanelOverride,
     bIsSaving, onSaveDraft, onSubmit,
   } = props;
 
@@ -185,16 +189,17 @@ export default function ReimbursementShell(props: Props) {
           >
             <button
               onClick={toggleRightCollapse}
-              className="absolute top-2 left-2 z-20 p-1.5 bg-[#00703C] hover:bg-[#005a30] text-white rounded-lg shadow-md transition-all hover:scale-110 cursor-pointer"
-              title="Collapse approval chain"
+              className="absolright panel"
             >
               <ChevronsRight className="w-4 h-4" />
             </button>
-            <RightSidebar
-              lsPaymentMethods={lsPaymentMethods}
-              strSelectedPaymentMethod={strSelectedPaymentMethod}
-              onSelectPaymentMethod={onSelectPaymentMethod}
-            />
+            {rightPanelOverride || (
+              <RightSidebar
+                lsPaymentMethods={lsPaymentMethods}
+                strSelectedPaymentMethod={strSelectedPaymentMethod}
+                onSelectPaymentMethod={onSelectPaymentMethod}
+              />
+            )}
           </div>
         )}
 
@@ -209,11 +214,14 @@ export default function ReimbursementShell(props: Props) {
         )}
       </div>
 
-      <ReimbursementFooter
-        bIsSaving={bIsSaving}
-        onSaveDraft={onSaveDraft}
-        onSubmit={onSubmit}
-      />
+      {/* Footer - only show if callbacks are provided */}
+      {onSaveDraft && onSubmit && (
+        <ReimbursementFooter
+          bIsSaving={bIsSaving ?? false}
+          onSaveDraft={onSaveDraft}
+          onSubmit={onSubmit}
+        />
+      )}
     </div>
   );
 }

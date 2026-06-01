@@ -5,20 +5,17 @@
  *   Date of Application | Date of Payment | View.
  */
 import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ChevronDown, ChevronRight, ChevronLeft, AlertTriangle, FileText, Clock, BookOpen,
+  ChevronDown, ChevronRight, AlertTriangle, FileText, Clock, BookOpen,
   UserCheck, RefreshCw, Users, Plus, CheckCircle2, BarChart2, Calendar,
-  Activity,
 } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { Footer } from '../components/Footer';
 import { InfoButton } from '../components/common/InfoButton';
-import { listMyReimbursementsApi, listTeamReimbursementsApi, getReimbursementChainApi } from '../utils/reimbursementApi';
-import type { ChainViewResponse } from '../utils/reimbursementApi';
+import { listMyReimbursementsApi, listTeamReimbursementsApi } from '../utils/reimbursementApi';
 import type { ReimbursementListItem } from '../types/reimbursement';
-import ChainView from '../components/Reimbursement/ChainView';
 import { useAuth } from '../hooks/useAuth';
-import ReimbursementDetailModal from '../components/Reimbursement/ReimbursementDetailModal';
 import FormTypeSelectionModal from '../components/Reimbursement/FormTypeSelectionModal';
 import { getSLAOverdueCountApi } from '../utils/slaApi';
 
@@ -43,6 +40,9 @@ const DICT_TONES: Record<SectionTone, { strBar: string; strIconBg: string; strIc
 
 export default function ExpenseManagementPage() {
   const { objUser } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
   const [lsDrafts, setLsDrafts] = useState<ReimbursementListItem[]>([]);
   const [lsPending, setLsPending] = useState<ReimbursementListItem[]>([]);
   const [lsHistory, setLsHistory] = useState<ReimbursementListItem[]>([]);
@@ -65,7 +65,6 @@ export default function ExpenseManagementPage() {
   const [bTeamHistExpanded, setBTeamHistExpanded] = useState<boolean>(false);
 
   // Modal state
-  const [strSelectedId, setStrSelectedId] = useState<string | null>(null);
   const [bShowNewModal, setBShowNewModal] = useState<boolean>(false);
 
   // Expense Report state
@@ -73,21 +72,17 @@ export default function ExpenseManagementPage() {
   const [strReportTo, setStrReportTo] = useState<string>('');
   const [bShowReport, setBShowReport] = useState<boolean>(false);
 
-  // Activity panel state (right-side, outside modal)
-  const [objPanelChain, setObjPanelChain] = useState<ChainViewResponse | null>(null);
-  const [bPanelLoading, setBPanelLoading] = useState<boolean>(false);
-  const [bPanelCollapsed, setBPanelCollapsed] = useState<boolean>(false);
-
-  // Fetch chain for the activity panel whenever a reimbursement is selected
+  // Handle ref param from notifications (open detail in new tab)
   useEffect(() => {
-    if (!strSelectedId) { setObjPanelChain(null); return; }
-    setBPanelCollapsed(false);
-    setBPanelLoading(true);
-    getReimbursementChainApi(strSelectedId)
-      .then(setObjPanelChain)
-      .catch(() => setObjPanelChain(null))
-      .finally(() => setBPanelLoading(false));
-  }, [strSelectedId]);
+    const strRefId = searchParams.get('ref');
+    if (strRefId) {
+      window.open(`/expense/detail/${strRefId}`, '_blank');
+      // Clear the ref param without navigating
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('ref');
+      navigate({ search: newParams.toString() }, { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   // SLA overdue count (admins/owners)
   const [iSLAOverdue, setISLAOverdue] = useState<number>(0);
@@ -227,7 +222,7 @@ export default function ExpenseManagementPage() {
                   <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
                     {isFirst ? (
                       <button
-                        onClick={() => setStrSelectedId(reimb.reimbursement_id)}
+                        onClick={() => window.open(`/expense/detail/${reimb.reimbursement_id}`, '_blank')}
                         className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold cursor-pointer transition-colors"
                       >
                         View
@@ -314,7 +309,7 @@ export default function ExpenseManagementPage() {
                   <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
                     {isFirst ? (
                       <button
-                        onClick={() => setStrSelectedId(reimb.reimbursement_id)}
+                        onClick={() => window.open(`/expense/detail/${reimb.reimbursement_id}`, '_blank')}
                         className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold cursor-pointer transition-colors"
                       >
                         View
@@ -771,90 +766,11 @@ export default function ExpenseManagementPage() {
       <Footer />
 
       {/* Modals */}
-      {strSelectedId && (
-        <ReimbursementDetailModal
-          strReimbursementId={strSelectedId}
-          onClose={() => { setStrSelectedId(null); fetchAll(); }}
-          onDeleted={() => { setStrSelectedId(null); fetchAll(); }}
-          onChainUpdate={setObjPanelChain}
-        />
-      )}
-
       {bShowNewModal && (
         <FormTypeSelectionModal
           bIsOpen={bShowNewModal}
           onClose={() => setBShowNewModal(false)}
         />
-      )}
-
-      {/* ── Activity & Chain panel — fixed right side, outside the modal ── */}
-      {strSelectedId && (
-        <div
-          className={`fixed top-0 right-0 h-screen bg-white border-l border-gray-200 shadow-2xl z-[60] flex flex-col transition-[width] duration-200 ease-in-out ${
-            bPanelCollapsed ? 'w-10' : 'w-80 lg:w-96'
-          }`}
-        >
-          {/* Collapse / expand tab on the left edge */}
-          <button
-            onClick={() => setBPanelCollapsed(!bPanelCollapsed)}
-            title={bPanelCollapsed ? 'Expand activity panel' : 'Collapse activity panel'}
-            className="absolute -left-8 top-1/2 -translate-y-1/2 w-8 h-16 bg-white border border-r-0 border-gray-200 rounded-l-lg flex items-center justify-center shadow-md cursor-pointer hover:bg-gray-50 transition-colors"
-          >
-            {bPanelCollapsed
-              ? <ChevronLeft className="w-4 h-4 text-gray-500" />
-              : <ChevronRight className="w-4 h-4 text-gray-500" />}
-          </button>
-
-          {/* Collapsed label */}
-          {bPanelCollapsed && (
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
-              <span
-                className="text-xs text-gray-400 font-medium whitespace-nowrap select-none"
-                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-              >
-                Activity &amp; Chain
-              </span>
-            </div>
-          )}
-
-          {/* Expanded content */}
-          {!bPanelCollapsed && (
-            <>
-              {/* Panel header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0 bg-white">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#00703C]" />
-                  <h3 className="text-sm font-bold text-gray-900">Activity &amp; Chain</h3>
-                </div>
-                <button
-                  onClick={() => setBPanelCollapsed(true)}
-                  className="text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
-                  title="Collapse panel"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Panel body */}
-              <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                {bPanelLoading && (
-                  <p className="text-sm text-gray-400 text-center py-10">Loading…</p>
-                )}
-                {!bPanelLoading && objPanelChain && (
-                  <ChainView
-                    lsChain={objPanelChain.approval_chain}
-                    iCurrentStep={objPanelChain.current_step}
-                    strCurrentReviewerId={objPanelChain.current_reviewer_id}
-                    lsLogs={objPanelChain.logs}
-                  />
-                )}
-                {!bPanelLoading && !objPanelChain && (
-                  <p className="text-sm text-gray-400 text-center py-10">No chain data.</p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
       )}
     </>
   );

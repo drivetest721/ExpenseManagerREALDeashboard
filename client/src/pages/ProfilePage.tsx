@@ -354,45 +354,153 @@ export default function ProfilePage() {
           </div>
 
           {/* ── Approval Chain ── */}
-          {(objUser?.managers ?? []).length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <GitBranch className="w-5 h-5 text-[#00703C]" />
-                <h3 className="text-base font-bold text-gray-900 cursor-default">Approval Chain</h3>
-              </div>
-              <p className="text-xs text-gray-500 mb-4 cursor-default">Your reimbursements follow this approval path (lower priority = reviewed first).</p>
-              <div className="flex flex-col gap-2">
-                {/* Current user node */}
-                <div className="flex items-center gap-3 px-4 py-2 bg-[#00703C]/5 border border-[#00703C]/20 rounded-xl">
-                  <div className="w-8 h-8 rounded-full bg-[#00703C]/20 text-[#00703C] flex items-center justify-center text-sm font-bold flex-shrink-0">
-                    {objUser?.name?.[0]?.toUpperCase() ?? '?'}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{objUser?.name} <span className="text-xs text-gray-500">(You)</span></p>
-                    <p className="text-xs text-gray-500">{objUser?.email}</p>
-                  </div>
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <GitBranch className="w-5 h-5 text-[#00703C]" />
+              <h3 className="text-base font-bold text-gray-900 cursor-default">Approval Chain</h3>
+            </div>
+            <p className="text-xs text-gray-500 mb-4 cursor-default">
+              Your reimbursements follow this approval path. The highlighted manager reviews your requests first.
+            </p>
+            
+            <div className="flex flex-col gap-2">
+              {/* Current user node */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-[#00703C]/10 to-emerald-50 border-2 border-[#00703C] rounded-xl shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-[#00703C] text-white flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md">
+                  {objUser?.name?.[0]?.toUpperCase() ?? '?'}
                 </div>
-                {[...(objUser?.managers ?? [])].sort((a, b) => a.priority - b.priority).map((m, i, arr) => (
-                  <div key={m.manager_id}>
-                    <div className="flex items-center gap-2 py-1 pl-4">
-                      <ChevronRight className="w-4 h-4 text-gray-300" />
-                      <span className="text-xs text-gray-400">Step {i + 1} · {m.approval_type}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900">
+                    {objUser?.name} <span className="px-2 py-0.5 bg-[#00703C] text-white text-xs rounded-full ml-1">You</span>
+                  </p>
+                  <p className="text-xs text-gray-600">{objUser?.email}</p>
+                  {objUser?.departments && objUser.departments.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {objUser.departments.map((d, idx) => (
+                        <span 
+                          key={idx}
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ROLE_COLORS[d.role] || 'bg-gray-100 text-gray-700'}`}
+                        >
+                          {ROLE_LABELS[d.role] || d.role}
+                        </span>
+                      ))}
                     </div>
-                    <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                        {(m.manager_name || 'M')?.[0]?.toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">{m.manager_name ?? 'Manager'}</p>
-                        <p className="text-xs text-gray-500">Priority {m.priority}</p>
-                      </div>
-                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Manager(s) */}
+              {(objUser?.managers ?? []).length > 0 ? (
+                <>
+                  <div className="flex items-center gap-2 py-1 pl-4">
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <span className="text-xs font-semibold text-gray-500 uppercase">Reporting Managers</span>
                   </div>
-                ))}
+                  
+                  {/* Show multiple managers side by side if more than one */}
+                  {(objUser?.managers ?? []).length === 1 ? (
+                    [...(objUser?.managers ?? [])].sort((a, b) => a.priority - b.priority).map((m, i) => (
+                      <div key={m.manager_id} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3 px-4 py-3 bg-yellow-50 border-2 border-yellow-400 rounded-xl shadow-md">
+                          <div className="w-10 h-10 rounded-full bg-yellow-200 text-yellow-800 flex items-center justify-center text-sm font-bold flex-shrink-0 border-2 border-yellow-400">
+                            {(m.manager_name || 'M')?.[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900">
+                              {m.manager_name ?? 'Manager'}
+                              <span className="ml-2 px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs font-bold rounded-full uppercase border border-yellow-400">
+                                {m.approval_type}
+                              </span>
+                            </p>
+                            <p className="text-xs text-gray-600">Priority {m.priority} · Manager</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex gap-3 pl-4">
+                      {[...(objUser?.managers ?? [])].sort((a, b) => a.priority - b.priority).map((m, i) => (
+                        <div key={m.manager_id} className="flex-1 min-w-0">
+                          <div className={`flex flex-col gap-2 px-3 py-3 rounded-xl shadow-md ${
+                            i === 0 
+                              ? 'bg-yellow-50 border-2 border-yellow-400' 
+                              : 'bg-blue-50 border-2 border-blue-300'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                                i === 0
+                                  ? 'bg-yellow-200 text-yellow-800 border-2 border-yellow-400'
+                                  : 'bg-blue-200 text-blue-800 border-2 border-blue-400'
+                              }`}>
+                                {(m.manager_name || 'M')?.[0]?.toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-gray-900 truncate">{m.manager_name ?? 'Manager'}</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className={`px-2 py-0.5 text-xs font-bold rounded-full uppercase text-center ${
+                                i === 0 
+                                  ? 'bg-yellow-200 text-yellow-800 border border-yellow-400' 
+                                  : 'bg-blue-200 text-blue-800 border border-blue-400'
+                              }`}>
+                                {m.approval_type}
+                              </span>
+                              <p className="text-xs text-gray-600 text-center">Priority {m.priority}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="px-4 py-2 text-xs text-gray-400 text-center border border-dashed border-gray-300 rounded-lg">
+                  No managers assigned
+                </div>
+              )}
+
+              {/* Owner */}
+              <div className="flex items-center gap-2 py-1 pl-4">
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <span className="text-xs font-semibold text-gray-500 uppercase">Next Level</span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border-2 border-amber-300 rounded-xl">
+                <div className="w-10 h-10 rounded-full bg-amber-200 text-amber-800 flex items-center justify-center text-sm font-bold flex-shrink-0 border-2 border-amber-400">
+                  O
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900">
+                    Owner
+                    <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase border border-red-300">
+                      Mandatory
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-600">Final departmental approval</p>
+                </div>
+              </div>
+
+              {/* CA */}
+              <div className="flex items-center gap-2 py-1 pl-4">
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <span className="text-xs font-semibold text-gray-500 uppercase">Payment Processing</span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3 bg-purple-50 border-2 border-purple-300 rounded-xl">
+                <div className="w-10 h-10 rounded-full bg-purple-200 text-purple-800 flex items-center justify-center text-sm font-bold flex-shrink-0 border-2 border-purple-400">
+                  CA
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900">
+                    Chartered Accountant
+                    <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase border border-red-300">
+                      Mandatory
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-600">Payment verification & processing</p>
+                </div>
               </div>
             </div>
-          )}
-
+          </div>
         </div>
       </main>
       <Footer />

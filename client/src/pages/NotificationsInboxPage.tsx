@@ -139,13 +139,13 @@ export default function NotificationsInboxPage() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={toggleSound} aria-label="Sound" title={bSound ? 'Sound on' : 'Sound off'} className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 cursor-pointer">
+              {/* <button onClick={toggleSound} aria-label="Sound" title={bSound ? 'Sound on' : 'Sound off'} className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 cursor-pointer">
                 {bSound ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-              </button>
+              </button> */}
               <button onClick={fetchAll} disabled={bLoading} aria-label="Refresh" title="Refresh" className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 cursor-pointer disabled:opacity-50">
                 <RefreshCw className={`w-5 h-5 ${bLoading ? 'animate-spin' : ''}`} />
               </button>
-              <div className="relative" ref={refFilter}>
+              {/* <div className="relative" ref={refFilter}>
                 <button onClick={() => setBFilterOpen(b => !b)} aria-label="Filter" title="Filter by type" className={`w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${setTypeFilter.size > 0 || bFilterOpen ? 'bg-[#00703C]/10 text-[#00703C]' : 'hover:bg-gray-100 text-gray-500'}`}>
                   <Filter className="w-5 h-5" />
                   {setTypeFilter.size > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#00703C] text-white text-[10px] flex items-center justify-center font-bold">{setTypeFilter.size}</span>}
@@ -168,7 +168,7 @@ export default function NotificationsInboxPage() {
                     <button onClick={() => setBFilterOpen(false)} className="w-full mt-1 py-1.5 text-xs font-medium text-[#00703C] hover:bg-[#00703C]/5 rounded-lg cursor-pointer">Done</button>
                   </div>
                 )}
-              </div>
+              </div> */}
               <button onClick={handleMarkAll} disabled={iUnread === 0} className="ml-1 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-[#00703C] hover:bg-[#00703C]/5 rounded-lg cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed">
                 <CheckCheck className="w-4 h-4" /> Mark all as read
               </button>

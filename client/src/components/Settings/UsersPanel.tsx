@@ -10,7 +10,7 @@ import type { User, ManagerEntry } from '../../types/user';
 import type { Department } from '../../types/department';
 import type { UserRole } from '../../types/user';
 
-const ALL_ROLES: UserRole[] = ['owner', 'senior_manager', 'manager', 'employee', 'ca', 'intern'];
+// const ALL_ROLES: UserRole[] = ['owner', 'senior_manager', 'manager', 'employee', 'ca', 'intern'];
 const CREATABLE_ROLES: UserRole[] = ['owner', 'senior_manager', 'manager', 'ca', 'intern'];
 const MANAGER_ROLES: UserRole[] = ['owner', 'senior_manager', 'manager'];
 
