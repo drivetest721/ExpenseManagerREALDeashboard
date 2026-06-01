@@ -7,8 +7,13 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
-import PlaceholderPage from './pages/PlaceholderPage';
 import AllowanceDetailsPage from './pages/AllowanceDetailsPage';
+import ProfilePage from './pages/ProfilePage';
+import ExpenseManagementPage from './pages/ExpenseManagementPage';
+import NewReimbursementPage from './pages/NewReimbursementPage';
+import SettingsPage from './pages/SettingsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import NotificationsInboxPage from './pages/NotificationsInboxPage';
 
 function App() {
   return (
@@ -25,10 +30,15 @@ function App() {
         path="/expense"
         element={
           <ProtectedRoute>
-            <PlaceholderPage
-              title="Expense Management"
-              phase="Phase 7 — Reimbursement Core"
-            />
+            <ExpenseManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expense/new/:formType"
+        element={
+          <ProtectedRoute>
+            <NewReimbursementPage />
           </ProtectedRoute>
         }
       />
@@ -44,7 +54,7 @@ function App() {
         path="/profile"
         element={
           <ProtectedRoute>
-            <PlaceholderPage title="Profile" phase="Phase 5 — Payment Methods" />
+            <ProfilePage />
           </ProtectedRoute>
         }
       />
@@ -52,7 +62,23 @@ function App() {
         path="/settings"
         element={
           <ProtectedRoute requiredRole="owner">
-            <PlaceholderPage title="Settings" phase="Phase 13 — Settings Page" />
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute requiredRole="owner">
+            <AnalyticsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inbox"
+        element={
+          <ProtectedRoute>
+            <NotificationsInboxPage />
           </ProtectedRoute>
         }
       />

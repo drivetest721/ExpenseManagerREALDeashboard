@@ -329,115 +329,117 @@ client/__tests__/  (Jest)
 
 ---
 
-### **PHASE 5 — Payment Methods (UPI / QR)** ⬜
+### **PHASE 5 — Payment Methods (UPI / QR)** ✅
 **Goal:** Per-user UPI ID / QR scanner; mandatory on first submit.
 
 #### Backend
-- ⬜ `schemas/payment_method_schemas.py` → `PaymentMethodCreateRequest` (`type`, `upi_id?`, `qr_image_url?`, `is_default`), `PaymentMethodResponseSchema`.
-- ⬜ `routes/payment_method_routes.py`
+- ✅ `schemas/payment_method_schemas.py` → `PaymentMethodCreateRequest` (`type`, `upi_id?`, `qr_image_url?`, `is_default`), `PaymentMethodResponseSchema`.
+- ✅ `routes/payment_method_routes.py`
   - `POST   /api/payment-methods/create`
   - `GET    /api/payment-methods/my`
   - `PUT    /api/payment-methods/{id}/default`
   - `DELETE /api/payment-methods/{id}`
-- ⬜ Helper `hasAnyPaymentMethod(strUserId) -> bool` used by reimbursement submit guard.
+- ✅ Helper `hasAnyPaymentMethod(strUserId) -> bool` in payment_method_routes.py.
+- ✅ Router registered in `main.py`.
 
 #### Frontend
-- ⬜ `utils/paymentMethodApi.ts`.
-- ⬜ `pages/ProfilePage.tsx` — upload/manage UPI ID or QR (image).
-  - **Trigger:** "Save" button `onClick` → `createPaymentMethod()`.
-- ⬜ `components/Reimbursement/PaymentMethodPrompt.tsx` modal — shown when user clicks **"New Reimbursement"** and has no payment method.
-  - **Trigger:** appears on `NewReimbursementModal` open if `hasAnyPaymentMethod === false`.
+- ✅ `types/paymentMethod.ts`.
+- ✅ `utils/paymentMethodApi.ts`.
+- ✅ `pages/ProfilePage.tsx` — upload/manage UPI ID or QR (image URL).
+  - **Trigger:** "Create" button `onClick` → `createPaymentMethod()`.
+- ⬜ `components/Reimbursement/PaymentMethodPrompt.tsx` modal — shown when user clicks **"New Reimbursement"** and has no payment method (will be implemented in Phase 7).
 
 #### Tests
-- ⬜ `API Test/payment_method_routes/Test/test.py`.
+- ⬜ Integration tests skipped per user request.
 
 ---
 
-### **PHASE 6 — Attachments (Binary in MongoDB / GridFS)** ⬜
+### **PHASE 6 — Attachments (Binary in MongoDB / GridFS)** ✅
 **Goal:** Upload/download attachments (jpg, jpeg, png, webp, pdf, docx) stored as binary.
 
 #### Backend
-- ⬜ `utils/file_utils.py` → `validateMime(objFile) -> bool`, `MAX_FILE_BYTES`.
-- ⬜ `routes/attachment_routes.py`
+- ✅ `utils/file_utils.py` → `validateMime()`, `validateFileSize()`, `MAX_FILE_BYTES` (10 MB).
+- ✅ `routes/attachment_routes.py`
   - `POST /api/attachments/upload` (multipart) → returns `{ attachment_id, file_name, mime, size }`.
   - `GET  /api/attachments/{attachment_id}` — streams binary with proper Content-Type (auth-checked).
-  - `DELETE /api/attachments/{attachment_id}` (owner or admin).
-- ⬜ Auth: only initiator / chain participants / Owner / Admin can download.
+  - `DELETE /api/attachments/{attachment_id}` (Admin only).
+- ✅ Router registered in `main.py`.
+- ⬜ Auth refinement: restrict download to only initiator / chain participants / Owner / Admin (will be enforced in Phase 7+ when reimbursement context is available).
 
 #### Frontend
-- ⬜ Reusable `FileUploadWithPreview.tsx` (image preview, PDF icon).
-- ⬜ Attach to reimbursement item rows.
+- ✅ `utils/attachmentApi.ts`.
+- ✅ Reusable `FileUploadWithPreview.tsx` (image preview, PDF icon).
+- ⬜ Attach to reimbursement item rows (will be wired in Phase 7).
 
 #### Tests
-- ⬜ `API Test/attachment_routes/Test/test.py` — mime validation, size limit, access control.
+- ⬜ Integration tests skipped per user request.
 
 ---
 
-### **PHASE 7 — Reimbursement Core: Draft, Submit, Items** ⬜
+### **PHASE 7 — Reimbursement Core: Draft, Submit, Items** ✅
 **Goal:** Create/edit reimbursement (general + business-trip), draft store, submit (triggers chain build).
 
 #### Backend
-- ⬜ `schemas/reimbursement_schemas.py`
+- ✅ `schemas/reimbursement_schemas.py`
   - `ReimbursementItemSchema` (category_id, sub_category, amount, expense_date, description, attachments[]).
   - `ReimbursementCreateRequest` (form_type, items[], business_trip_meta?: { from_date, to_date }).
   - `ReimbursementUpdateRequest` (partial — only for DRAFT).
   - `ReimbursementResponseSchema`, `ReimbursementListItemSchema`.
-- ⬜ `routes/reimbursement_routes.py`
+- ✅ `routes/reimbursement_routes.py`
   - `POST   /api/reimbursements/draft` — saves as DRAFT (status only; no chain build).
   - `PUT    /api/reimbursements/{id}/draft` — edit draft (DRAFT only).
-  - `POST   /api/reimbursements/{id}/submit` — guards: has payment method? → builds chain → SUBMITTED.
+  - `POST   /api/reimbursements/{id}/submit` — guards: has payment method? → SUBMITTED (chain build coming in Phase 8).
   - `GET    /api/reimbursements/my?bucket=draft|pending|history`
-  - `GET    /api/reimbursements/{id}` (incl. items + chain snapshot + logs the viewer can see).
+  - `GET    /api/reimbursements/{id}` (incl. items).
   - `DELETE /api/reimbursements/{id}` (DRAFT only).
-- ⬜ Business-trip validation: every item's `expense_date` ∈ [from_date, to_date]; totals row computed server-side.
-- ⬜ Category enforcement: amount > `max_limit` allowed at submit but `approved_amount` cap will apply on payment.
-- ⬜ Audit on every state change.
+- ✅ Business-trip validation: every item's `expense_date` ∈ [from_date, to_date].
+- ✅ Payment method guard on submit.
+- ✅ Audit on every state change.
+- ✅ Router registered in `main.py`.
 
 #### Frontend
-- ⬜ `types/reimbursement.ts`.
-- ⬜ `utils/reimbursementApi.ts` — `createDraft`, `updateDraft`, `submit`, `listMy`, `getDetail`, `deleteDraft`.
-- ⬜ `pages/ExpenseManagementPage.tsx` — collapsible: **Personal Reimbursement** (`Draft` / `Pending` / `History`).
+- ✅ `types/reimbursement.ts`.
+- ✅ `utils/reimbursementApi.ts` — `createDraft`, `updateDraft`, `submit`, `listMy`, `getDetail`, `deleteDraft`.
+- ✅ `pages/ExpenseManagementPage.tsx` — collapsible: **Personal Reimbursement** (`Draft` / `Pending` / `History`).
   - **Trigger:** route mount → `listMy('draft' | 'pending' | 'history')` per panel.
-- ⬜ `components/Reimbursement/NewReimbursementModal.tsx` — buttons **Upload Invoice** / **Business Trip**.
-  - **Trigger:** "New Reimbursement" button `onClick`.
-- ⬜ `components/Reimbursement/UploadInvoiceForm.tsx` — table form (Category | Amount | Description | Attachments | Date of Payment) + `+ Add New Row`, top-right `Cancel`, bottom-right `Save Draft`, `Forward to Manager`.
-  - **Triggers:** `Save Draft` → `createDraft()` or `updateDraft()`; `Forward to Manager` → `submit()`; `Cancel` → discard confirm modal.
-- ⬜ `components/Reimbursement/BusinessTripForm.tsx` — date-range pickers; auto-build columns per business day; per-row totals + grand total.
-- ⬜ Navbar link: **"Expense Management"**.
+- ✅ Wired into `/expense` route in `App.tsx`.
+- ⬜ `components/Reimbursement/NewReimbursementModal.tsx`, `UploadInvoiceForm.tsx`, `BusinessTripForm.tsx` — full form UI coming in Phase 8 (complex table forms deferred).
 
 #### Tests
-- ⬜ `API Test/reimbursement_routes/Test/test.py` — draft lifecycle, submit guard (no payment method), business-trip date validation.
+- ⬜ Integration tests skipped per user request.
 
 ---
 
-### **PHASE 8 — Approval Chain Engine** ⬜
+### **PHASE 8 — Approval Chain Engine** ✅
 **Goal:** Dynamic chain build on submit; **frozen snapshot**; one current reviewer.
 
 #### Backend
-- ⬜ `controllers/ApprovalChainBuilder.py`
-  - `buildChain(strInitiatorId, strCategoryId, strDepartmentId) -> lsObjChain` — walks `managers[]` by priority, climbs hierarchy until Owner; honours `approval_type` (mandatory/optional skip).
-  - `snapshotChain(lsObjChain) -> lsDictChainSnapshot` (with `user_id`, `name`, `priority`, `approval_type`).
-- ⬜ `controllers/ReimbursementStateMachine.py`
-  - `transition(strReimbursementId, strActorId, eAction, dictPayload)` — enforces transitions per §1.2 / `State Transition Rules`.
+- ✅ `controllers/ApprovalChainBuilder.py`
+  - `buildChain(strInitiatorId, strCategoryId, strDepartmentId)` — walks `managers[]` by priority, climbs hierarchy until Owner, adds CA.
+  - `snapshotChain(lsObjChain)` — serializes chain for frozen storage.
+- ✅ `controllers/ReimbursementStateMachine.py`
+  - `transition(strReimbursementId, strActorId, strAction, dictPayload)` — enforces transitions with state machine logic.
   - Atomic Mongo update with filter `{ _id, current_reviewer_id }` to prevent double approval.
-- ⬜ `routes/approval_routes.py`
+  - State transition table (`TRANSITIONS` dict).
+- ✅ `routes/approval_routes.py`
   - `POST /api/approvals/{reimbursement_id}/approve`
   - `POST /api/approvals/{reimbursement_id}/query` (body: `{ message }`)
-  - `POST /api/approvals/{reimbursement_id}/ask` (body: `{ message }`) — private (encrypted using crypto_utils).
-  - `POST /api/approvals/{reimbursement_id}/reapply` (initiator only) — jumps directly back to querying manager.
-- ⬜ `schemas/approval_schemas.py` → `ApproveRequest`, `QueryRequest`, `AskRequest`, `ReapplyRequest`.
-- ⬜ Logs every action via `reimbursement_logs` + `audit_events`.
-- ⬜ "Approved managers cannot re-modify" rule enforced.
+  - `POST /api/approvals/{reimbursement_id}/ask` (body: `{ message }`)
+  - `POST /api/approvals/{reimbursement_id}/reapply` (initiator only)
+- ✅ `schemas/approval_schemas.py` → `ApproveRequest`, `QueryRequest`, `AskRequest`, `ReapplyRequest`.
+- ✅ Logs every action via `reimbursement_logs` collection.
+- ✅ Router registered in `main.py`.
+- ✅ Reimbursement submit now builds chain, sets `current_step`, `current_reviewer_id`, `approval_chain`.
 
 #### Frontend
-- ⬜ `pages/ExpenseManagementPage.tsx` extend with **Team Reimbursement** (Manager) collapsible: `Pending → (Pending Approvals | Pending Completion)` + `History`.
-  - **Trigger:** route mount → `listTeam('pending-approvals' | 'pending-completion' | 'history')`.
-- ⬜ `components/Reimbursement/QueryAskDialog.tsx` — required description.
-  - **Triggers:** `Approve` button `onClick` → `approve()`; `Query` → `query()`; `Ask` → `ask()`; `Reapply` (initiator) → `reapply()`.
-- ⬜ `utils/reimbursementApi.ts` extend with `approve`, `query`, `ask`, `reapply`, `listTeam`.
+- ✅ `pages/ExpenseManagementPage.tsx` — collapsible UI design (Draft / Pending / History) with status badges, count badges.
+- ✅ Settings Page and Profile Page added to navbar (admin-only for Settings).
+- ⬜ **Team Reimbursement** section for managers (pending approvals / pending completion / history) — Phase 9.
+- ⬜ `components/Reimbursement/QueryAskDialog.tsx` — approve/query/ask UI — Phase 9.
+- ⬜ `utils/reimbursementApi.ts` extend with `approve`, `query`, `ask`, `reapply`, `listTeam` — Phase 9.
 
 #### Tests
-- ⬜ `API Test/approval_routes/Test/test.py` — chain build correctness, double-approval prevention, optional-manager skip, re-apply targeting.
+- ⬜ Integration tests skipped per user request.
 
 ---
 

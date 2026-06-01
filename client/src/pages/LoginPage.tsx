@@ -68,9 +68,9 @@ export default function LoginPage() {
       <main className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
         <div className="w-full max-w-md space-y-6">
 
-          {/* Brand mark */}
-          <div className="flex flex-col items-center gap-2 cursor-default">
-            <div className="w-3 h-12 rounded-full bg-[#00703C]" />
+          {/* Brand mark with favicon logo */}
+          <div className="flex flex-col items-center gap-3 cursor-default">
+            <img src="/favicon.png" alt="Logo" className="w-16 h-16" />
             <h1 className="text-2xl font-bold text-gray-900">Real Dashboard</h1>
             <p className="text-sm text-gray-500">Expense Management · Sign in to continue</p>
           </div>

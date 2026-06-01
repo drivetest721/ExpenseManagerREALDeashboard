@@ -19,6 +19,7 @@ export interface User {
   employee_id?: string;
   name: string;
   email: string;
+  primary_role?: UserRole;
   departments: DepartmentEntry[];
   managers: ManagerEntry[];
   is_active: boolean;

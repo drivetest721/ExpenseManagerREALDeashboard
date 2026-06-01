@@ -45,8 +45,8 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     );
   }
 
-  // Role-restricted route check
-  if (requiredRole && objUser?.departments.find((d) => d.is_primary)?.role !== requiredRole) {
+  // Role-restricted route check — match against any department role.
+  if (requiredRole && !(objUser?.departments || []).some((d) => d.role === requiredRole)) {
     return <Navigate to="/expense" replace />;
   }
 

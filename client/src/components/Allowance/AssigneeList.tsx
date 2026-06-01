@@ -15,21 +15,21 @@ export default function AssigneeList({ lsAssignees }: AssigneeListProps) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm cursor-default">
-        <thead className="bg-gray-50 border-b border-gray-200">
+        <thead className="bg-gray-50">
           <tr>
-            <th className="px-3 py-2 text-left font-semibold text-gray-700">Name</th>
-            <th className="px-3 py-2 text-left font-semibold text-gray-700">Email</th>
-            <th className="px-3 py-2 text-left font-semibold text-gray-700">Role</th>
-            <th className="px-3 py-2 text-left font-semibold text-gray-700">Department</th>
+            <th className="px-3 py-2 text-center font-semibold text-gray-700 border-l border-r border-gray-200">Name</th>
+            <th className="px-3 py-2 text-center font-semibold text-gray-700 border-r border-gray-200">Email</th>
+            <th className="px-3 py-2 text-center font-semibold text-gray-700 border-r border-gray-200">Role</th>
+            <th className="px-3 py-2 text-center font-semibold text-gray-700 border-r border-gray-200">Department</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
+        <tbody>
           {lsAssignees.map((objAssignee) => (
             <tr key={objAssignee.user_id}>
-              <td className="px-3 py-2 text-gray-900">{objAssignee.name}</td>
-              <td className="px-3 py-2 text-gray-600">{objAssignee.email}</td>
-              <td className="px-3 py-2 text-gray-900 capitalize">{objAssignee.role}</td>
-              <td className="px-3 py-2 text-gray-600">
+              <td className="px-3 py-2 text-center text-gray-900 border-l border-r border-gray-200">{objAssignee.name}</td>
+              <td className="px-3 py-2 text-center text-gray-600 border-r border-gray-200">{objAssignee.email}</td>
+              <td className="px-3 py-2 text-center text-gray-900 capitalize border-r border-gray-200">{objAssignee.role}</td>
+              <td className="px-3 py-2 text-center text-gray-600 border-r border-gray-200">
                 {objAssignee.department_name || '—'}
               </td>
             </tr>

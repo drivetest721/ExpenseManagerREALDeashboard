@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User } from '../../types/user';
+import type { User } from '../../types/user';
 import { listUsersApi } from '../../utils/userApi';
 import { Search, Loader2 } from 'lucide-react';
 

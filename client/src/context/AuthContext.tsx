@@ -17,13 +17,14 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { loginApi, logoutApi, getMeApi, type UserProfile, type LoginRequest } from '../utils/authApi';
+import { loginApi, logoutApi, getMeApi, type LoginRequest } from '../utils/authApi';
+import type { User } from '../types/user';
 import { AUTH_TOKEN_KEY } from '../utils/apiClient';
 
 // ── Context shape ─────────────────────────────────────────────────────────────
 
 interface AuthContextShape {
-  objUser: UserProfile | null;
+  objUser: User | null;
   bIsAuthenticated: boolean;
   bIsLoading: boolean;
   login: (objPayload: LoginRequest) => Promise<void>;
@@ -36,7 +37,7 @@ const AuthContext = createContext<AuthContextShape | null>(null);
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [objUser, setObjUser] = useState<UserProfile | null>(null);
+  const [objUser, setObjUser] = useState<User | null>(null);
   const [bIsLoading, setBIsLoading] = useState<boolean>(true);
 
   /** Re-fetch the current user from /api/auth/me */

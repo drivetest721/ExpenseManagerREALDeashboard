@@ -154,7 +154,12 @@ def ensure_indexes() -> None:
 
     # ── departments ─────────────────────────────────────────────────────────────
     objDepartments = get_collection("departments")
-    objDepartments.create_index([("name", ASCENDING)], unique=True)
+    # Drop the old wrong index (name_1) if it exists, then ensure correct one.
+    try:
+        objDepartments.drop_index("name_1")
+    except Exception:
+        pass
+    objDepartments.create_index([("department_name", ASCENDING)], unique=True)
 
     # ── pending_signups ─────────────────────────────────────────────────────────
     # TTL index auto-deletes expired verification records.

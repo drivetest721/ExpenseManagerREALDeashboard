@@ -2,7 +2,7 @@
  * userApi.ts — Axios wrappers for User CRUD and hierarchy management.
  */
 import { apiClient } from './apiClient';
-import { User, UserCreateRequest, UserUpdateRequest, UserManagersUpdateRequest } from '../types/user';
+import type { User, UserCreateRequest, UserUpdateRequest, UserManagersUpdateRequest } from '../types/user';
 
 /**
  * GET /api/users/list

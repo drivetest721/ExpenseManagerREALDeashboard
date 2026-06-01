@@ -27,3 +27,210 @@ body {
   background-color: #f9fafb; /* Tailwind gray-50 — page background per UI guidelines */
   color: #111827;            /* Tailwind gray-900 — primary text */
 }
+
+/* Hide scrollbar visuals but keep scroll behaviour (used by mobile tab strips). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Thin, neutral custom scrollbar used inside list cards (per spec). */
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 9999px; }
+.custom-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #9ca3af; }
+
+/* Hero gradient used by Analytics dashboard. */
+.bg-hero-green { background: linear-gradient(135deg, #1a5d1a 0%, #2d7d2d 100%); }
+
+/* Universal cursor-pointer on any element marked .clickable. */
+.clickable { cursor: pointer; }
+
+/* Fade-in animation for tab transitions and dropdowns */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+
+/* ════════════════════════════════════════════════════════════════════════════════
+   Modern Green Date Picker - react-datepicker with full green theme
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+/* Date Picker Wrapper */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container {
+  width: 100%;
+}
+
+/* Popper Container */
+.green-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+/* Calendar Container - Green Background */
+.green-datepicker-calendar {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0, 112, 60, 0.3), 0 0 0 3px #00703C !important;
+  overflow: hidden;
+  background: linear-gradient(135deg, #00703C 0%, #005a30 100%) !important;
+}
+
+/* Header - Darker Green */
+.green-datepicker-calendar .react-datepicker__header {
+  background: rgba(0, 0, 0, 0.15) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  padding: 14px 10px !important;
+  border-radius: 0 !important;
+}
+
+/* Month/Year Title */
+.green-datepicker-calendar .react-datepicker__current-month {
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  margin-bottom: 12px !important;
+  text-align: center !important;
+  letter-spacing: 0.5px !important;
+}
+
+/* Day Names Row */
+.green-datepicker-calendar .react-datepicker__day-names {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 0 8px 0 !important;
+  display: flex !important;
+  justify-content: space-around !important;
+}
+
+.green-datepicker-calendar .react-datepicker__day-name {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  width: 36px !important;
+  line-height: 32px !important;
+  margin: 0 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+}
+
+/* Navigation Arrows */
+.green-datepicker-calendar .react-datepicker__navigation {
+  top: 14px !important;
+  background: transparent !important;
+  border: none !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s !important;
+}
+
+.green-datepicker-calendar .react-datepicker__navigation:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+.green-datepicker-calendar .react-datepicker__navigation-icon::before {
+  border-color: white !important;
+  border-width: 2px 2px 0 0 !important;
+  width: 8px !important;
+  height: 8px !important;
+}
+
+/* Month Container - White background for dates area */
+.green-datepicker-calendar .react-datepicker__month-container {
+  background: transparent !important;
+}
+
+.green-datepicker-calendar .react-datepicker__month {
+  margin: 0 !important;
+  padding: 8px 10px 10px 10px !important;
+  background: white !important;
+  border-radius: 0 0 9px 9px !important;
+}
+
+/* Days - Dark text on white background */
+.green-datepicker-calendar .react-datepicker__day {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  margin: 2px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #1a1a1a !important;
+  background: white !important;
+  transition: all 0.2s ease !important;
+  display: inline-block !important;
+  text-align: center !important;
+}
+
+.green-datepicker-calendar .react-datepicker__day:hover {
+  background: #e6f4ee !important;
+  color: #00703C !important;
+  transform: scale(1.05);
+  font-weight: 700 !important;
+}
+
+/* Selected Day - Green background with white text */
+.green-datepicker-calendar .react-datepicker__day--selected,
+.green-datepicker-calendar .react-datepicker__day--keyboard-selected {
+  background: #00703C !important;
+  color: white !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.green-datepicker-calendar .react-datepicker__day--selected:hover {
+  background: #005a30 !important;
+  color: white !important;
+  transform: scale(1.05);
+}
+
+/* Today - Green border, white background */
+.green-datepicker-calendar .react-datepicker__day--today {
+  background: white !important;
+  color: #00703C !important;
+  font-weight: 800 !important;
+  border: 2px solid #00703C !important;
+  box-shadow: none !important;
+}
+
+.green-datepicker-calendar .react-datepicker__day--today:hover {
+  background: #e6f4ee !important;
+  color: #00703C !important;
+}
+
+/* Outside Month Days - Dimmed white */
+.green-datepicker-calendar .react-datepicker__day--outside-month {
+  color: #b0b0b0 !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+.green-datepicker-calendar .react-datepicker__day--outside-month:hover {
+  color: #666 !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Disabled Days */
+.green-datepicker-calendar .react-datepicker__day--disabled {
+  color: #ccc !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  cursor: not-allowed !important;
+}
+
+.green-datepicker-calendar .react-datepicker__day--disabled:hover {
+  background: rgba(255, 255, 255, 0.4) !important;
+  transform: none !important;
+}
+
+/* Week Container */
+.green-datepicker-calendar .react-datepicker__week {
+  display: flex !important;
+  justify-content: space-around !important;
+}
+
+
