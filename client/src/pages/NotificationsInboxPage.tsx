@@ -4,10 +4,10 @@
  * Header tools: speaker (sound toggle), refresh, filter, mark-all-read.
  * Search by title/message/reimbursement code. Group-by-Reimbursement toggle.
  */
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bell, RefreshCw, Filter, CheckCheck, Volume2, VolumeX, Search, Layers,
+  Bell, RefreshCw, CheckCheck, Search, Layers,
   Star, AlertTriangle, Archive as ArchiveIcon, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
@@ -20,8 +20,6 @@ import NotificationDetailModal from '../components/Notifications/NotificationDet
 
 type TabKey = 'all' | 'unread' | 'read' | 'starred' | 'important' | 'others' | 'archived';
 
-const SOUND_KEY = 'em_notif_sound_v1';
-
 export default function NotificationsInboxPage() {
   const navigate = useNavigate();
   const [lsAll, setLsAll] = useState<Notification[]>([]);
@@ -33,11 +31,8 @@ export default function NotificationsInboxPage() {
   const [setArchived, setSetArchived] = useState<Set<string>>(() => archiveStore.load());
   const [setChecked, setSetChecked] = useState<Set<string>>(new Set());
   const [setCollapsed, setSetCollapsed] = useState<Set<string>>(new Set());
-  const [bSound, setBSound] = useState<boolean>(() => localStorage.getItem(SOUND_KEY) !== 'off');
   const [objOpen, setObjOpen] = useState<Notification | null>(null);
-  const [bFilterOpen, setBFilterOpen] = useState<boolean>(false);
-  const [setTypeFilter, setSetTypeFilter] = useState<Set<string>>(new Set());
-  const refFilter = useRef<HTMLDivElement>(null);
+  const [setTypeFilter] = useState<Set<string>>(new Set());
 
   const fetchAll = async () => {
     setBLoading(true);
@@ -48,11 +43,6 @@ export default function NotificationsInboxPage() {
   };
   useEffect(() => { fetchAll(); }, []);
 
-  function toggleSound() {
-    const next = !bSound;
-    setBSound(next);
-    localStorage.setItem(SOUND_KEY, next ? 'on' : 'off');
-  }
   function toggleCheck(strId: string) {
     setSetChecked(prev => {
       const s = new Set(prev);

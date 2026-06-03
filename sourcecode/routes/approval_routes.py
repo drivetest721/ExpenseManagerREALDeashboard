@@ -7,9 +7,9 @@ Output  : JSON success/error responses.
 
 Dependencies: fastapi, jwt_middleware, approval_schemas, ReimbursementStateMachine
 '''
-
 import logging
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
 
 from middleware.jwt_middleware import getCurrentUserDependency
 from schemas.approval_schemas import (
@@ -22,6 +22,7 @@ from schemas.approval_schemas import (
     CAReapplyRequest,
     AcknowledgeRequest,
     RejectRequest,
+    PaymentProofSchema,
 )
 from controllers.ReimbursementStateMachine import transition
 
@@ -135,8 +136,10 @@ async def payReimbursement(
     """
     Purpose : CA marks a reimbursement as PAID after disbursing funds.
     Access  : Current reviewer (must be CA).
+    Accepts optional payment_proof_attachment_id for proof of payment document.
     """
     try:
+        
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {
             "message": objRequest.note or f"Paid (ref: {objRequest.transaction_ref})",
@@ -144,6 +147,17 @@ async def payReimbursement(
             "transaction_ref": objRequest.transaction_ref,
             "payment_method": objRequest.payment_method,
         }
+        
+        # Include payment proof if attachment provided
+        if objRequest.payment_proof_attachment_id:
+            dictPayload["payment_proof"] = {
+                "attachment_id": objRequest.payment_proof_attachment_id,
+                "payment_date": datetime.now(timezone.utc).isoformat(),
+                "paid_by": strUserId,
+                "transaction_ref": objRequest.transaction_ref,
+                "payment_method": objRequest.payment_method,
+            }
+        
         dictNew = transition(reimbursement_id, strUserId, "PAY", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}

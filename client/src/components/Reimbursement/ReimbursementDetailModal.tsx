@@ -2,7 +2,7 @@
  * ReimbursementDetailModal — full detail view with chain, items, and actions.
  */
 import { useEffect, useState } from 'react';
-import { X, Paperclip, ExternalLink } from 'lucide-react';
+import { X, Paperclip, ExternalLink, Receipt } from 'lucide-react';
 import { getReimbursementDetailApi, getReimbursementChainApi } from '../../utils/reimbursementApi';
 import type { ChainViewResponse } from '../../utils/reimbursementApi';
 import type { Reimbursement } from '../../types/reimbursement';
@@ -10,6 +10,7 @@ import AttachmentViewerModal from './AttachmentViewerModal';
 import { useAuth } from '../../hooks/useAuth';
 import QueryAskDialog from './QueryAskDialog';
 import CAPayDialog from './CAPayDialog';
+import PaymentDetailsModal from './PaymentDetailsModal';
 
 interface ReimbursementDetailModalProps {
   strReimbursementId: string;
@@ -31,11 +32,13 @@ export default function ReimbursementDetailModal({
   const [strError, setStrError] = useState<string>('');
   const [bShowAction, setBShowAction] = useState<boolean>(false);
   const [bShowPay, setBShowPay] = useState<boolean>(false);
+  const [bShowPaymentDetails, setBShowPaymentDetails] = useState<boolean>(false);
   const [lsViewerIds, setLsViewerIds] = useState<string[] | null>(null);
   const [iViewerIndex, setIViewerIndex] = useState<number>(0);
 
   useEffect(() => {
     fetchDetail();
+
   }, [strReimbursementId]);
 
   async function fetchDetail() {
@@ -172,13 +175,16 @@ export default function ReimbursementDetailModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2 flex-wrap">
           {objUser && (() => {
             const bIsInitiator = objUser.user_id === objReimbursement.initiator_id;
             const bIsReviewer = objUser.user_id === objChain.current_reviewer_id;
             const bIsCA = (objUser.departments || []).some((d) => d.role === 'ca');
-            const bCanPay = bIsReviewer && bIsCA &&
+            const bIsOwner = (objUser.departments || []).some((d) => d.role === 'owner');
+            const bCanPay =  bIsCA &&
               ['OWNER_APPROVED', 'CA_PENDING', 'CA_REAPPLIED'].includes(objReimbursement.status);
+            const bCanViewPaymentDetails = (bIsInitiator || bIsOwner || bIsCA) && objReimbursement.payment_proof;
+            console.log(objReimbursement);
             return (
               <>
                 {bCanPay && (
@@ -187,6 +193,15 @@ export default function ReimbursementDetailModal({
                     className="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800 text-sm"
                   >
                     Mark as Paid
+                  </button>
+                )}
+                {bCanViewPaymentDetails && (
+                  <button
+                    onClick={() => setBShowPaymentDetails(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm flex items-center gap-2"
+                  >
+                    <Receipt className="w-4 h-4" />
+                    Show Payment Details
                   </button>
                 )}
                 {(bIsInitiator || bIsReviewer) && (
@@ -229,6 +244,14 @@ export default function ReimbursementDetailModal({
           strReimbursementId={strReimbursementId}
           onSuccess={fetchDetail}
           onClose={() => setBShowPay(false)}
+        />
+      )}
+
+      {/* Payment Details Modal */}
+      {bShowPaymentDetails && objReimbursement && (
+        <PaymentDetailsModal
+          objReimbursement={objReimbursement}
+          onClose={() => setBShowPaymentDetails(false)}
         />
       )}
 

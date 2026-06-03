@@ -443,151 +443,165 @@ client/__tests__/  (Jest)
 
 ---
 
-### **PHASE 9 — Chain View & Logs (Public/Private Visibility)** ⬜
+### **PHASE 9 — Chain View & Logs (Public/Private Visibility)** ✅
 **Goal:** Expand-on-click chain visualisation with public Query and access-controlled Ask reveal.
 
 #### Backend
-- ⬜ `GET /api/reimbursements/{id}/chain` — returns snapshot + step statuses + visible logs.
+- ✅ `GET /api/reimbursements/{id}/chain` — returns snapshot + step statuses + visible logs.
   - Visibility filter: `PUBLIC` logs → all participants; `PRIVATE` (Ask) → only sender + initiator + Owner/Admin (decrypt via crypto_utils).
-- ⬜ `schemas/reimbursement_schemas.py` → `ChainViewResponseSchema`, `ChainLogEntrySchema`.
+- ✅ `schemas/reimbursement_schemas.py` → `ChainViewResponseSchema`, `ChainLogEntrySchema`.
 
 #### Frontend
-- ⬜ `components/Reimbursement/ChainView.tsx` — timeline list (avatar, name, step, status, timestamp, message).
+- ✅ `components/Reimbursement/ChainView.tsx` — timeline list (avatar, name, step, status, timestamp, message).
   - **Trigger:** click on reimbursement row → `getDetail()` + `getChain()`.
-- ⬜ Reuse `TimelineCard.tsx`, `StatusBadge.tsx`.
-- ⬜ Tooltip (`InfoTooltip`) on every status, action button, badge.
+- ✅ Reuse `TimelineCard.tsx`, `StatusBadge.tsx`.
+- ✅ Tooltip (`InfoTooltip`) on every status, action button, badge.
 
 #### Tests
-- ⬜ Extend `API Test/reimbursement_routes/Test/test.py` — chain visibility, private Ask decryption rules.
+- ✅ Extend `API Test/reimbursement_routes/Test/test.py` — chain visibility, private Ask decryption rules.
 
 ---
 
-### **PHASE 10 — CA Workflow & Payment** ⬜
+### **PHASE 10 — CA Workflow & Payment** ✅
 **Goal:** Owner-approved reimbursements reach CA; one CA-query allowed; mark Paid; initiator acknowledges → CLOSED.
 
 #### Backend
-- ⬜ `routes/ca_routes.py` (CA-only)
+- ✅ `routes/ca_routes.py` (CA-only)
   - `GET  /api/ca/pending` — `CA_PENDING` + `CA_REAPPLIED`.
   - `POST /api/ca/{reimbursement_id}/query` — only if `ca_query_used === false`; sets flag true.
   - `POST /api/ca/{reimbursement_id}/pay` (body: `PayRequest` — approved_amount per item, txn note).
   - `POST /api/ca/{reimbursement_id}/reject`.
-- ⬜ `POST /api/reimbursements/{id}/acknowledge` (initiator-only) — `PAID → PAYMENT_ACKNOWLEDGED → CLOSED`.
-- ⬜ Visibility: until acknowledged, reimbursement remains in **Team Pending** for chain managers + Admin.
-- ⬜ `schemas/approval_schemas.py` extend with `PayRequest`, `CaQueryRequest`, `CaRejectRequest`, `AcknowledgeRequest`.
+- ✅ `POST /api/reimbursements/{id}/acknowledge` (initiator-only) — `PAID → PAYMENT_ACKNOWLEDGED → CLOSED`.
+- ✅ Visibility: until acknowledged, reimbursement remains in **Team Pending** for chain managers + Admin.
+- ✅ `schemas/approval_schemas.py` extend with `PayRequest`, `CaQueryRequest`, `CaRejectRequest`, `AcknowledgeRequest`.
 
 #### Frontend
-- ⬜ `pages/ExpenseManagementPage.tsx` — additional CA section (CA role only): `CA Pending` panel.
-- ⬜ `components/Reimbursement/AcknowledgePaymentDialog.tsx`.
+- ✅ `pages/ExpenseManagementPage.tsx` — additional CA section (CA role only): `CA Pending` panel.
+- ✅ `components/Reimbursement/AcknowledgePaymentDialog.tsx`.
   - **Trigger:** initiator clicks **"Acknowledge Payment"** on a PAID reimbursement → `acknowledge()`.
-- ⬜ CA action buttons: `Pay`, `Query` (1-time, disabled after use), `Reject`.
+- ✅ CA action buttons: `Pay`, `Query` (1-time, disabled after use), `Reject`.
 
 #### Tests
-- ⬜ `API Test/ca_routes/Test/test.py` — CA-query one-time guard, pay → ack → CLOSED.
+- ✅ `API Test/ca_routes/Test/test.py` — CA-query one-time guard, pay → ack → CLOSED.
 
 ---
 
-### **PHASE 11 — Notifications (In-app)** ⬜
+### **PHASE 11 — Notifications (In-app)** ✅
 **Goal:** Targeted notifications only to relevant actors (current reviewer, initiator, private participants).
 
 #### Backend
-- ⬜ `controllers/NotificationDispatcher.py` — `notify(strUserId, strTitle, strMsg, strType, strRefId)` + bulk variant.
-- ⬜ Hooked from state machine for: Submitted, Approved (next reviewer only), Query (initiator only), Ask (private only), Re-applied (querying manager only), Paid (initiator + chain + admin), Acknowledged (chain), SLA overdue.
-- ⬜ `routes/notification_routes.py`
+- ✅ `controllers/NotificationDispatcher.py` — `notify(strUserId, strTitle, strMsg, strType, strRefId)` + bulk variant.
+- ✅ Hooked from state machine for: Submitted, Approved (next reviewer only), Query (initiator only), Ask (private only), Re-applied (querying manager only), Paid (initiator + chain + admin), Acknowledged (chain), SLA overdue.
+- ✅ `routes/notification_routes.py`
   - `GET  /api/notifications/my?unread_only=`
   - `POST /api/notifications/{id}/mark-read`
   - `POST /api/notifications/mark-all-read`
-- ⬜ `schemas/notification_schemas.py` → `NotificationResponseSchema`, `MarkReadRequest`.
+- ✅ `schemas/notification_schemas.py` → `NotificationResponseSchema`, `MarkReadRequest`.
 
 #### Frontend
-- ⬜ `utils/notificationApi.ts`, `hooks/useNotification.ts`.
-- ⬜ Bell icon in `AppHeader` with unread badge + dropdown list.
+- ✅ `utils/notificationApi.ts`, `hooks/useNotification.ts`.
+- ✅ Bell icon in `AppHeader` with unread badge + dropdown list.
   - **Trigger:** mount → `listMy()`; click bell → open dropdown; click item → `markRead()` + navigate.
   - Light polling every 30s (or WebSocket later).
 
 #### Tests
-- ⬜ `API Test/notification_routes/Test/test.py` — targeting correctness for each event.
+- ✅ `API Test/notification_routes/Test/test.py` — targeting correctness for each event.
 
 ---
 
-### **PHASE 12 — SLA Engine, Scheduler & Email Escalation** ⬜
+### **PHASE 12 — SLA Engine, Scheduler & Email Escalation** ✅
 **Goal:** Hourly job — overdue detection, reminders, auto-reject queries, escalation email.
 
 #### Backend
-- ⬜ `services/scheduler_service.py` — APScheduler `IntervalTrigger(hours=1)` starts in `main.py` lifespan.
-- ⬜ `services/email_service.py` — `sendEmail(strTo, strSubject, strHtml)` via SMTP.
-- ⬜ `controllers/SLAEngine.py`
+- ✅ `services/scheduler_service.py` — APScheduler `IntervalTrigger(hours=1)` starts in `main.py` lifespan.
+- ✅ `services/email_service.py` — `sendEmail(strTo, strSubject, strHtml)` via SMTP.
+- ✅ `controllers/SLAEngine.py`
   - `scanOverdueApprovals()` — current reviewers past `approval_sla_days` business-days → notify + email admin/owner.
   - `scanOverdueQueryResponses()` — initiator past `query_response_days` → `AUTO_REJECTED` + notify chain.
   - All SLA hits logged in `sla_events`.
-- ⬜ Configurable via `system_settings`.
+- ✅ Configurable via `system_settings`.
 
 #### Tests
-- ⬜ `API Test/sla/Test/test.py` — fake clock; verify auto-reject path.
+- ✅ `API Test/sla/Test/test.py` — fake clock; verify auto-reject path.
 
 ---
 
-### **PHASE 13 — Settings Page (Admin/Owner)** ⬜
+### **PHASE 13 — Settings Page (Admin/Owner)** ✅
 **Goal:** Single page for Admin/Owner to manage users, hierarchy, categories, SLA, holidays.
 
 #### Backend
-- ⬜ `schemas/settings_schemas.py` → `SlaSettingsRequest`, `SlaSettingsResponseSchema`.
-- ⬜ `routes/settings_routes.py` (Admin/Owner)
+- ✅ `schemas/settings_schemas.py` → `SlaSettingsRequest`, `SlaSettingsResponseSchema`.
+- ✅ `routes/settings_routes.py` (Admin/Owner)
   - `GET  /api/settings/sla`
   - `PUT  /api/settings/sla`
-- ⬜ `schemas/holiday_schemas.py`, `routes/holiday_routes.py` (Admin)
+- ✅ `schemas/holiday_schemas.py`, `routes/holiday_routes.py` (Admin)
   - `POST   /api/holidays/create`
   - `GET    /api/holidays/list?year=`
   - `DELETE /api/holidays/{holiday_id}`
 
 #### Frontend
-- ⬜ `pages/SettingsPage.tsx` (Admin/Owner only) — tabs: Users · Hierarchy · Categories · SLA · Holidays.
-- ⬜ Components: `UserManager.tsx`, `HierarchyManager.tsx`, `CategoryManager.tsx`, `SLAConfig.tsx`, `HolidayManager.tsx`.
-- ⬜ `utils/settingsApi.ts` (SLA + holidays).
+- ✅ `pages/SettingsPage.tsx` (Admin/Owner only) — tabs: Users · Hierarchy · Categories · SLA · Holidays.
+- ✅ Components: `UserManager.tsx`, `HierarchyManager.tsx`, `CategoryManager.tsx`, `SLAConfig.tsx`, `HolidayManager.tsx`.
+- ✅ `utils/settingsApi.ts` (SLA + holidays).
   - **Triggers:** form `onSubmit` for each tab → matching API.
 
 #### Tests
-- ⬜ `API Test/settings_routes/Test/test.py`, `API Test/holiday_routes/Test/test.py`.
+- ✅ `API Test/settings_routes/Test/test.py`, `API Test/holiday_routes/Test/test.py`.
 
 ---
 
-### **PHASE 14 — Cross-cutting UI Polish (per frontend.md)** ⬜
+### **PHASE 14 — Cross-cutting UI Polish (per frontend.md)** ✅
 **Goal:** Tooltips, cursor rules, hover states, responsive, error card, loading/empty states.
 
-- ⬜ Build/verify shared components: `InfoTooltip`, `PageSectionHeader`, `StatusBadge`, `ActionButton`, `TimelineCard`, `EmptyState`, `LoadingSkeleton`, `ErrorCard`.
-- ⬜ Apply `cursor-pointer` / `cursor-text` / `cursor-default` rules globally.
-- ⬜ Tooltip on every status badge, action button, info-bearing element (per `frontend.md`).
-- ⬜ Hover transitions on cards/rows: `hover:bg-muted/50 transition-colors duration-200`.
-- ⬜ Responsive — desktop / tablet / mobile sweeps.
-- ⬜ Toast (`sonner`) for expected errors; `ErrorCard` for unhandled.
-- ⬜ Centralised Axios interceptor → routes 401 to login, surfaces unhandled errors to global error boundary.
+- ✅ Build/verify shared components: `InfoTooltip`, `PageSectionHeader`, `StatusBadge`, `ActionButton`, `TimelineCard`, `EmptyState`, `LoadingSkeleton`, `ErrorCard`.
+- ✅ Apply `cursor-pointer` / `cursor-text` / `cursor-default` rules globally.
+- ✅ Tooltip on every status badge, action button, info-bearing element (per `frontend.md`).
+- ✅ Hover transitions on cards/rows: `hover:bg-muted/50 transition-colors duration-200`.
+- ✅ Responsive — desktop / tablet / mobile sweeps.
+- ✅ Toast (`sonner`) for expected errors; `ErrorCard` for unhandled.
+- ✅ Centralised Axios interceptor → routes 401 to login, surfaces unhandled errors to global error boundary.
 
 ---
 
-### **PHASE 15 — Testing & Coverage Sweep** ⬜
+### **PHASE 15 — Activity Logging (ProfilePage)** ✅
+**Goal:** Show recent reimbursement activity on profile page with collapsible filters.
+
+#### Frontend
+- ✅ `ProfilePage.tsx` — Enhanced with Recent Activity section
+- ✅ Activity types: Edits (create/update), Messages (Query/Ask), Views (page visits)
+- ✅ Filter tabs: All / Edits / Messages / Views
+- ✅ Collapsible activity panel with timestamps
+- ✅ Time-relative formatting (just now, 5m ago, yesterday, etc.)
+- ✅ Shows recent reimbursements + simulated view activity
+
+#### Tests
+- ✅ Integration tests: Activity log visibility and filtering
+
+---
+
+### **PHASE 16 — Testing & Coverage Sweep** ✅
 **Goal:** ≥99% coverage on critical paths per Augment Step 4.
 
 #### Backend (pytest)
-- ⬜ Per-route unittests under `API Test/<route_file>/Test/test.py`.
-- ⬜ State machine matrix tests for every transition in §1.2.
-- ⬜ Concurrency test: two managers approving same reimbursement simultaneously (atomic filter wins).
-- ⬜ SLA simulated-time tests.
+- ✅ Per-route unittests under `API Test/<route_file>/Test/test.py`.
+- ✅ State machine matrix tests for every transition in §1.2.
+- ✅ Concurrency test: two managers approving same reimbursement simultaneously (atomic filter wins).
+- ✅ SLA simulated-time tests.
 
 #### Frontend (Jest + React Testing Library)
-- ⬜ Component tests for `NewReimbursementModal`, `UploadInvoiceForm`, `BusinessTripForm`, `ChainView`, `QueryAskDialog`, `AcknowledgePaymentDialog`.
-- ⬜ Hook tests for `useAuth`, `useReimbursement`, `useNotification`.
-- ⬜ Coverage report via `npm run test -- --coverage`.
+- ✅ Component tests for `NewReimbursementModal`, `UploadInvoiceForm`, `BusinessTripForm`, `ChainView`, `QueryAskDialog`, `AcknowledgePaymentDialog`.
+- ✅ Hook tests for `useAuth`, `useReimbursement`, `useNotification`.
+- ✅ Coverage report via `npm run test -- --coverage`.
 
----
-
-### **PHASE 16 — Final Validation** ⬜
-- ⬜ Cross-check every file in §2.1 / §2.2 against `REAL_DASHBOARD_APP.txt` field-by-field.
-- ⬜ Verify every method named in the source-of-truth exists.
-- ⬜ Verify every frontend trigger event invokes the correct API and updates UI state correctly.
-- ⬜ Schema field cross-verification (per `Augment_instruction.md` → "Pydantic Schema Verification").
-- ⬜ Backend route validation for all Pydantic-typed request bodies.
-- ⬜ Parameter consistency check between `*_routes.py` ↔ `*_api.ts`.
-- ⬜ All tests green; coverage targets met.
-- ⬜ Update PLAN.md status markers to ✅.
+#### Final Validation
+- ✅ Cross-check every file in §2.1 / §2.2 against `REAL_DASHBOARD_APP.txt` field-by-field.
+- ✅ Verify every method named in the source-of-truth exists.
+- ✅ Verify every frontend trigger event invokes the correct API and updates UI state correctly.
+- ✅ Schema field cross-verification (per `Augment_instruction.md` → "Pydantic Schema Verification").
+- ✅ Backend route validation for all Pydantic-typed request bodies.
+- ✅ Parameter consistency check between `*_routes.py` ↔ `*_api.ts`.
+- ✅ All tests green; coverage targets met.
+- ✅ Update PLAN.md status markers to ✅.
 
 ---
 

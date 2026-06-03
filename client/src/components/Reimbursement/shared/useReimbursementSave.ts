@@ -2,13 +2,18 @@
  * useReimbursementSave — Shared save-draft / submit handler.
  * Returns bIsSaving + a save(bSubmit) function. Caller passes a payload builder.
  *
- * Flow:
+ * Flow (Create):
  *   Save Draft → POST /api/reimbursements/draft
  *   Submit     → POST /api/reimbursements/draft  (creates draft)
  *                 → POST /api/reimbursements/:id/submit  (transitions DRAFT → SUBMITTED)
+ *
+ * Flow (Update):
+ *   Save Draft → PUT /api/reimbursements/:id/draft
+ *   Submit     → PUT /api/reimbursements/:id/draft (updates draft)
+ *                 → POST /api/reimbursements/:id/submit (transitions DRAFT → SUBMITTED)
  */
 import { useState } from 'react';
-import { createDraftApi, submitReimbursementApi } from '../../../utils/reimbursementApi';
+import { createDraftApi, updateDraftApi, submitReimbursementApi } from '../../../utils/reimbursementApi';
 
 export interface SaveResult {
   ok: boolean;
@@ -19,6 +24,7 @@ export function useReimbursementSave(
   buildPayload: () => any | null,
   onSuccess: () => void,
   onError: (msg: string) => void,
+  strReimbursementId?: string,
 ) {
   const [bIsSaving, setBIsSaving] = useState(false);
 
@@ -28,12 +34,25 @@ export function useReimbursementSave(
 
     setBIsSaving(true);
     try {
-      // Step 1: always create the draft first
-      const objDraft = await createDraftApi(objPayload);
+      let strId: string;
+
+      if (strReimbursementId) {
+        // Step 1: Update existing draft
+        const objDraft = await updateDraftApi(strReimbursementId, {
+          description: objPayload.description,
+          items: objPayload.items,
+          business_trip_meta: objPayload.business_trip_meta,
+        });
+        strId = objDraft.reimbursement_id;
+      } else {
+        // Step 1: Create new draft
+        const objDraft = await createDraftApi(objPayload);
+        strId = objDraft.reimbursement_id;
+      }
 
       // Step 2: if submit, transition DRAFT → SUBMITTED via a separate call
       if (bSubmit) {
-        await submitReimbursementApi(objDraft.reimbursement_id);
+        await submitReimbursementApi(strId);
       }
 
       onSuccess();

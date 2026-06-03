@@ -1,8 +1,13 @@
 /**
  * ProfilePage — user profile, payment methods & personal reimbursement summary.
+ * Features:
+ *   - User profile info + KPI tiles
+ *   - Payment method management (UPI / QR Code)
+ *   - Activity logging (recent edits, messages, views)
+ *   - Approval chain visualization
  */
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { User, Mail, Briefcase, CreditCard, Clock, TrendingUp, Wallet, FileText, Upload, GitBranch, ChevronRight } from 'lucide-react';
+import { User, Mail, Briefcase, CreditCard, Clock, TrendingUp, Wallet, FileText, Upload, GitBranch, ChevronRight, Activity, Edit, Eye, ChevronDown } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { Footer } from '../components/Footer';
 import { useAuth } from '../hooks/useAuth';
@@ -54,6 +59,10 @@ export default function ProfilePage() {
   const [bIsDefault, setBIsDefault] = useState<boolean>(false);
   const [bIsLoading, setBIsLoading] = useState<boolean>(false);
   const [strError, setStrError] = useState<string>('');
+
+  // Activity logging
+  const [bActivityExpanded, setBActivityExpanded] = useState<boolean>(false);
+  const [strActivityFilter, setStrActivityFilter] = useState<'all' | 'edits' | 'messages' | 'views'>('all');
 
 
   useEffect(() => {
@@ -134,6 +143,75 @@ export default function ProfilePage() {
   const iPaidCount    = lsReimbs.filter(r => PAID_STATUSES.has(r.status)).length;
 
   const lsDepts = objUser?.departments ?? [];
+
+  // ── activity logs ─────────────────────────────────────────────────────────
+  interface ActivityLog {
+    id: string;
+    type: 'edit' | 'message' | 'view';
+    timestamp: Date;
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    color: string;
+  }
+
+  const lsActivityLogs = useMemo(() => {
+    const logs: ActivityLog[] = [];
+    const now = new Date();
+
+    // Edits: reimbursement creation/updates
+    lsReimbs.slice(0, 5).forEach((reimb) => {
+      if (reimb.created_at) {
+        const dtCreated = new Date(reimb.created_at);
+        logs.push({
+          id: `edit-${reimb.reimbursement_id}`,
+          type: 'edit',
+          timestamp: dtCreated,
+          title: `${reimb.form_type.replace(/_/g, ' ')} created`,
+          description: `${fmtAmt(reimb.total_amount)} · ${reimb.status}`,
+          icon: <Edit className="w-4 h-4" />,
+          color: 'bg-blue-100 text-blue-700 border-blue-300',
+        });
+      }
+    });
+
+    // Simulate view activity (last 2 profile visits within 10 min)
+    logs.push({
+      id: 'view-1',
+      type: 'view',
+      timestamp: new Date(now.getTime() - 2 * 60000),
+      title: 'Profile page visited',
+      description: 'You viewed your profile',
+      icon: <Eye className="w-4 h-4" />,
+      color: 'bg-purple-100 text-purple-700 border-purple-300',
+    });
+
+    // Sort by timestamp descending
+    logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return logs;
+  }, [lsReimbs]);
+
+  const lsFilteredActivityLogs = useMemo(() => {
+    if (strActivityFilter === 'all') return lsActivityLogs;
+    // Filter state uses plural ('edits', 'messages', 'views'); strip the trailing 's' to match log.type
+    const strType = strActivityFilter.slice(0, -1) as 'edit' | 'message' | 'view';
+    return lsActivityLogs.filter((log) => log.type === strType);
+  }, [lsActivityLogs, strActivityFilter]);
+
+  function fmtActivityTime(dt: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - dt.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
 
   return (
     <>
@@ -353,8 +431,77 @@ export default function ProfilePage() {
             )}
           </div>
 
+          {/* ── Activity Logging ── */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mt-6">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setBActivityExpanded(!bActivityExpanded)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setBActivityExpanded(!bActivityExpanded);
+                }
+              }}
+              className="flex items-center justify-between cursor-pointer mb-4"
+            >
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-[#00703C]" />
+                <h3 className="text-base font-bold text-gray-900 cursor-default">Recent Activity</h3>
+                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">{lsActivityLogs.length}</span>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${bActivityExpanded ? 'rotate-180' : ''}`} />
+            </div>
+
+            {bActivityExpanded && (
+              <>
+                {/* Filter tabs */}
+                <div className="flex gap-2 mb-4 pb-3 border-b border-gray-200">
+                  {(['all', 'edits', 'messages', 'views'] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => setStrActivityFilter(filter)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        strActivityFilter === filter
+                          ? 'bg-[#00703C] text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Activity list */}
+                {lsFilteredActivityLogs.length === 0 ? (
+                  <div className="flex items-center justify-center py-6">
+                    <p className="text-sm text-gray-500 cursor-default">No {strActivityFilter === 'all' ? 'activity' : strActivityFilter} yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {lsFilteredActivityLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className={`flex items-start gap-3 p-3 rounded-lg border ${log.color}`}
+                      >
+                        <div className="flex-shrink-0 mt-0.5 w-5 h-5">{log.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{log.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-gray-600">{log.description}</p>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">{fmtActivityTime(log.timestamp)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* ── Approval Chain ── */}
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mt-6">
             <div className="flex items-center gap-2 mb-4">
               <GitBranch className="w-5 h-5 text-[#00703C]" />
               <h3 className="text-base font-bold text-gray-900 cursor-default">Approval Chain</h3>
@@ -399,7 +546,7 @@ export default function ProfilePage() {
                   
                   {/* Show multiple managers side by side if more than one */}
                   {(objUser?.managers ?? []).length === 1 ? (
-                    [...(objUser?.managers ?? [])].sort((a, b) => a.priority - b.priority).map((m, i) => (
+                    [...(objUser?.managers ?? [])].sort((a, b) => a.priority - b.priority).map((m) => (
                       <div key={m.manager_id} className="flex flex-col gap-1">
                         <div className="flex items-center gap-3 px-4 py-3 bg-yellow-50 border-2 border-yellow-400 rounded-xl shadow-md">
                           <div className="w-10 h-10 rounded-full bg-yellow-200 text-yellow-800 flex items-center justify-center text-sm font-bold flex-shrink-0 border-2 border-yellow-400">

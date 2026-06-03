@@ -72,6 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await logoutApi();
+    // Clear all localStorage to ensure clean session
+    localStorage.clear();
     setObjUser(null);
   }, []);
 

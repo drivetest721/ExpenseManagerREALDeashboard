@@ -126,6 +126,7 @@ export default function ReimbursementDetailPage() {
           iCurrentStep={objChain.current_step}
           lsLogs={objChain.logs}
           strInitiatorName={objReimbursement.initiator_name}
+          strStatus={objReimbursement.status}
         />
       }
     />

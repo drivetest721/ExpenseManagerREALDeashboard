@@ -7,10 +7,9 @@
  * row description and running total.
  */
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Paperclip, Check, X } from 'lucide-react';
+import { Plus, Trash2, Paperclip, X } from 'lucide-react';
 import StyledDropdown from '../common/StyledDropdown';
 import DateInputDDMMYYYY from '../common/DateInputDDMMYYYY';
-import DescriptionPanel from './shared/DescriptionPanel';
 import { uploadAttachmentApi } from '../../utils/attachmentApi';
 import type { Category } from '../../types/category';
 import type { ReimbursementItem } from '../../types/reimbursement';
@@ -20,6 +19,7 @@ export interface ExpenseRow {
   sub_category: string;
   amount: number;
   expense_date: string;
+  description: string;
   attachments: string[];
   useSameInvoice: boolean;
   _attachmentNames: string[];
@@ -36,6 +36,7 @@ export function createEmptyRow(strCategoryId = ''): ExpenseRow {
     sub_category: '',
     amount: 0,
     expense_date: '',
+    description: '',
     attachments: [],
     useSameInvoice: false,
     _attachmentNames: [],
@@ -56,6 +57,9 @@ interface Props {
   setStrDescription: (v: string) => void;
   bShowDescription: boolean;
   setBShowDescription: (v: boolean) => void;
+  iPageSize: number;
+  iPageIdx: number;
+  onRowAdded?: () => void;
   // optional: lock first row's category (used for business trip seed)
   bLockFirstCategory?: boolean;
 }
@@ -69,10 +73,13 @@ export default function GeneralExpenseTable({
   setObjErrorField,
   onError,
   onAttachmentsChanged,
-  strDescription,
-  setStrDescription,
-  bShowDescription,
-  setBShowDescription,
+  strDescription: _strDescription,
+  setStrDescription: _setStrDescription,
+  bShowDescription: _bShowDescription,
+  setBShowDescription: _setBShowDescription,
+  iPageSize,
+  iPageIdx,
+  onRowAdded,
   bLockFirstCategory = false,
 }: Props) {
   const [iUploadingIdx, setIUploadingIdx] = useState(-1);
@@ -80,16 +87,20 @@ export default function GeneralExpenseTable({
     '#': 50,
     category: 200,
     subCategory: 130,
+    description: 240,
     amount: 120,
     date: 140,
     invoice: 160,
     actions: 40,
   });
   const [objResizingColumn, setObjResizingColumn] = useState<{ key: string; startX: number; startWidth: number } | null>(null);
+  const iPageStart = iPageIdx * iPageSize;
+  const lsVisibleRows = lsRows.slice(iPageStart, iPageStart + iPageSize);
 
   const updateRow = (iIdx: number, objPartial: Partial<ExpenseRow>) => {
+    const iActualIdx = iPageStart + iIdx;
     const lsNew = [...lsRows];
-    lsNew[iIdx] = { ...lsNew[iIdx], ...objPartial };
+    lsNew[iActualIdx] = { ...lsNew[iActualIdx], ...objPartial };
     setLsRows(lsNew);
     if ('attachments' in objPartial) onAttachmentsChanged();
   };
@@ -103,6 +114,7 @@ export default function GeneralExpenseTable({
       return;
     }
     setLsRows([...lsRows, createEmptyRow()]);
+    onRowAdded?.();
   };
 
   const removeRow = (iIdx: number) => {
@@ -191,6 +203,7 @@ export default function GeneralExpenseTable({
                 { key: '#', label: '#' },
                 { key: 'category', label: 'Category *' },
                 { key: 'subCategory', label: 'Sub Category' },
+                { key: 'description', label: 'Description *' },
                 { key: 'amount', label: 'Amount (₹) *' },
                 { key: 'date', label: 'Expense Date *' },
                 { key: 'invoice', label: 'Invoice *' },
@@ -221,19 +234,20 @@ export default function GeneralExpenseTable({
             </tr>
           </thead>
           <tbody>
-            {lsRows.map((row, iIdx) => {
+            {lsVisibleRows.map((row, iIdx) => {
+              const iActualIdx = iPageStart + iIdx;
               const objCat = lsCategories.find(c => c.category_id === row.category_id);
               const errCell = (field: string) =>
-                objErrorField?.rowIdx === iIdx && objErrorField?.field === field
+                objErrorField?.rowIdx === iActualIdx && objErrorField?.field === field
                   ? 'bg-red-50 border-red-300 ring-2 ring-red-500/50'
                   : '';
               return (
                 <tr
-                  key={iIdx}
+                  key={iActualIdx}
                   className="hover:bg-gradient-to-r hover:from-amber-50/50 hover:to-yellow-50/30 transition-all border-b border-gray-100"
                 >
                   <td className="px-3 py-3 text-center text-xs font-bold text-gray-400 border-l-2 border-r border-gray-200">
-                    {iIdx + 1}
+                    {iActualIdx + 1}
                   </td>
 
                   <td className={`px-3 py-3 border-r border-gray-200 transition-all ${errCell('category')}`}>
@@ -241,7 +255,7 @@ export default function GeneralExpenseTable({
                       value={row.category_id}
                       onChange={val => {
                         updateRow(iIdx, { category_id: val, sub_category: '' });
-                        if (objErrorField?.rowIdx === iIdx && objErrorField?.field === 'category') {
+                        if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'category') {
                           setObjErrorField(null);
                         }
                       }}
@@ -250,7 +264,7 @@ export default function GeneralExpenseTable({
                         label: `${c.name} (₹${c.max_limit.toLocaleString('en-IN')})`,
                       }))}
                       placeholder="— Select Category —"
-                      disabled={bLockFirstCategory && iIdx === 0}
+                      disabled={bLockFirstCategory && iActualIdx === 0}
                     />
                   </td>
 
@@ -267,19 +281,37 @@ export default function GeneralExpenseTable({
                     )}
                   </td>
 
+                  <td className={`px-3 py-3 border-r border-gray-200 transition-all ${errCell('description')}`}>
+                    <input
+                      type="text"
+                      value={row.description || ''}
+                      onChange={e => {
+                        updateRow(iIdx, { description: e.target.value });
+                        if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'description') {
+                          setObjErrorField(null);
+                        }
+                      }}
+                      className={`w-full px-3 py-2.5 border-2 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#00703C] focus:border-[#00703C] hover:border-[#00703C]/50 transition-all shadow-sm ${
+                        objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'description'
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-gray-300'
+                      }`}
+                      placeholder="Short description (required)"
+                    />
+                  </td>
+
                   <td className={`px-3 py-3 border-r border-gray-200 transition-all ${errCell('amount')}`}>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-semibold">₹</span>
                       <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={row.amount || ''}
+                        type="text"
+                        value={row.amount ? row.amount.toLocaleString('en-IN') : ''}
                         onChange={e => {
-                          const iVal = parseInt(e.target.value);
-                          if (!isNaN(iVal) && iVal > 0) {
+                          const str = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+                          const iVal = parseInt(str || '0');
+                          if (!isNaN(iVal) && iVal >= 0) {
                             updateRow(iIdx, { amount: iVal });
-                            if (objErrorField?.rowIdx === iIdx && objErrorField?.field === 'amount') {
+                            if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'amount') {
                               setObjErrorField(null);
                             }
                           } else if (e.target.value === '') {
@@ -287,11 +319,12 @@ export default function GeneralExpenseTable({
                           }
                         }}
                         onBlur={e => {
-                          const iVal = parseInt(e.target.value);
+                          const str = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+                          const iVal = parseInt(str || '0');
                           if (isNaN(iVal) || iVal <= 0) updateRow(iIdx, { amount: 0 });
                         }}
                         className={`w-full px-3 pl-7 py-2.5 border-2 rounded-lg text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#00703C] focus:border-[#00703C] font-semibold hover:border-[#00703C]/50 transition-all shadow-sm ${
-                          objErrorField?.rowIdx === iIdx && objErrorField?.field === 'amount'
+                          objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'amount'
                             ? 'border-red-500 bg-red-50'
                             : 'border-gray-300'
                         }`}
@@ -305,7 +338,7 @@ export default function GeneralExpenseTable({
                       value={row.expense_date}
                       onChange={val => {
                         updateRow(iIdx, { expense_date: val });
-                        if (objErrorField?.rowIdx === iIdx && objErrorField?.field === 'date') {
+                        if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'date') {
                           setObjErrorField(null);
                         }
                       }}
@@ -326,7 +359,7 @@ export default function GeneralExpenseTable({
                                 {nm}
                               </span>
                               <button
-                                onClick={() => removeAttachment(iIdx, j)}
+                                onClick={() => removeAttachment(iActualIdx, j)}
                                 className="text-red-400 hover:text-red-600 hover:scale-110 transition-all"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -336,20 +369,24 @@ export default function GeneralExpenseTable({
                         </div>
                       )}
                       <div className="flex flex-col gap-2">
-                        {!row.useSameInvoice && row.attachments.length === 0 && (
+                        {!row.useSameInvoice && (
                           <label className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold border-2 border-dashed border-[#00703C]/40 rounded-lg hover:border-[#00703C] hover:bg-[#00703C]/5 cursor-pointer transition-all shadow-sm hover:shadow-md">
                             <Paperclip className="w-4 h-4 text-[#00703C]" />
                             <span className="text-[#00703C]">
-                              {iUploadingIdx === iIdx ? 'Uploading…' : 'Upload Invoice'}
+                              {iUploadingIdx === iActualIdx
+                                ? 'Uploading…'
+                                : row.attachments.length > 0
+                                ? 'Add Another'
+                                : 'Upload Invoice'}
                             </span>
                             <input
                               type="file"
                               accept="image/*,application/pdf,.docx"
-                              disabled={iUploadingIdx === iIdx}
+                              disabled={iUploadingIdx === iActualIdx}
                               onChange={e => {
                                 const f = e.target.files?.[0];
                                 if (f) {
-                                  handleInvoiceUpload(iIdx, f);
+                                  handleInvoiceUpload(iActualIdx, f);
                                   e.target.value = '';
                                 }
                               }}
@@ -357,18 +394,12 @@ export default function GeneralExpenseTable({
                             />
                           </label>
                         )}
-                        {!row.useSameInvoice && row.attachments.length > 0 && (
-                          <div className="flex items-center gap-2 px-3 py-2 text-xs bg-green-50 border-2 border-green-300 rounded-lg">
-                            <Check className="w-4 h-4 text-green-600" />
-                            <span className="text-green-700 font-semibold">Invoice Attached (1 per category)</span>
-                          </div>
-                        )}
-                        {lsAllAttachments.length > 0 && iIdx > 0 && (
+                        {lsAllAttachments.length > 0 && iActualIdx > 0 && (
                           <label className="flex items-center gap-2 text-xs cursor-pointer px-2 py-1.5 hover:bg-gray-50 rounded-lg transition-colors">
                             <input
                               type="checkbox"
                               checked={row.useSameInvoice}
-                              onChange={() => toggleUseSameInvoice(iIdx)}
+                              onChange={() => toggleUseSameInvoice(iActualIdx)}
                               className="w-4 h-4 text-[#00703C] border-2 border-gray-300 rounded focus:ring-[#00703C] cursor-pointer"
                             />
                             <span className="text-gray-700 font-medium">Use Same Invoice</span>
@@ -379,9 +410,9 @@ export default function GeneralExpenseTable({
                   </td>
 
                   <td className="px-3 py-3 text-center border-r-2 border-gray-200">
-                    {lsRows.length > 1 && !(bLockFirstCategory && iIdx === 0) && (
+                    {lsRows.length > 1 && !(bLockFirstCategory && iActualIdx === 0) && (
                       <button
-                        onClick={() => removeRow(iIdx)}
+                        onClick={() => removeRow(iActualIdx)}
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 mx-auto transition-all hover:scale-110"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -392,25 +423,22 @@ export default function GeneralExpenseTable({
               );
             })}
           </tbody>
+          <tfoot>
+            <tr className="bg-white">
+              <td colSpan={8} className="px-3 py-4">
+                <button
+                  onClick={addRow}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold border-2 border-dashed border-[#00703C]/50 rounded-lg hover:bg-[#00703C]/10 hover:border-[#00703C] text-[#00703C] transition-all hover:shadow-md"
+                >
+                  <Plus className="w-5 h-5" /> Add Row
+                </button>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
-      <DescriptionPanel
-        value={strDescription}
-        onChange={setStrDescription}
-        bShow={bShowDescription}
-        onToggleShow={() => setBShowDescription(!bShowDescription)}
-        bHasError={objErrorField?.field === 'description'}
-        onClearError={() => setObjErrorField(null)}
-      />
-
-      <div className="flex-shrink-0 pt-4 flex justify-between items-center">
-        <button
-          onClick={addRow}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold border-2 border-dashed border-[#00703C]/50 rounded-lg hover:bg-[#00703C]/10 hover:border-[#00703C] text-[#00703C] transition-all hover:shadow-md"
-        >
-          <Plus className="w-5 h-5" /> Add Row
-        </button>
+      <div className="flex-shrink-0 pt-4 flex justify-end items-center">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-medium text-gray-600">Total:</span>
           <span className="text-2xl font-bold text-[#00703C]">₹{numTotal.toLocaleString('en-IN')}</span>
@@ -424,15 +452,9 @@ export default function GeneralExpenseTable({
 export function validateExpenseRows(
   lsRows: ExpenseRow[],
   lsCategories: Category[],
-  strDescription: string,
+  _strDescription: string,
 ): { error: string; rowIdx: number; field: string } | null {
-  if (!strDescription || strDescription.trim().length < 10) {
-    return { error: 'Reimbursement description is required (minimum 10 characters)', rowIdx: -1, field: 'description' };
-  }
-  if (strDescription.length > 250) {
-    return { error: 'Reimbursement description cannot exceed 250 characters', rowIdx: -1, field: 'description' };
-  }
-
+  // General description is optional now — per-row description is required.
   const lsWithData = lsRows.filter(r => r.category_id || r.amount > 0 || r.expense_date || r.attachments.length > 0);
   if (lsWithData.length === 0) {
     return { error: 'Please add at least one expense row', rowIdx: 0, field: 'category' };
@@ -445,6 +467,7 @@ export function validateExpenseRows(
     if (r.amount <= 0) return { error: `Row ${i + 1}: Amount must be greater than ₹0`, rowIdx: i, field: 'amount' };
     if (!r.expense_date) return { error: `Row ${i + 1}: Please select expense date`, rowIdx: i, field: 'date' };
     if (r.attachments.length === 0) return { error: `Row ${i + 1}: Please upload an invoice`, rowIdx: i, field: 'invoice' };
+    if (!r.description || r.description.trim().length < 3) return { error: `Row ${i + 1}: Description is required (min 3 chars)`, rowIdx: i, field: 'description' };
 
     const objCat = lsCategories.find(c => c.category_id === r.category_id);
     if (objCat && r.amount > objCat.max_limit) {
@@ -463,6 +486,7 @@ export function rowsToItems(lsRows: ExpenseRow[]): ReimbursementItem[] {
       sub_category: r.sub_category || undefined,
       amount: r.amount,
       expense_date: r.expense_date,
+      description: r.description || undefined,
       attachments: r.attachments,
     }));
 }

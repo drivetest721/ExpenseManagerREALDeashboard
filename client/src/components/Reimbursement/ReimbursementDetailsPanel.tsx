@@ -19,6 +19,7 @@ import {
 } from '../../utils/approvalApi';
 import { submitReimbursementApi, deleteReimbursementApi } from '../../utils/reimbursementApi';
 import { useAuth } from '../../hooks/useAuth';
+import { uploadAttachmentApi } from '../../utils/attachmentApi';
 
 interface Props {
   objReimbursement: Reimbursement;
@@ -62,6 +63,9 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
   const [strPayMethod, setStrPayMethod] = useState('UPI');
   const [bIsSubmitting, setBIsSubmitting] = useState(false);
   const [strError, setStrError] = useState('');
+  const [bIsUploadingProof, setBIsUploadingProof] = useState(false);
+  const [strProofFileName, setStrProofFileName] = useState('');
+  const [strProofAttachmentId, setStrProofAttachmentId] = useState('');
 
   // Determine user permissions
   const bIsInitiator = objUser?.user_id === objReimbursement.initiator_id;
@@ -95,6 +99,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
       lsActions.push('acknowledge');
     }
     return lsActions;
+    console.log(lsActions);
   }, [objReimbursement.status, bIsInitiator, bIsCurrentReviewer, bIsCA]);
 
   const fmtDate = (str: string) => {
@@ -163,6 +168,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
           transaction_ref: strTxRef,
           payment_method: strPayMethod || undefined,
           note: strMessage || undefined,
+          payment_proof_attachment_id: strProofAttachmentId || undefined,
         }),
       };
       
@@ -226,11 +232,11 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
           <div>
             <span className="font-semibold">Created:</span> {fmtDate(objReimbursement.created_at)}
           </div>
-          {objReimbursement.description && (
+          {/* {objReimbursement.description && (
             <div>
               <span className="font-semibold">Description:</span> {objReimbursement.description}
             </div>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -251,6 +257,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
               <th className="px-3 py-3 text-center border-l border-r border-b border-gray-300">#</th>
               <th className="px-3 py-3 text-center border-r border-b border-gray-300">Category</th>
               <th className="px-3 py-3 text-center border-r border-b border-gray-300">Sub Category</th>
+              <th className="px-3 py-3 text-center border-r border-b border-gray-300">Description</th>
               <th className="px-3 py-3 text-center border-r border-b border-gray-300">Expense Date</th>
               <th className="px-3 py-3 text-center border-r border-b border-gray-300">Attachments</th>
               <th className="px-3 py-3 text-right border-r border-b border-gray-300">Amount</th>
@@ -269,6 +276,9 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
                   {item.sub_category || '—'}
                 </td>
                 <td className="px-3 py-3 text-center border-r border-b border-gray-200 text-gray-600">
+                  {item.description || '—'}
+                </td>
+                <td className="px-3 py-3 text-center border-r border-b border-gray-200 text-gray-600">
                   {fmtDate(item.expense_date)}
                 </td>
                 <td className="px-3 py-3 text-center border-r border-b border-gray-200">
@@ -283,7 +293,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
             ))}
             {/* Total Row */}
             <tr className="bg-green-50 font-bold sticky bottom-0">
-              <td colSpan={5} className="px-3 py-3 text-right border-l border-r border-t border-b border-gray-300 text-gray-900">
+              <td colSpan={6} className="px-3 py-3 text-right border-l border-r border-t border-b border-gray-300 text-gray-900">
                 Total:
               </td>
               <td className="px-3 py-3 text-right border-r border-t border-b border-gray-300 text-lg text-[#00703C] tabular-nums">
@@ -309,9 +319,9 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
               onChange={(e) => setStrSelectedAction(e.target.value as ActionType | '')}
               className="w-full h-10 border border-gray-300 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00703C] focus:border-transparent"
             >
-              <option value="">Choose an action...</option>
+              <option value="" className='pointer-cursor'>Choose an action...</option>
               {lsAvailableActions.map((action) => (
-                <option key={action} value={action}>
+                <option key={action} value={action} className='pointer-cursor'>
                   {ACTION_META[action].label}
                 </option>
               ))}
@@ -347,6 +357,55 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
                   <option value="Cheque">Cheque</option>
                   <option value="Cash">Cash</option>
                 </select>
+              </div>
+              {/* Proof of payment upload */}
+              <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <label className="block text-xs font-medium text-gray-700 mb-2">Proof of Payment (optional)</label>
+                {strProofFileName ? (
+                  <div className="flex items-center justify-between bg-white border border-green-200 rounded px-3 py-2 mb-2">
+                    <span className="text-sm text-green-700 font-medium truncate">{strProofFileName}</span>
+                    <button
+                      onClick={() => { setStrProofFileName(''); setStrProofAttachmentId(''); }}
+                      className="text-red-500 hover:text-red-700 cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : null}
+                <label className="flex items-center gap-2 px-3 py-2 text-sm font-medium border-2 border-dashed border-blue-300 rounded cursor-pointer hover:bg-blue-50">
+                  <span className="text-blue-600">{bIsUploadingProof ? 'Uploading...' : 'Choose Image or PDF'}</span>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    disabled={bIsUploadingProof || bIsSubmitting}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const allowed = ['image/jpeg','image/png','image/gif','application/pdf'];
+                      if (!allowed.includes(file.type)) {
+                        setStrError('Only JPG, PNG, GIF, and PDF files are allowed');
+                        return;
+                      }
+                      if (file.size > 10 * 1024 * 1024) {
+                        setStrError('File size must be less than 10MB');
+                        return;
+                      }
+                      setStrError('');
+                      setBIsUploadingProof(true);
+                      try {
+                        const resp = await uploadAttachmentApi(file);
+                        setStrProofAttachmentId(resp.attachment_id);
+                        setStrProofFileName(file.name);
+                      } catch (err: any) {
+                        setStrError(err?.response?.data?.detail || 'Failed to upload proof file');
+                      } finally {
+                        setBIsUploadingProof(false);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-gray-500 mt-2">JPG, PNG, GIF, or PDF (max 10MB)</p>
               </div>
             </>
           )}

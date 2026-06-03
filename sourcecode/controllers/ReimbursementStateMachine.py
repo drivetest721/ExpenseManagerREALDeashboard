@@ -160,6 +160,27 @@ def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPay
                 if dictPayload.get("payment_method"):
                     dictUpdates["payment_method"] = dictPayload["payment_method"]
 
+            # Persist payment proof attachment if provided either as a simple id
+            # or as a full payment_proof object supplied by the route.
+            if dictPayload:
+                if dictPayload.get("payment_proof_attachment_id"):
+                    dictUpdates["payment_proof"] = {
+                        "attachment_id": dictPayload.get("payment_proof_attachment_id"),
+                        "payment_date": dictUpdates.get("paid_at"),
+                        "paid_by": strActorId,
+                        "transaction_ref": dictPayload.get("transaction_ref"),
+                        "payment_method": dictPayload.get("payment_method"),
+                    }
+                elif dictPayload.get("payment_proof") and isinstance(dictPayload.get("payment_proof"), dict):
+                    # Accept the provided dict (trusting the route to populate sensible fields)
+                    dictProof = dict(dictPayload.get("payment_proof"))
+                    # Ensure payment_date / paid_by are present
+                    if not dictProof.get("payment_date"):
+                        dictProof["payment_date"] = dictUpdates.get("paid_at")
+                    if not dictProof.get("paid_by"):
+                        dictProof["paid_by"] = strActorId
+                    dictUpdates["payment_proof"] = dictProof
+
             lsChain = dictOld.get("approval_chain", [])
             iCurrentStep = dictOld.get("current_step", 0)
             if iCurrentStep < len(lsChain):
@@ -184,10 +205,28 @@ def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPay
 
         # Atomic update with filter on current_reviewer_id to prevent double action
         if strAction in ("APPROVE", "PAY", "CA_QUERY", "REJECT"):
-            objResult = objReimbs.update_one(
-                {"_id": ObjectId(strReimbursementId), "current_reviewer_id": strActorId},
-                {"$set": dictUpdates}
-            )
+            # Default: actor must be the current reviewer
+            filter_query = {"_id": ObjectId(strReimbursementId), "current_reviewer_id": strActorId}
+
+            # Special-case PAY: allow a CA user to mark as paid when status is OWNER_APPROVED/CA_PENDING/CA_REAPPLIED
+            if strAction == "PAY":
+                try:
+                    objUsers = get_collection("users")
+                    dictActor = objUsers.find_one({"_id": ObjectId(strActorId)})
+                    bActorIsCA = any(d.get("role") == "ca" for d in dictActor.get("departments", [])) if dictActor else False
+                except Exception:
+                    bActorIsCA = False
+
+                if bActorIsCA:
+                    filter_query = {
+                        "_id": ObjectId(strReimbursementId),
+                        "$or": [
+                            {"current_reviewer_id": strActorId},
+                            {"status": {"$in": ["OWNER_APPROVED", "CA_PENDING", "CA_REAPPLIED"]}},
+                        ],
+                    }
+
+            objResult = objReimbs.update_one(filter_query, {"$set": dictUpdates})
             if objResult.matched_count == 0:
                 raise ValueError("You are not the current reviewer or this has already been actioned")
         elif strAction in ("ACKNOWLEDGE", "REAPPLY", "CA_REAPPLY"):

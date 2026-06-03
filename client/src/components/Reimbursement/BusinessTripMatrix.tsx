@@ -11,9 +11,8 @@
  * invoice; every row must have a category selected.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Trash2, Paperclip, X } from 'lucide-react';
+import { Trash2, Paperclip, X } from 'lucide-react';
 import StyledDropdown from '../common/StyledDropdown';
-import DescriptionPanel from './shared/DescriptionPanel';
 import { uploadAttachmentApi } from '../../utils/attachmentApi';
 import type { Category } from '../../types/category';
 import type { ReimbursementItem } from '../../types/reimbursement';
@@ -86,6 +85,9 @@ interface Props {
   bShowDescription: boolean;
   setBShowDescription: (v: boolean) => void;
   lsAllAttachments: string[];
+  iPageSize: number;
+  iPageIdx: number;
+  onRowAdded?: () => void;
 }
 
 export default function BusinessTripMatrix({
@@ -97,17 +99,23 @@ export default function BusinessTripMatrix({
   setObjErrorField,
   onError,
   onAttachmentsChanged,
-  strDescription,
-  setStrDescription,
-  bShowDescription,
-  setBShowDescription,
+  strDescription: _strDescription,
+  setStrDescription: _setStrDescription,
+  bShowDescription: _bShowDescription,
+  setBShowDescription: _setBShowDescription,
   lsAllAttachments,
+  iPageSize,
+  iPageIdx,
+  onRowAdded: _onRowAdded,
 }: Props) {
   const [strUploadingKey, setStrUploadingKey] = useState('');
+  const iPageStart = iPageIdx * iPageSize;
+  const lsVisibleRows = lsRows.slice(iPageStart, iPageStart + iPageSize);
 
   const updateRow = (iIdx: number, fn: (r: MatrixRow) => MatrixRow) => {
+    const iActualIdx = iPageStart + iIdx;
     const lsNew = [...lsRows];
-    lsNew[iIdx] = fn(lsNew[iIdx]);
+    lsNew[iActualIdx] = fn(lsNew[iActualIdx]);
     setLsRows(lsNew);
   };
 
@@ -116,15 +124,6 @@ export default function BusinessTripMatrix({
       const objCell = { ...getCell(r, strKey), ...objPartial };
       return { ...r, cells: { ...r.cells, [strKey]: objCell } };
     });
-  };
-
-  const addRow = () => {
-    const bHasEmpty = lsRows.some(r => !r.category_id && Object.values(r.cells).every(c => c.amount === 0));
-    if (bHasEmpty) {
-      onError('Please fill the existing empty row before adding a new one');
-      return;
-    }
-    setLsRows([...lsRows, createEmptyMatrixRow()]);
   };
 
   const removeRow = (iIdx: number) => {
@@ -275,23 +274,24 @@ export default function BusinessTripMatrix({
             </tr>
           </thead>
           <tbody>
-            {lsRows.map((row, iIdx) => {
+            {lsVisibleRows.map((row, iIdx) => {
+              const iActualIdx = iPageStart + iIdx;
               const objCat = lsCategories.find(c => c.category_id === row.category_id);
               return (
                 <tr
-                  key={iIdx}
+                  key={iActualIdx}
                   className="hover:bg-gradient-to-r hover:from-amber-50/40 hover:to-yellow-50/20 transition-all border-b border-gray-100"
                 >
                   <td className="px-3 py-3 text-center text-xs font-bold text-gray-400 border-l-2 border-r border-gray-200">
-                    {iIdx + 1}
+                    {iActualIdx + 1}
                   </td>
 
-                  <td className={`px-3 py-3 border-r border-gray-200 transition-all ${errCell(iIdx, 'category')}`}>
+                  <td className={`px-3 py-3 border-r border-gray-200 transition-all ${errCell(iActualIdx, 'category')}`}>
                     <StyledDropdown
                       value={row.category_id}
                       onChange={val => {
                         updateRow(iIdx, r => ({ ...r, category_id: val, sub_category: '' }));
-                        if (objErrorField?.rowIdx === iIdx && objErrorField?.field === 'category') {
+                        if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'category') {
                           setObjErrorField(null);
                         }
                       }}
@@ -322,7 +322,7 @@ export default function BusinessTripMatrix({
                     return (
                       <td
                         key={k}
-                        className={`px-2 py-2 border-r border-gray-200 transition-all align-top ${errCell(iIdx, 'amount', k)} ${errCell(iIdx, 'invoice', k)}`}
+                        className={`px-2 py-2 border-r border-gray-200 transition-all align-top ${errCell(iActualIdx, 'amount', k)} ${errCell(iActualIdx, 'invoice', k)}`}
                       >
                         <div className="flex flex-col gap-1.5">
                           <div className="relative">
@@ -336,9 +336,9 @@ export default function BusinessTripMatrix({
                               value={cell.amount || ''}
                               onChange={e => {
                                 const iVal = parseInt(e.target.value);
-                                setCell(iIdx, k, { amount: !isNaN(iVal) && iVal > 0 ? iVal : 0 });
+                                setCell(iActualIdx, k, { amount: !isNaN(iVal) && iVal > 0 ? iVal : 0 });
                                 if (
-                                  objErrorField?.rowIdx === iIdx &&
+                                  objErrorField?.rowIdx === iActualIdx &&
                                   objErrorField?.field === 'amount' &&
                                   objErrorField?.dateKey === k
                                 ) {
@@ -352,10 +352,14 @@ export default function BusinessTripMatrix({
 
                           {cell.amount > 0 && (
                             <>
-                              {cell.attachments.length === 0 && !cell.useSameInvoice && (
+                              {!cell.useSameInvoice && (
                                 <label className="flex items-center justify-center gap-1 px-1.5 py-1 text-[10px] font-semibold border border-dashed border-[#00703C]/40 rounded hover:border-[#00703C] hover:bg-[#00703C]/5 cursor-pointer text-[#00703C]">
                                   <Paperclip className="w-3 h-3" />
-                                  {strUploadingKey === strUploadId ? 'Uploading…' : 'Invoice'}
+                                  {strUploadingKey === strUploadId
+                                    ? 'Uploading…'
+                                    : cell.attachments.length > 0
+                                    ? '+ More'
+                                    : 'Invoice'}
                                   <input
                                     type="file"
                                     accept="image/*,application/pdf,.docx"
@@ -363,7 +367,7 @@ export default function BusinessTripMatrix({
                                     onChange={e => {
                                       const f = e.target.files?.[0];
                                       if (f) {
-                                        handleCellUpload(iIdx, k, f);
+                                        handleCellUpload(iActualIdx, k, f);
                                         e.target.value = '';
                                       }
                                     }}
@@ -384,7 +388,7 @@ export default function BusinessTripMatrix({
                                         {nm}
                                       </span>
                                       <button
-                                        onClick={() => removeCellAttachment(iIdx, k, j)}
+                                        onClick={() => removeCellAttachment(iActualIdx, k, j)}
                                         className="text-red-400 hover:text-red-600"
                                       >
                                         <X className="w-2.5 h-2.5" />
@@ -398,7 +402,7 @@ export default function BusinessTripMatrix({
                                   <input
                                     type="checkbox"
                                     checked={cell.useSameInvoice}
-                                    onChange={() => toggleCellUseSameInvoice(iIdx, k)}
+                                    onChange={() => toggleCellUseSameInvoice(iActualIdx, k)}
                                     className="w-3 h-3 text-[#00703C] border border-gray-300 rounded focus:ring-[#00703C] cursor-pointer"
                                   />
                                   <span className="text-gray-600">Same</span>
@@ -412,13 +416,13 @@ export default function BusinessTripMatrix({
                   })}
 
                   <td className="px-3 py-3 text-right border-r border-gray-200 bg-gradient-to-r from-[#00703C]/5 to-transparent font-bold text-[#00703C]">
-                    ₹{objTotals.lsRowTotals[iIdx].toLocaleString('en-IN')}
+                    ₹{objTotals.lsRowTotals[iActualIdx].toLocaleString('en-IN')}
                   </td>
 
                   <td className="px-2 py-3 text-center border-r-2 border-gray-200">
                     {lsRows.length > 1 && (
                       <button
-                        onClick={() => removeRow(iIdx)}
+                        onClick={() => removeRow(iActualIdx)}
                         className="w-7 h-7 rounded flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 mx-auto transition-all"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -451,30 +455,6 @@ export default function BusinessTripMatrix({
           </tfoot>
         </table>
       </div>
-
-      <DescriptionPanel
-        value={strDescription}
-        onChange={setStrDescription}
-        bShow={bShowDescription}
-        onToggleShow={() => setBShowDescription(!bShowDescription)}
-        bHasError={objErrorField?.field === 'description'}
-        onClearError={() => setObjErrorField(null)}
-      />
-
-      <div className="flex-shrink-0 pt-4 flex justify-between items-center">
-        <button
-          onClick={addRow}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold border-2 border-dashed border-[#00703C]/50 rounded-lg hover:bg-[#00703C]/10 hover:border-[#00703C] text-[#00703C] transition-all hover:shadow-md"
-        >
-          <Plus className="w-5 h-5" /> Add Row
-        </button>
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-medium text-gray-600">Grand Total:</span>
-          <span className="text-2xl font-bold text-[#00703C]">
-            ₹{objTotals.numGrand.toLocaleString('en-IN')}
-          </span>
-        </div>
-      </div>
     </>
   );
 }
@@ -484,15 +464,8 @@ export function validateMatrixRows(
   lsRows: MatrixRow[],
   lsDateRange: string[],
   lsCategories: Category[],
-  strDescription: string,
+  _strDescription: string,
 ): { error: string; rowIdx: number; field: string; dateKey?: string } | null {
-  if (!strDescription || strDescription.trim().length < 10) {
-    return { error: 'Reimbursement description is required (minimum 10 characters)', rowIdx: -1, field: 'description' };
-  }
-  if (strDescription.length > 250) {
-    return { error: 'Reimbursement description cannot exceed 250 characters', rowIdx: -1, field: 'description' };
-  }
-
   let bHasAny = false;
   for (let i = 0; i < lsRows.length; i++) {
     const r = lsRows[i];

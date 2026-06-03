@@ -11,17 +11,19 @@ interface InfoButtonProps {
   strLabel?: string;
   strPlacement?: 'top' | 'bottom' | 'left' | 'right';
   strSize?: 'sm' | 'md';
+  asDiv?: boolean;
 }
 
 export function InfoButton({
   text,
   strLabel = 'More info',
-  strPlacement = 'bottom',
+  strPlacement = 'right',
   strSize = 'sm',
+  asDiv = false,
 }: InfoButtonProps) {
   const [bOpen, setBOpen] = useState<boolean>(false);
   const refWrap = useRef<HTMLSpanElement | null>(null);
-
+  strPlacement = 'right'; // Force right placement for now, as other placements may require more styling adjustments.
   useEffect(() => {
     function fnClick(objEvt: MouseEvent) {
       if (refWrap.current && !refWrap.current.contains(objEvt.target as Node)) {
@@ -44,18 +46,40 @@ export function InfoButton({
     right: 'left-full top-1/2 -translate-y-1/2 ml-2',
   };
 
+  const classNameIconBtn = `${strBtn} rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 inline-flex items-center justify-center border border-blue-200 cursor-pointer transition-colors`;
+
   return (
     <span ref={refWrap} className="relative inline-flex items-center">
-      <button
-        type="button"
-        aria-label={strLabel}
-        onClick={(e) => { e.stopPropagation(); setBOpen((b) => !b); }}
-        onMouseEnter={() => setBOpen(true)}
-        onMouseLeave={() => setBOpen(false)}
-        className={`${strBtn} rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 inline-flex items-center justify-center border border-blue-200 cursor-pointer transition-colors`}
-      >
-        <Info className={strIcon} />
-      </button>
+      {asDiv ? (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={strLabel}
+          onClick={(e) => { e.stopPropagation(); setBOpen((b) => !b); }}
+          onMouseEnter={() => setBOpen(true)}
+          onMouseLeave={() => setBOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.stopPropagation();
+              setBOpen((b) => !b);
+            }
+          }}
+          className={classNameIconBtn}
+        >
+          <Info className={strIcon} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          aria-label={strLabel}
+          onClick={(e) => { e.stopPropagation(); setBOpen((b) => !b); }}
+          onMouseEnter={() => setBOpen(true)}
+          onMouseLeave={() => setBOpen(false)}
+          className={classNameIconBtn}
+        >
+          <Info className={strIcon} />
+        </button>
+      )}
       {bOpen && (
         <span
           role="tooltip"

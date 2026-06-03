@@ -13,7 +13,7 @@ interface DateInputDDMMYYYYProps {
 }
 
 // Render popper into document.body so it escapes overflow-hidden / transformed ancestors
-const PopperContainer = ({ children }: { children: React.ReactNode }) => {
+const PopperContainer = ({ children }: { children?: React.ReactNode }) => {
   if (typeof document === 'undefined') return <>{children}</>;
   return createPortal(children, document.body);
 };

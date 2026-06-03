@@ -22,7 +22,7 @@ class ReimbursementItemSchema(BaseModel):
     sub_category: Optional[str] = None
     amount: float = Field(..., ge=0)
     expense_date: date
-    description: Optional[str] = None
+    description: str = Field(..., min_length=3, max_length=500)
     attachments: List[str] = Field(default_factory=list, description="List of attachment_id references")
 
 
@@ -47,6 +47,15 @@ class ReimbursementUpdateRequest(BaseModel):
     business_trip_meta: Optional[BusinessTripMetaSchema] = None
 
 
+class PaymentProofSchema(BaseModel):
+    """Schema for payment proof details."""
+    attachment_id: str
+    payment_date: str
+    paid_by: str
+    transaction_ref: str
+    payment_method: Optional[str] = None
+
+
 class ReimbursementResponseSchema(BaseModel):
     """Schema for returning a reimbursement."""
     reimbursement_id: str
@@ -58,6 +67,7 @@ class ReimbursementResponseSchema(BaseModel):
     description: Optional[str] = None
     items: List[ReimbursementItemSchema]
     business_trip_meta: Optional[BusinessTripMetaSchema] = None
+    payment_proof: Optional[PaymentProofSchema] = None  # Payment proof when status is PAID or later
     created_at: str
     updated_at: str
 
@@ -69,6 +79,7 @@ class ReimbursementItemSummarySchema(BaseModel):
     sub_category: Optional[str] = None
     amount: float
     expense_date: Optional[str] = None
+    description: Optional[str] = None
 
 
 class ReimbursementListItemSchema(BaseModel):

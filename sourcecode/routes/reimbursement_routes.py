@@ -65,6 +65,14 @@ def _docToResponse(dictDoc: dict) -> ReimbursementResponseSchema:
     for objItem in lsItems:
         # Inject resolved name
         objItem["category_name"] = dictNameMap.get(str(objItem.get("category_id", "")))
+        # Ensure description is always valid for response validation.
+        strDesc = objItem.get("description")
+        if not isinstance(strDesc, str):
+            strDesc = str(strDesc) if strDesc is not None else ""
+        if len(strDesc.strip()) < 3:
+            objItem["description"] = "No description provided"
+        else:
+            objItem["description"] = strDesc
         # Convert datetime.date to string for JSON serialization
         if "expense_date" in objItem and hasattr(objItem["expense_date"], "isoformat"):
             objItem["expense_date"] = objItem["expense_date"].isoformat()
@@ -76,6 +84,21 @@ def _docToResponse(dictDoc: dict) -> ReimbursementResponseSchema:
             objMeta["from_date"] = objMeta["from_date"].isoformat()
         if "to_date" in objMeta and hasattr(objMeta["to_date"], "isoformat"):
             objMeta["to_date"] = objMeta["to_date"].isoformat()
+
+    # Normalize payment_proof for response (if present)
+    if dictDoc.get("payment_proof"):
+        try:
+            objProof = dict(dictDoc.get("payment_proof") or {})
+            # Ensure attachment_id is a string
+            if objProof.get("attachment_id"):
+                objProof["attachment_id"] = str(objProof.get("attachment_id"))
+            # Ensure dates are strings
+            if objProof.get("payment_date") and hasattr(objProof.get("payment_date"), "isoformat"):
+                objProof["payment_date"] = objProof.get("payment_date").isoformat()
+            dictDoc["payment_proof"] = objProof
+        except Exception:
+            # leave as-is on error
+            pass
 
     return ReimbursementResponseSchema(**dictDoc)
 
@@ -95,12 +118,15 @@ def _validateBusinessTripDates(objRequest: ReimbursementCreateRequest) -> None:
 
 
 def _validateCategoryLimits(lsItems: list) -> None:
-    """Reject any item whose amount exceeds the category's max_limit or skips a required invoice."""
+    """Reject any item whose amount exceeds the category's max_limit or skips a required invoice.
+    Also enforce that each item has a non-empty description as required by UI.
+    """
     if not lsItems:
         return
     objCats = get_collection("reimbursement_categories")
     dictCache: dict = {}
     for iIdx, objItem in enumerate(lsItems, start=1):
+        # objItem may be a Pydantic model or a plain dict
         strCatId = objItem.category_id if hasattr(objItem, "category_id") else objItem.get("category_id")
         if not strCatId:
             continue
@@ -121,6 +147,12 @@ def _validateCategoryLimits(lsItems: list) -> None:
                 status_code=400,
                 detail=f"Item {iIdx}: Amount ₹{numAmt:,.0f} exceeds the ₹{numLimit:,.0f} limit for '{dictCat.get('name')}'."
             )
+
+        # Description is now required per-row
+        strDesc = objItem.description if hasattr(objItem, "description") else objItem.get("description", "")
+        if not strDesc or strDesc.strip() == "":
+            raise HTTPException(status_code=400, detail=f"Item {iIdx}: Description is required for each expense row.")
+
         # All reimbursements require an invoice/attachment (global rule).
         lsAtt = objItem.attachments if hasattr(objItem, "attachments") else objItem.get("attachments", []) or []
         if not lsAtt:
@@ -187,6 +219,7 @@ def _buildItemSummaries(dictDoc: dict, dictNameMap: dict) -> list:
             sub_category=dictItem.get("sub_category"),
             amount=float(dictItem.get("amount", 0) or 0),
             expense_date=strDate,
+            description=dictItem.get("description", ""),
         ))
     return lsSummaries
 
@@ -256,8 +289,9 @@ async def updateDraft(
         if not dictOld:
             raise HTTPException(status_code=404, detail="Reimbursement not found")
         
-        if dictOld.get("status") != "DRAFT":
-            raise HTTPException(status_code=400, detail="Only DRAFT reimbursements can be edited")
+        # Allow editing when reimbursement is a draft or returned for re-apply/query
+        if dictOld.get("status") not in ("DRAFT", "QUERY_RAISED", "PRIVATE_ASK", "REAPPLIED", "CA_QUERY", "CA_REAPPLIED"):
+            raise HTTPException(status_code=400, detail="Only DRAFT or queried reimbursements can be edited by the initiator")
         
         dictUpdates = objRequest.model_dump(exclude_unset=True)
         if not dictUpdates:
@@ -306,8 +340,11 @@ async def submitReimbursement(
         if not dictOld:
             raise HTTPException(status_code=404, detail="Reimbursement not found")
 
-        if dictOld.get("status") != "DRAFT":
-            raise HTTPException(status_code=400, detail="Only DRAFT reimbursements can be submitted")
+        strCurrentStatus = dictOld.get("status")
+        bIsNewForm = strCurrentStatus == "DRAFT"
+        bReapplyForQueryOrAsk = (strCurrentStatus == "PRIVATE_ASK") or (strCurrentStatus == "QUERY_RAISED")
+        if (not bReapplyForQueryOrAsk) and (not bIsNewForm):
+            raise HTTPException(status_code=400, detail=f"Cannot Submit Existing Form {strCurrentStatus}")
 
         # Build approval chain
         lsChain = buildChain(strUserId)

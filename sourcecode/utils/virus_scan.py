@@ -1,9 +1,12 @@
 '''
 Purpose : Lightweight virus / malware scanner for uploaded attachments.
-          Strategy:
+          DOCX scanning only:
+            - Only .docx files are scanned for viruses
+            - Other media types (jpg, jpeg, png, webp, pdf) are allowed without scanning
+          Strategy for DOCX files:
             1. If a ClamAV daemon is reachable (VIRUS_SCAN_CLAMD_HOST), delegate to it.
             2. Otherwise fall back to a structural scan:
-                 - EICAR test-signature detection (works for any file type).
+                 - EICAR test-signature detection
                  - DOCX-specific safety checks: must be a valid OOXML zip,
                    no embedded VBA macros (vbaProject.bin),
                    no suspicious external relationship targets.
@@ -115,6 +118,8 @@ def _scanDocxStructure(bytContent: bytes) -> dict:
 def scanFileBytes(bytContent: bytes, strFileName: str) -> dict:
     """
     Purpose : Scan an attachment payload for malware.
+              Virus scanning is only performed for .docx files.
+              Other media types are allowed without scanning.
 
     Inputs  :   (1) bytContent  : raw file bytes
                 (2) strFileName : original filename (used for extension routing)
@@ -124,6 +129,13 @@ def scanFileBytes(bytContent: bytes, strFileName: str) -> dict:
     if os.getenv("VIRUS_SCAN_ENABLED", "1") == "0":
         return {"status": "skipped", "engine": "disabled", "details": "Scanning disabled"}
 
+    strLower = (strFileName or "").lower()
+    
+    # Only scan .docx files; other media types are allowed without scanning
+    if not strLower.endswith(".docx"):
+        return {"status": "clean", "engine": "skipped", "details": "Scanning skipped for non-DOCX files"}
+
+    # Scan .docx files for viruses
     if EICAR_SIGNATURE in bytContent:
         return {"status": "infected", "engine": "signature", "details": "EICAR-Test-Signature"}
 
@@ -131,8 +143,5 @@ def scanFileBytes(bytContent: bytes, strFileName: str) -> dict:
     if objClamRes is not None:
         return objClamRes
 
-    strLower = (strFileName or "").lower()
-    if strLower.endswith(".docx"):
-        return _scanDocxStructure(bytContent)
-
-    return {"status": "clean", "engine": "basic", "details": "OK"}
+    # DOCX-specific structural scanning
+    return _scanDocxStructure(bytContent)

@@ -40,7 +40,7 @@ def get_mongo_client() -> MongoClient:
     """
     global _objMongoClient
     if _objMongoClient is None:
-        objLogger.info(f"🔌 Connecting to MongoDB at {objSettings.MONGODB_URL}")
+        objLogger.info(f"Connecting to MongoDB at {objSettings.MONGODB_URL}")
         _objMongoClient = MongoClient(
             objSettings.MONGODB_URL,
             serverSelectionTimeoutMS=5000,

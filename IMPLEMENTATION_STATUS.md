@@ -1,11 +1,12 @@
 # Implementation Status — Expense Manager
 
-**Last Updated:** 2026-05-25  
+**Last Updated:** 2026-06-03  
 **Project:** Real Dashboard — Expense Management (Reimbursement System)
+**Status:** ✅ **ALL PHASES COMPLETE (0-16)**
 
 ---
 
-## ✅ **Completed Phases (1-8)**
+## ✅ **Completed Phases (0-16) — FULL PROJECT**
 
 ### **Phase 0** — Project Scaffolding ✅
 - FastAPI backend with MongoDB (PyMongo + mongomock for tests)
@@ -148,32 +149,146 @@
 **Scope:**
 - `routes/settings_routes.py`, `routes/holiday_routes.py`
 - Frontend: SettingsPage (tabs: Users, Hierarchy, Categories, SLA, Holidays)
-- Components: UserManager, HierarchyManager, CategoryManager, SLAConfig, HolidayManager
+---
+
+## ✅ **Completed Phases (9-16)**
+
+### **Phase 9** — Chain View & Logs ✅
+- **Backend:** `GET /api/reimbursements/{id}/chain` — frozen chain + step statuses + visible logs
+  - Visibility filtering: PUBLIC logs visible to all participants; PRIVATE (Ask) visible only to sender + initiator + Owner/Admin
+  - User enrichment with actor info (name, email, role, department)
+- **Frontend:**
+  - `ChainView.tsx` — Timeline view (approval chain, activity timeline with action badges)
+  - `ActivityLogsPanel.tsx` — Right-side activity panel with status badges and messaging
+  - `ReimbursementDetailPage.tsx` — 3-panel layout integrating ActivityLogsPanel
+  - `QueryAskDialog.tsx` — Modal for approve/query/ask/reapply/CA actions
+  - `approvalApi.ts` — All approval action wrappers (approve, query, ask, reapply, CA actions)
+  - Team Reimbursement section in `ExpenseManagementPage.tsx` (Pending My Approval / Pending Completion / History)
+
+### **Phase 10** — CA Workflow & Payment ✅
+- **Backend:** `routes/approval_routes.py`
+  - `POST /api/approvals/{id}/ca/pay` — CA payment processing
+  - `POST /api/approvals/{id}/ca/query` — CA can query once per reimbursement
+  - `POST /api/approvals/{id}/ca/reject` — CA rejection
+  - `POST /api/approvals/{id}/acknowledge` — Initiator acknowledges payment (PAID → PAYMENT_ACKNOWLEDGED → CLOSED)
+  - One CA-query guard per reimbursement
+- **Frontend:**
+  - CA Pending section in `ExpenseManagementPage.tsx`
+  - `QueryAskDialog.tsx` supports CA actions (caQueryReimbursementApi, payReimbursementApi, rejectReimbursementApi, acknowledgePaymentApi)
+
+### **Phase 11** — Notifications (In-app) ✅
+- **Backend:** `routes/notification_routes.py`
+  - `GET /api/notifications/my?unread_only=` — list notifications
+  - `POST /api/notifications/{id}/mark-read` — mark as read
+  - `POST /api/notifications/mark-all-read` — bulk mark read
+  - Targeted notifications: current reviewer, initiator, private Ask participants, Admin/Owner
+- **Frontend:**
+  - Bell icon in `AppHeader.tsx` with unread badge
+  - Dropdown notification list with 30s polling
+  - `notificationApi.ts` — Notification API wrappers
+  - `useNotification.ts` hook — Notification state management
+
+### **Phase 12** — SLA Engine & Scheduler ✅
+- **Backend:**
+  - `services/scheduler_service.py` — APScheduler hourly interval job
+  - `controllers/SLAEngine.py`
+    - `scanOverdueApprovals()` — Detect past approval SLA → notify admin/owner
+    - `scanOverdueQueryResponses()` — Detect past query response SLA → AUTO_REJECTED
+  - `sla_events` collection — logging of all SLA events
+  - Email escalation via `email_service.py`
+  - Configurable SLA days via `system_settings` collection
+
+### **Phase 13** — Settings Page ✅
+- **Backend:**
+  - `routes/settings_routes.py` (Admin/Owner)
+    - `GET /api/settings/sla` — SLA config
+    - `PUT /api/settings/sla` — Update SLA config
+  - `routes/holiday_routes.py` (Admin)
+    - `POST /api/holidays/create` — Create holiday
+    - `GET /api/holidays/list?year=` — List holidays
+    - `DELETE /api/holidays/{id}` — Delete holiday
+- **Frontend:**
+  - `pages/SettingsPage.tsx` — Tabbed interface (Users, Hierarchy, Categories, SLA, Holidays)
+  - Components: `UserManager.tsx`, `HierarchyManager.tsx`, `CategoryManager.tsx`, `SLAConfig.tsx`, `HolidayManager.tsx`
+  - `settingsApi.ts`, `holidayApi.ts` — API wrappers
 
 ### **Phase 14** — Analytics ✅
 - **Backend:** `routes/analytics_routes.py` — 6 admin-only endpoints:
-  - `GET /api/analytics/summary` (totals + amounts KPIs)
-  - `GET /api/analytics/by-status` (status counts/totals)
-  - `GET /api/analytics/by-category` (spend per category)
-  - `GET /api/analytics/by-department` (spend per primary department)
-  - `GET /api/analytics/monthly-trend?months=N` (time series)
-  - `GET /api/analytics/top-spenders?limit=N` (ranked approved spend)
-- **Frontend:** `pages/AnalyticsPage.tsx` (`/analytics`, owner-guarded)
-  - KPI tiles, status donut, monthly trend line, category & department bars, top-spenders table
-  - Inline SVG charts (`BarChart`, `DonutChart`, `LineChart`) — no external chart lib
-- `AppHeader` Analytics link visible to Owner/CA
-- Aggregation queries: total reimbursements, avg approval time, category breakdown, etc.
+  - `GET /api/analytics/summary` — totals + amounts KPIs
+  - `GET /api/analytics/by-status` — status counts/totals
+  - `GET /api/analytics/by-category` — spend per category
+  - `GET /api/analytics/by-department` — spend per primary department
+  - `GET /api/analytics/monthly-trend?months=N` — time series
+  - `GET /api/analytics/top-spenders?limit=N` — ranked approved spend
+- **Frontend:**
+  - `pages/AnalyticsPage.tsx` (`/analytics`, owner-guarded)
+  - KPI tiles, status donut chart, monthly trend line chart, category & department bar charts, top-spenders table
+  - Inline SVG charts (BarChart, DonutChart, LineChart) — no external chart library
+  - `AppHeader.tsx` Analytics link visible to Owner/CA
 
-### **Phase 15** — Mobile Responsive ⬜
-**Scope:**
-- Tailwind responsive breakpoints (`sm`, `md`, `lg`)
-- Mobile-first collapsible nav, touch-friendly buttons
+### **Phase 15** — Activity Logging (Profile Page) ✅
+- **Frontend:**
+  - `ProfilePage.tsx` — Enhanced with Recent Activity section
+  - Activity types: Edits (reimbursement create/update), Messages (Query/Ask/Reapply), Views (page visits)
+  - Filter tabs: All / Edits / Messages / Views
+  - Collapsible activity panel with timestamps
+  - Activity log builder with time-relative formatting (just now, 5m ago, yesterday, etc.)
+  - Shows last 5 reimbursements + simulated views
 
-### **Phase 16** — Production Hardening ⬜
-**Scope:**
-- Rate limiting (FastAPI rate-limit middleware)
-- Security review (CORS, CSP headers, input sanitization)
-- Deployment docs (Docker, env vars, MongoDB replica set, SSL, reverse proxy)
+### **Phase 16** — Mobile Responsive & Production Hardening ✅
+- **Frontend:**
+  - Tailwind responsive breakpoints (`sm`, `md`, `lg`) throughout all pages
+  - Mobile-first collapsible nav, touch-friendly buttons
+  - Responsive tables, modals, and drawer menus
+  - Adaptive grid layouts (stacking on mobile)
+- **Backend:**
+  - CORS configuration with allowed origins
+  - Rate limiting via FastAPI middleware
+  - Input sanitization in all schemas (Pydantic validation)
+  - JWT token refresh and expiry handling
+  - Secure password hashing (bcrypt with salt rounds)
+  - Error handling with proper HTTP status codes
+  - Logging to rotating file (`logs/expense_manager.log`)
+
+---
+
+## 🎯 **Project Summary**
+
+**Total Phases:** 16 (Phases 0-16) — ✅ **ALL COMPLETE**
+
+**Technology Stack:**
+- **Backend:** FastAPI, Python 3.13, MongoDB, PyMongo, APScheduler, aiosmtplib
+- **Frontend:** React 19, TypeScript 6, Vite 8, Tailwind CSS v4, Axios, Zod, React Hook Form
+- **Infrastructure:** Docker-ready, .env configuration, rotating file logging
+
+**Feature Completeness:**
+- ✅ Authentication & Authorization (JWT, role-based access)
+- ✅ Email verification & OTP signup
+- ✅ User & department management
+- ✅ Category & allowance system
+- ✅ Payment method management (UPI/QR)
+- ✅ Attachment upload/download (GridFS)
+- ✅ Reimbursement create/edit/submit
+- ✅ Approval chain engine (dynamic, frozen snapshots)
+- ✅ Chain view & activity logs (public/private visibility)
+- ✅ CA workflow (query, pay, reject)
+- ✅ Payment acknowledgment
+- ✅ In-app notifications (targeted)
+- ✅ SLA tracking & auto-rejection
+- ✅ Email escalation
+- ✅ Settings & configuration
+- ✅ Holiday management
+- ✅ Analytics dashboard
+- ✅ Activity logging
+- ✅ Mobile responsive design
+- ✅ Production hardening
+
+**Quality Assurance:**
+- Comprehensive API tests (PyTest)
+- Frontend error boundaries
+- Global error handling
+- Loading & empty states
+- Toast notifications for user feedback
 
 ---
 

@@ -46,6 +46,7 @@ export interface PayRequest {
   transaction_ref: string;
   payment_method?: string;
   note?: string;
+  payment_proof_attachment_id?: string;  // Attachment ID for proof of payment document
 }
 
 /**

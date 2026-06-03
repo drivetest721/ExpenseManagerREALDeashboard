@@ -1,6 +1,10 @@
 /**
  * NewReimbursementPage — composes the shared ReimbursementShell with the
  * General Expense / Business Trip variants.
+ * 
+ * Supports both Create and Edit modes:
+ *   Create: /expense/new/:formType
+ *   Edit:   /expense/edit/:id
  *
  * Business Trip mode:
  *   1. User picks From + To date in the pre-step.
@@ -12,7 +16,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Plane, CalendarRange, CalendarDays, CalendarCheck2 } from 'lucide-react';
+import { FileText, Plane, CalendarRange, CalendarDays, CalendarCheck2, ChevronLeft, ChevronRight } from 'lucide-react';
 import DateInputDDMMYYYY from '../components/common/DateInputDDMMYYYY';
 import ReimbursementShell from '../components/Reimbursement/shared/ReimbursementShell';
 import GeneralExpenseTable, {
@@ -35,19 +39,30 @@ import { useInvoicePreview } from '../components/Reimbursement/shared/useInvoice
 import { useReimbursementSave } from '../components/Reimbursement/shared/useReimbursementSave';
 import { listCategoriesApi } from '../utils/categoryApi';
 import { listMyPaymentMethodsApi } from '../utils/paymentMethodApi';
+import { getReimbursementDetailApi, updateDraftApi } from '../utils/reimbursementApi';
+import { reapplyReimbursementApi, caReapplyReimbursementApi } from '../utils/approvalApi';
 import type { Category } from '../types/category';
 import type { PaymentMethod } from '../types/paymentMethod';
-import type { FormType } from '../types/reimbursement';
+import type { FormType, ReimbursementStatus } from '../types/reimbursement';
+import type { FooterMode } from '../components/Reimbursement/shared/ReimbursementFooter';
 
 type RouteFormType = 'general' | 'business-trip';
 
 export default function NewReimbursementPage() {
-  const { formType } = useParams<{ formType: RouteFormType }>();
+  const { formType, id } = useParams<{ formType?: RouteFormType; id?: string }>();
   const navigate = useNavigate();
-  const bIsBusinessTrip = formType === 'business-trip';
+  const bIsEdit = !!id;
+
+  // In edit mode, bIsBusinessTrip is set from the loaded reimbursement (not the URL param).
+  // For create mode it comes straight from the URL param.
+  const [bIsBusinessTrip, setBIsBusinessTrip] = useState(formType === 'business-trip');
   const strFormTypeEnum: FormType = bIsBusinessTrip ? 'business_trip' : 'general';
 
   // ── State ──
+  const [bIsLoading, setBIsLoading] = useState(bIsEdit);
+  const [strReimbStatus, setStrReimbStatus] = useState<ReimbursementStatus>('DRAFT');
+  const [strReApplyMessage, setStrReApplyMessage] = useState('');
+  const [bIsReApplying, setBIsReApplying] = useState(false);
   const [lsCategories, setLsCategories] = useState<Category[]>([]);
   const [lsRows, setLsRows] = useState<ExpenseRow[]>([]);
   const [lsMatrixRows, setLsMatrixRows] = useState<MatrixRow[]>([
@@ -61,13 +76,74 @@ export default function NewReimbursementPage() {
   const [strTripFrom, setStrTripFrom] = useState('');
   const [strTripTo, setStrTripTo] = useState('');
   const [strError, setStrError] = useState('');
+  const [iLeftPageSize, setILeftPageSize] = useState(4);
+  const [iLeftPageIdx, setILeftPageIdx] = useState(0);
   const [objErrorField, setObjErrorField] = useState<ErrorField | null>(null);
   const [objMatrixErrorField, setObjMatrixErrorField] = useState<MatrixErrorField | null>(null);
+
+  // Derive footer mode from loaded status
+  const strFooterMode: FooterMode =
+    (strReimbStatus === 'QUERY_RAISED' || strReimbStatus === 'PRIVATE_ASK') ? 'reapply' :
+    strReimbStatus === 'CA_QUERY' ? 'ca-reapply' :
+    'normal';
 
   const preview = useInvoicePreview(setStrError);
 
   const lsDateRange = bIsBusinessTrip ? buildDateRange(strTripFrom, strTripTo) : [];
   const bShowMatrix = bIsBusinessTrip && lsDateRange.length > 0;
+  const iLeftRowCount = bShowMatrix ? lsMatrixRows.length : lsRows.length;
+  const iLeftPageCount = Math.max(1, Math.ceil(iLeftRowCount / iLeftPageSize));
+
+  useEffect(() => {
+    if (iLeftPageIdx >= iLeftPageCount) {
+      setILeftPageIdx(iLeftPageCount - 1);
+    }
+  }, [iLeftPageCount, iLeftPageIdx]);
+
+  useEffect(() => {
+    setILeftPageIdx(0);
+  }, [bIsBusinessTrip, bShowMatrix]);
+
+  const handleLeftRowAdded = () => {
+    const iNewRows = iLeftRowCount + 1;
+    setILeftPageIdx(Math.max(0, Math.ceil(iNewRows / iLeftPageSize) - 1));
+  };
+
+  const leftPanelToolbar = (
+    <div className="rounded-full border border-gray-200 bg-white/95 backdrop-blur-sm px-2 py-1.5 flex items-center gap-2 shadow-sm">
+      <label className="text-[10px] uppercase tracking-[0.12em] text-gray-500">Rows</label>
+      <select
+        value={iLeftPageSize}
+        onChange={e => setILeftPageSize(Number(e.target.value))}
+        className="h-8 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-700 focus:border-[#00703C] focus:ring-[#00703C]/30"
+      >
+        {[4, 6, 8, 12].map(size => (
+          <option key={size} value={size}>{size}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={() => setILeftPageIdx(i => Math.max(0, i - 1))}
+        disabled={iLeftPageIdx === 0}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 hover:border-[#00703C] hover:text-[#00703C]"
+        title="Previous page"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <div className="text-xs font-semibold text-gray-700">
+        {iLeftPageIdx + 1}/{iLeftPageCount}
+      </div>
+      <button
+        type="button"
+        onClick={() => setILeftPageIdx(i => Math.min(iLeftPageCount - 1, i + 1))}
+        disabled={iLeftPageIdx >= iLeftPageCount - 1}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 hover:border-[#00703C] hover:text-[#00703C]"
+        title="Next page"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
 
   // ── Auto-dismiss error ──
   useEffect(() => {
@@ -92,12 +168,83 @@ export default function NewReimbursementPage() {
         const objDefault = lsPms.find(pm => pm.is_default);
         if (objDefault) setStrSelectedPaymentMethod(objDefault.payment_method_id);
 
-        setLsRows([createEmptyRow(), createEmptyRow()]);
+        // If in edit mode, fetch and populate existing reimbursement data
+        if (bIsEdit && id) {
+          try {
+            const objReimb = await getReimbursementDetailApi(id);
+            setStrDescription(objReimb.description || '');
+            setStrReimbStatus(objReimb.status);
+            // Derive form type from loaded data (URL may not carry formType for edit route)
+            setBIsBusinessTrip(objReimb.form_type === 'business_trip');
+            
+            // Populate based on form type
+            if (objReimb.form_type === 'business_trip' && objReimb.business_trip_meta) {
+              setStrTripFrom(objReimb.business_trip_meta.from_date);
+              setStrTripTo(objReimb.business_trip_meta.to_date);
+              
+              // Convert items to matrix rows
+              const lsDateRange = buildDateRange(objReimb.business_trip_meta.from_date, objReimb.business_trip_meta.to_date);
+
+              // Group items by category, building a properly-typed MatrixRow map
+              const objCategoryMap: Record<string, MatrixRow> = {};
+              for (const item of objReimb.items) {
+                if (!objCategoryMap[item.category_id]) {
+                  const objCells: Record<string, { amount: number; attachments: string[]; _attachmentNames: string[]; useSameInvoice: boolean }> = {};
+                  for (const date of lsDateRange) {
+                    objCells[date] = { amount: 0, attachments: [], _attachmentNames: [], useSameInvoice: false };
+                  }
+                  objCategoryMap[item.category_id] = {
+                    category_id: item.category_id,
+                    sub_category: item.sub_category || '',
+                    cells: objCells,
+                  };
+                }
+                const dateKey = item.expense_date;
+                if (objCategoryMap[item.category_id].cells[dateKey] !== undefined) {
+                  const lsAttIds = item.attachments || [];
+                  objCategoryMap[item.category_id].cells[dateKey] = {
+                    amount: item.amount,
+                    attachments: lsAttIds,
+                    // Provide placeholder names so existing chips render and can be removed
+                    _attachmentNames: lsAttIds.map((_, j) => `Invoice ${j + 1}`),
+                    useSameInvoice: false,
+                  };
+                }
+              }
+              setLsMatrixRows(Object.values(objCategoryMap) as MatrixRow[]);
+            } else {
+              // General expenses - convert items to rows
+              const lsRows: ExpenseRow[] = objReimb.items.map(item => {
+                const lsAttIds = item.attachments || [];
+                return {
+                  category_id: item.category_id,
+                  sub_category: item.sub_category || '',
+                  amount: item.amount,
+                  expense_date: item.expense_date,
+                  description: item.description || '',
+                  attachments: lsAttIds,
+                  // Provide placeholder names so existing chips render and can be removed
+                  _attachmentNames: lsAttIds.map((_, j) => `Invoice ${j + 1}`),
+                  useSameInvoice: false,
+                };
+              });
+              setLsRows(lsRows.length > 0 ? lsRows : [createEmptyRow(), createEmptyRow()]);
+            }
+          } catch (objEditErr: any) {
+            setStrError(objEditErr?.response?.data?.detail || 'Failed to load reimbursement data. Please refresh the page.');
+          }
+        } else {
+          // Create mode - initialize empty rows
+          setLsRows([createEmptyRow(), createEmptyRow()]);
+        }
+        
+        setBIsLoading(false);
       } catch (objErr: any) {
         setStrError(objErr?.response?.data?.detail || 'Failed to load categories and payment methods. Please refresh the page.');
+        setBIsLoading(false);
       }
     })();
-  }, [bIsBusinessTrip]);
+  }, [bIsEdit, id, bIsBusinessTrip]);
 
   // ── Keep preview's attachment list in sync with active dataset ──
   useEffect(() => {
@@ -159,7 +306,41 @@ export default function NewReimbursementPage() {
     buildPayload,
     () => navigate('/expense'),
     setStrError,
+    id,
   );
+
+  // ── Re-Apply handler (QUERY_RAISED / PRIVATE_ASK / CA_QUERY) ───────────────
+  const handleReApply = async () => {
+    if (!id) return;
+    const objPayload = buildPayload();
+    if (!objPayload) return;
+    if (!strReApplyMessage.trim()) {
+      setStrError('Please provide a message before reapplying.');
+      return;
+    }
+    setBIsReApplying(true);
+    setStrError('');
+    try {
+      // Step 1: Persist the edited data
+      await updateDraftApi(id, {
+        description: objPayload.description,
+        items: objPayload.items,
+        business_trip_meta: objPayload.business_trip_meta,
+      });
+      // Step 2: Transition the state machine
+      if (strReimbStatus === 'CA_QUERY') {
+        await caReapplyReimbursementApi(id, strReApplyMessage.trim());
+      } else {
+        await reapplyReimbursementApi(id, strReApplyMessage.trim());
+      }
+      // After successful re-apply, redirect to the reimbursement detail page
+      navigate(`/expense/detail/${id}`);
+    } catch (objErr: any) {
+      setStrError(objErr?.response?.data?.detail || 'Re-apply failed. Please try again.');
+    } finally {
+      setBIsReApplying(false);
+    }
+  };
 
   const handleCancel = () => {
     const bGeneralHasData = lsRows.some(
@@ -237,6 +418,9 @@ export default function NewReimbursementPage() {
         bShowDescription={bShowDescription}
         setBShowDescription={setBShowDescription}
         lsAllAttachments={preview.lsAllAttachments}
+        iPageSize={iLeftPageSize}
+        iPageIdx={iLeftPageIdx}
+        onRowAdded={handleLeftRowAdded}
       />
     ) : (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
@@ -263,18 +447,52 @@ export default function NewReimbursementPage() {
       setStrDescription={setStrDescription}
       bShowDescription={bShowDescription}
       setBShowDescription={setBShowDescription}
+      iPageSize={iLeftPageSize}
+      iPageIdx={iLeftPageIdx}
+      onRowAdded={handleLeftRowAdded}
     />
   );
+
+  // Show loading screen while fetching edit data
+  if (bIsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="inline-flex h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-[#00703C] mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading reimbursement details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Compute titles based on mode
+  const strTripLabel = bIsBusinessTrip ? 'Business Trip' : 'General Expense';
+  const strTitle = bIsEdit
+    ? strFooterMode !== 'normal'
+      ? `Re-Apply — ${strTripLabel} Reimbursement`
+      : `Edit ${strTripLabel} Reimbursement`
+    : `New ${strTripLabel} Reimbursement`;
+
+  const strSubtitle = bIsEdit
+    ? strFooterMode === 'reapply'
+      ? 'Update your reimbursement and reapply after the manager\'s query'
+      : strFooterMode === 'ca-reapply'
+      ? 'Update your reimbursement and reapply after the CA\'s query'
+      : 'Update your reimbursement details'
+    : 'Fill in expense details, upload invoices, and submit for approval';
+
+  const bAnySaving = bIsSaving || bIsReApplying;
 
   return (
     <ReimbursementShell
       icon={bIsBusinessTrip ? <Plane className="w-8 h-8" /> : <FileText className="w-8 h-8" />}
-      title={bIsBusinessTrip ? 'New Business Trip Reimbursement' : 'New General Expense Reimbursement'}
-      subtitle="Fill in expense details, upload invoices, and submit for approval"
+      title={strTitle}
+      subtitle={strSubtitle}
       onCancel={handleCancel}
       strError={strError}
       onClearError={() => setStrError('')}
       preStep={preStep}
+      leftPanelToolbar={leftPanelToolbar}
       leftPanel={leftPanel}
       lsAllAttachments={preview.lsAllAttachments}
       iPreviewIdx={preview.iPreviewIdx}
@@ -285,9 +503,13 @@ export default function NewReimbursementPage() {
       lsPaymentMethods={lsPaymentMethods}
       strSelectedPaymentMethod={strSelectedPaymentMethod}
       onSelectPaymentMethod={setStrSelectedPaymentMethod}
-      bIsSaving={bIsSaving}
+      bIsSaving={bAnySaving}
       onSaveDraft={() => save(false)}
       onSubmit={() => save(true)}
+      strFooterMode={strFooterMode}
+      strReApplyMessage={strReApplyMessage}
+      onReApplyMessageChange={setStrReApplyMessage}
+      onReApply={handleReApply}
     />
   );
 }

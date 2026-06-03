@@ -32,6 +32,14 @@ export interface BusinessTripMeta {
   to_date: string;   // YYYY-MM-DD
 }
 
+export interface PaymentProof {
+  attachment_id: string;
+  payment_date: string; // ISO datetime
+  paid_by: string; // user_id
+  transaction_ref: string;
+  payment_method?: string;
+}
+
 export interface Reimbursement {
   reimbursement_id: string;
   reimbursement_code?: string;  // e.g. RB-2026-000001
@@ -42,6 +50,7 @@ export interface Reimbursement {
   description?: string;
   items: ReimbursementItem[];
   business_trip_meta?: BusinessTripMeta;
+  payment_proof?: PaymentProof;  // Payment proof when status is PAID or later
   created_at: string;
   updated_at: string;
 }
@@ -52,6 +61,7 @@ export interface ReimbursementItemSummary {
   sub_category?: string;
   amount: number;
   expense_date?: string;
+  description?: string;
 }
 
 export interface ReimbursementListItem {
@@ -76,6 +86,7 @@ export interface ReimbursementCreateRequest {
 }
 
 export interface ReimbursementUpdateRequest {
+  description?: string;
   items?: ReimbursementItem[];
   business_trip_meta?: BusinessTripMeta;
 }

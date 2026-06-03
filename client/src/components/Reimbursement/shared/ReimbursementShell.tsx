@@ -17,6 +17,7 @@ import ErrorToast from './ErrorToast';
 import InvoicePreviewPanel from './InvoicePreviewPanel';
 import RightSidebar from './RightSidebar';
 import ReimbursementFooter from './ReimbursementFooter';
+import type { FooterMode } from './ReimbursementFooter';
 import { useResizablePanels } from './useResizablePanels';
 import type { AttachmentMeta } from '../../../utils/attachmentApi';
 import type { PaymentMethod } from '../../../types/paymentMethod';
@@ -31,6 +32,9 @@ interface Props {
   // Errors
   strError: string;
   onClearError: () => void;
+
+  // Left panel toolbar slot (pagination/controls next to collapse button)
+  leftPanelToolbar?: ReactNode;
 
   // Optional row above the 3-pane area (e.g. business trip date range)
   preStep?: ReactNode;
@@ -58,6 +62,12 @@ interface Props {
   bIsSaving?: boolean;
   onSaveDraft?: () => void;
   onSubmit?: () => void;
+
+  // Re-apply mode (QUERY_RAISED / PRIVATE_ASK / CA_QUERY)
+  strFooterMode?: FooterMode;
+  strReApplyMessage?: string;
+  onReApplyMessageChange?: (msg: string) => void;
+  onReApply?: () => void;
 }
 
 export default function ReimbursementShell(props: Props) {
@@ -66,10 +76,13 @@ export default function ReimbursementShell(props: Props) {
     strError, onClearError,
     preStep,
     leftPanel,
+    leftPanelToolbar,
     lsAllAttachments, iPreviewIdx, setIPreviewIdx, objPreviewMeta, strPreviewUrl, bScanning,
     lsPaymentMethods, strSelectedPaymentMethod, onSelectPaymentMethod,
     rightPanelOverride,
     bIsSaving, onSaveDraft, onSubmit,
+    strFooterMode: _strFooterMode, strReApplyMessage: _strReApplyMessage,
+    onReApplyMessageChange: _onReApplyMessageChange, onReApply: _onReApply,
   } = props;
 
   const {
@@ -118,9 +131,16 @@ export default function ReimbursementShell(props: Props) {
         {/* LEFT */}
         {!bLeftCollapsed && (
           <div
-            className="bg-white border-2 border-r-0 border-gray-300 shadow-lg p-5 flex flex-col overflow-hidden transition-all duration-500 relative"
+            className={`bg-white border-2 border-r-0 border-gray-300 shadow-lg p-5 flex flex-col overflow-hidden transition-all duration-500 relative ${
+              leftPanelToolbar ? 'pt-16' : ''
+            }`}
             style={{ width: `${getActualLeftWidth()}%`, minWidth: '350px' }}
           >
+            {leftPanelToolbar && (
+              <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
+                {leftPanelToolbar}
+              </div>
+            )}
             <button
               onClick={toggleLeftCollapse}
               className="absolute top-2 right-2 z-20 p-1.5 bg-[#00703C] hover:bg-[#005a30] text-white rounded-lg shadow-md transition-all hover:scale-110 cursor-pointer"
@@ -220,6 +240,10 @@ export default function ReimbursementShell(props: Props) {
           bIsSaving={bIsSaving ?? false}
           onSaveDraft={onSaveDraft}
           onSubmit={onSubmit}
+          strMode={_strFooterMode}
+          strReApplyMessage={_strReApplyMessage}
+          onReApplyMessageChange={_onReApplyMessageChange}
+          onReApply={_onReApply}
         />
       )}
     </div>

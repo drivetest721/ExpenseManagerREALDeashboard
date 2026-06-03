@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ChevronDown, ChevronRight, AlertTriangle, FileText, Clock, BookOpen,
+  ChevronDown, ChevronRight, ChevronUp, FileText, Clock, BookOpen,
   UserCheck, RefreshCw, Users, Plus, CheckCircle2, BarChart2, Calendar,
 } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
@@ -17,7 +17,7 @@ import { listMyReimbursementsApi, listTeamReimbursementsApi } from '../utils/rei
 import type { ReimbursementListItem } from '../types/reimbursement';
 import { useAuth } from '../hooks/useAuth';
 import FormTypeSelectionModal from '../components/Reimbursement/FormTypeSelectionModal';
-import { getSLAOverdueCountApi } from '../utils/slaApi';
+
 
 type SectionTone = 'gray' | 'amber' | 'slate' | 'indigo' | 'cyan' | 'teal';
 
@@ -67,6 +67,9 @@ export default function ExpenseManagementPage() {
   // Modal state
   const [bShowNewModal, setBShowNewModal] = useState<boolean>(false);
 
+  // Per-section column sort state
+  const [dictSort, setDictSort] = useState<Record<string, { col: string; dir: 'asc' | 'desc' }>>({});
+
   // Expense Report state
   const [strReportFrom, setStrReportFrom] = useState<string>('');
   const [strReportTo, setStrReportTo] = useState<string>('');
@@ -84,12 +87,6 @@ export default function ExpenseManagementPage() {
     }
   }, [searchParams, navigate]);
 
-  // SLA overdue count (admins/owners)
-  const [iSLAOverdue, setISLAOverdue] = useState<number>(0);
-  const bIsAdmin = !!objUser && (objUser.departments || []).some(
-    (d) => ['owner', 'ca'].includes(d.role)
-  );
-
   // Show Team section only for users in reviewer roles
   const bShowTeam = !!objUser && (objUser.departments || []).some(
     (d) => ['owner', 'manager', 'senior_manager', 'ca'].includes(d.role)
@@ -97,10 +94,7 @@ export default function ExpenseManagementPage() {
 
   useEffect(() => {
     fetchAll();
-    if (bIsAdmin) {
-      getSLAOverdueCountApi().then(setISLAOverdue).catch(() => setISLAOverdue(0));
-    }
-  }, [bShowTeam, bIsAdmin]);
+  }, [bShowTeam]);
 
   async function fetchAll() {
     setBIsLoading(true);
@@ -120,6 +114,7 @@ export default function ExpenseManagementPage() {
       }
       const lsResults = await Promise.all(lsPromises);
       setLsDrafts(lsResults[0]);
+      console.log('Fetched drafts:', lsResults[0]);
       setLsPending(lsResults[1]);
       setLsHistory(lsResults[2]);
       if (bShowTeam) {
@@ -135,15 +130,40 @@ export default function ExpenseManagementPage() {
   }
 
   // ── helpers ─────────────────────────────────────────────────────────────────
+
+  // Sort helpers
+  function getSortState(strKey: string) {
+    return dictSort[strKey] ?? { col: 'date', dir: 'desc' as 'asc' | 'desc' };
+  }
+  function toggleSort(strKey: string, strCol: string) {
+    setDictSort(prev => {
+      const cur = prev[strKey] ?? { col: 'date', dir: 'desc' as 'asc' | 'desc' };
+      return { ...prev, [strKey]: { col: strCol, dir: cur.col === strCol && cur.dir === 'asc' ? 'desc' : 'asc' } };
+    });
+  }
+
   const STATUS_COLORS: Record<string, string> = {
-    DRAFT: 'bg-gray-100 text-gray-700', SUBMITTED: 'bg-blue-100 text-blue-700',
-    IN_REVIEW: 'bg-yellow-100 text-yellow-700', QUERY_RAISED: 'bg-orange-100 text-orange-700',
-    PRIVATE_ASK: 'bg-orange-100 text-orange-700', REAPPLIED: 'bg-blue-100 text-blue-700',
-    OWNER_APPROVED: 'bg-green-100 text-green-700', CA_PENDING: 'bg-purple-100 text-purple-700',
-    CA_QUERY: 'bg-orange-100 text-orange-700', CA_REAPPLIED: 'bg-blue-100 text-blue-700',
-    PAID: 'bg-emerald-100 text-emerald-700', PAYMENT_ACKNOWLEDGED: 'bg-teal-100 text-teal-700',
-    REJECTED: 'bg-red-100 text-red-700', AUTO_REJECTED: 'bg-red-200 text-red-800',
-    CLOSED: 'bg-gray-200 text-gray-600',
+    // Grey — saved but not yet acted on
+    DRAFT: 'bg-gray-100 text-gray-600 border border-gray-300',
+    // Blue — in motion through the approval pipeline
+    SUBMITTED: 'bg-blue-100 text-blue-700',
+    IN_REVIEW: 'bg-blue-100 text-blue-700',
+    // Yellow — query raised, awaiting applicant response
+    QUERY_RAISED: 'bg-yellow-100 text-yellow-700',
+    PRIVATE_ASK: 'bg-yellow-100 text-yellow-700',
+    CA_QUERY: 'bg-yellow-100 text-yellow-700',
+    // Amber / yellowish — query answered, resubmitted
+    REAPPLIED: 'bg-amber-100 text-amber-700',
+    CA_REAPPLIED: 'bg-amber-100 text-amber-700',
+    // Green — approved or paid
+    OWNER_APPROVED: 'bg-green-100 text-green-700',
+    CA_PENDING: 'bg-green-100 text-green-700',
+    PAID: 'bg-emerald-100 text-emerald-700',
+    PAYMENT_ACKNOWLEDGED: 'bg-emerald-100 text-emerald-700',
+    CLOSED: 'bg-emerald-100 text-emerald-700',
+    // Red — rejected
+    REJECTED: 'bg-red-100 text-red-700',
+    AUTO_REJECTED: 'bg-red-200 text-red-800',
   };
   const PAID_STATUSES = new Set(['PAID', 'PAYMENT_ACKNOWLEDGED', 'CLOSED']);
 
@@ -164,6 +184,8 @@ export default function ExpenseManagementPage() {
       strDisplay = 'PAYMENT RECEIVED';
     } else if (s === 'AUTO_REJECTED') {
       strDisplay = '⏰ AUTO REJECTED';
+    } else if (s === 'PRIVATE_ASK' || s==="QUERY_RAISED") {
+      strDisplay = 'QUERY';
     } else {
       strDisplay = s.replace(/_/g, ' ');
     }
@@ -174,20 +196,76 @@ export default function ExpenseManagementPage() {
     );
   }
 
-  /** Render table for DRAFT section (no Status, no Date of Payment columns) */
-  function renderDraftTable(lsItems: ReimbursementListItem[]) {
+  /**
+   * Unified table renderer used by all 6 sections.
+   *
+   * @param lsItems        — source data
+   * @param strKey         — unique key for per-section sort state
+   * @param bShowInitiator — show Applicant column (team views)
+   * @param bShowStatus    — show Status column (false for Drafts)
+   * @param bIsHistory     — show Date of Payment column (History only)
+   */
+  function renderReimbTable(
+    lsItems: ReimbursementListItem[],
+    strKey: string,
+    bShowInitiator: boolean,
+    bShowStatus: boolean,
+    bIsHistory: boolean,
+  ) {
     if (lsItems.length === 0) return null;
 
-    // Flatten: each reimbursement expands into its items (or 1 fallback row if empty)
-    type FlatRow = { reimb: ReimbursementListItem; itemIdx: number; isFirst: boolean };
-    const lsRows: FlatRow[] = [];
-    for (const reimb of lsItems) {
-      const count = (reimb.items ?? []).length;
-      if (count === 0) {
-        lsRows.push({ reimb, itemIdx: -1, isFirst: true });
-      } else {
-        reimb.items.forEach((_, i) => lsRows.push({ reimb, itemIdx: i, isFirst: i === 0 }));
+    const { col: strSortCol, dir: strSortDir } = getSortState(strKey);
+
+    // Sort at reimbursement level so grouped item rows stay together
+    const lsSorted = [...lsItems].sort((a, b) => {
+      let nCmp = 0;
+      switch (strSortCol) {
+        case 'applicant': nCmp = (a.initiator_name ?? '').localeCompare(b.initiator_name ?? ''); break;
+        case 'category':  nCmp = (a.items[0]?.category_name ?? '').localeCompare(b.items[0]?.category_name ?? ''); break;
+        case 'sub':       nCmp = (a.items[0]?.sub_category ?? '').localeCompare(b.items[0]?.sub_category ?? ''); break;
+        case 'desc':      nCmp = (a.description ?? '').localeCompare(b.description ?? ''); break;
+        case 'status':    nCmp = (a.status ?? '').localeCompare(b.status ?? ''); break;
+        case 'date':      nCmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break;
+        case 'payment':   nCmp = (a.updated_at ?? '').localeCompare(b.updated_at ?? ''); break;
+        case 'amount':    nCmp = a.total_amount - b.total_amount; break;
+        case 'desc':      nCmp = (a.description ?? '').localeCompare(b.description ?? ''); break;
       }
+      return strSortDir === 'asc' ? nCmp : -nCmp;
+    });
+
+    // Flatten: each reimbursement → one row per item (fallback: 1 row if empty)
+    type FlatRow = { reimb: ReimbursementListItem; itemIdx: number; isFirst: boolean; isLast: boolean };
+    const lsFlatRows: FlatRow[] = [];
+    for (const reimb of lsSorted) {
+      const nCount = (reimb.items ?? []).length;
+      if (nCount === 0) {
+        lsFlatRows.push({ reimb, itemIdx: -1, isFirst: true, isLast: true });
+      } else {
+        reimb.items.forEach((_, i) =>
+          lsFlatRows.push({ reimb, itemIdx: i, isFirst: i === 0, isLast: i === nCount - 1 })
+        );
+      }
+    }
+
+    /** Sortable column header */
+    function thSort(strLabel: string, strCol: string, strAlign: 'center' | 'right' = 'center') {
+      const bActive = strSortCol === strCol;
+      return (
+        <th
+          key={strCol}
+          onClick={() => toggleSort(strKey, strCol)}
+          className={`px-4 py-3 text-${strAlign} whitespace-nowrap border-r border-gray-200
+            cursor-pointer select-none hover:bg-gray-200/70 transition-colors group`}
+        >
+          <span className="inline-flex items-center justify-center gap-1">
+            {strLabel}
+            <span className={`inline-flex flex-col -space-y-1.5 transition-opacity ${bActive ? 'opacity-100' : 'opacity-20 group-hover:opacity-50'}`}>
+              <ChevronUp className={`w-2.5 h-2.5 ${bActive && strSortDir === 'asc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
+              <ChevronDown className={`w-2.5 h-2.5 ${bActive && strSortDir === 'desc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
+            </span>
+          </span>
+        </th>
+      );
     }
 
     return (
@@ -195,126 +273,92 @@ export default function ExpenseManagementPage() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-100/80 text-xs font-bold text-gray-500 uppercase tracking-wider">
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-l border-r border-gray-200">Category</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">Sub Category</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">Date of Application</th>
-              <th className="px-4 py-3 text-right whitespace-nowrap cursor-default border-r border-gray-200">Amount</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200"></th>
+              {bShowInitiator && thSort('Applicant', 'applicant')}
+              {thSort('Category', 'category')}
+              {thSort('Sub Category', 'sub')}
+              {/* Description — not sortable inline per-item, sorted by reimbursement description */}
+              <th
+                onClick={() => toggleSort(strKey, 'desc')}
+                className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200 cursor-pointer select-none hover:bg-gray-200/70 transition-colors group"
+              >
+                <span className="inline-flex items-center gap-1">
+                  Description
+                  <span className={`inline-flex flex-col -space-y-1.5 transition-opacity ${strSortCol === 'desc' ? 'opacity-100' : 'opacity-20 group-hover:opacity-50'}`}>
+                    <ChevronUp className={`w-2.5 h-2.5 ${strSortCol === 'desc' && strSortDir === 'asc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
+                    <ChevronDown className={`w-2.5 h-2.5 ${strSortCol === 'desc' && strSortDir === 'desc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
+                  </span>
+                </span>
+              </th>
+              {bShowStatus && thSort('Status', 'status')}
+              {thSort('Date Applied', 'date')}
+              {bIsHistory && thSort('Date of Payment', 'payment')}
+              {thSort('Amount', 'amount', 'right')}
             </tr>
           </thead>
           <tbody>
-            {lsRows.map(({ reimb, itemIdx, isFirst }) => {
-              const item = itemIdx >= 0 ? reimb.items[itemIdx] : null;
-              return (
-                <tr key={`${reimb.reimbursement_id}-${itemIdx}`} className="bg-white hover:bg-gray-50/60 transition-colors">
-                  <td className="px-4 py-3 text-center text-gray-800 font-medium whitespace-nowrap cursor-default border-l border-r border-gray-200">
-                    {item?.category_name ?? <span className="text-gray-400 italic">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap cursor-default border-r border-gray-200">
-                    {item?.sub_category ?? <span className="text-gray-400 italic">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap cursor-default border-r border-gray-200">
-                    {isFirst ? fmtDate(reimb.created_at) : null}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap cursor-default border-r border-gray-200">
-                    {fmtAmt(item ? item.amount : reimb.total_amount)}
-                  </td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-                    {isFirst ? (
-                      <button
-                        onClick={() => window.open(`/expense/detail/${reimb.reimbursement_id}`, '_blank')}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold cursor-pointer transition-colors"
-                      >
-                        View
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  /** Render a full <table> for a section. Each item within each reimbursement is one row. */
-  function renderTable(lsItems: ReimbursementListItem[], bShowInitiator = false) {
-    if (lsItems.length === 0) return null;
-
-    // Flatten: each reimbursement expands into its items (or 1 fallback row if empty)
-    type FlatRow = { reimb: ReimbursementListItem; itemIdx: number; isFirst: boolean };
-    const lsRows: FlatRow[] = [];
-    for (const reimb of lsItems) {
-      const count = (reimb.items ?? []).length;
-      if (count === 0) {
-        lsRows.push({ reimb, itemIdx: -1, isFirst: true });
-      } else {
-        reimb.items.forEach((_, i) => lsRows.push({ reimb, itemIdx: i, isFirst: i === 0 }));
-      }
-    }
-
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-gray-100/80 text-xs font-bold text-gray-500 uppercase tracking-wider">
-              {bShowInitiator && <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-l border-r border-gray-200">Applicant</th>}
-              <th className={`px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200 ${!bShowInitiator ? 'border-l' : ''}`}>Category</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">Sub Category</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">Status</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">Date of Application</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">Date of Payment</th>
-              <th className="px-4 py-3 text-right whitespace-nowrap cursor-default border-r border-gray-200">Amount</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {lsRows.map(({ reimb, itemIdx, isFirst }) => {
+            {lsFlatRows.map(({ reimb, itemIdx, isFirst, isLast }) => {
               const item = itemIdx >= 0 ? reimb.items[itemIdx] : null;
               const bPaid = PAID_STATUSES.has(reimb.status);
+              const strDesc = itemIdx >= 0 ? item?.description : null;
               return (
-                <tr key={`${reimb.reimbursement_id}-${itemIdx}`} className="bg-white hover:bg-gray-50/60 transition-colors">
+                <tr
+                  key={`${reimb.reimbursement_id}-${itemIdx}`}
+                  onClick={() => navigate(`/expense/detail/${reimb.reimbursement_id}`)}
+                  className={`bg-white hover:bg-blue-50/50 transition-colors cursor-pointer
+                    ${isFirst ? 'border-t border-gray-200' : ''}
+                    ${isLast ? 'border-b-2 border-gray-200' : ''}`}
+                >
                   {bShowInitiator && (
-                    <td className="px-4 py-3 text-center whitespace-nowrap cursor-default border-l border-r border-gray-200">
+                    <td className="px-4 py-3 text-center whitespace-nowrap border-l border-r border-gray-200">
+                      {isFirst
+                        ? <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">{reimb.initiator_name}</span>
+                        : null}
+                    </td>
+                  )}
+                  {/* Category */}
+                  <td className={`px-4 py-3 text-center text-gray-800 font-medium whitespace-nowrap border-r border-gray-200 ${!bShowInitiator ? 'border-l' : ''}`}>
+                    {item?.category_name ?? <span className="text-gray-400 italic">—</span>}
+                  </td>
+                  {/* Sub Category */}
+                  <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200">
+                    {item?.sub_category ?? <span className="text-gray-400 italic">—</span>}
+                  </td>
+                  {/* Description — show on first row only; truncate with full-text tooltip */}
+                  <td
+                    className="px-4 py-3 text-center text-gray-600 border-r border-gray-200 max-w-[200px]"
+                    title={strDesc || undefined}
+                  >
+                    {isFirst && strDesc
+                      ? <span className="block truncate text-xs">{strDesc}</span>
+                      : isFirst
+                      ? <span className="text-gray-300 italic text-xs">—</span>
+                      : null}
+                  </td>
+                  {/* Status */}
+                  {bShowStatus && (
+                    <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
+                      {isFirst ? statusBadge(reimb.status) : null}
+                    </td>
+                  )}
+                  {/* Date Applied */}
+                  <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200">
+                    {isFirst ? fmtDate(reimb.created_at) : null}
+                  </td>
+                  {/* Date of Payment — History only */}
+                  {bIsHistory && (
+                    <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
                       {isFirst ? (
-                        <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">{reimb.initiator_name}</span>
+                        bPaid
+                          ? <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-xs">
+                              <CheckCircle2 className="w-3.5 h-3.5" />{fmtDate(reimb.updated_at)}
+                            </span>
+                          : <span className="text-gray-400 italic text-xs">Pending</span>
                       ) : null}
                     </td>
                   )}
-                  <td className={`px-4 py-3 text-center text-gray-800 font-medium whitespace-nowrap cursor-default border-r border-gray-200 ${!bShowInitiator ? 'border-l' : ''}`}>
-                    {item?.category_name ?? <span className="text-gray-400 italic">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap cursor-default border-r border-gray-200">
-                    {item?.sub_category ?? <span className="text-gray-400 italic">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">
-                    {isFirst ? statusBadge(reimb.status) : null}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap cursor-default border-r border-gray-200">
-                    {isFirst ? fmtDate(reimb.created_at) : null}
-                  </td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap cursor-default border-r border-gray-200">
-                    {isFirst ? (
-                      bPaid ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-xs">
-                          <CheckCircle2 className="w-3.5 h-3.5" />{fmtDate(reimb.updated_at)}
-                        </span>
-                      ) : <span className="text-gray-400 italic text-xs">Pending</span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap cursor-default border-r border-gray-200">
+                  {/* Amount */}
+                  <td className="px-4 py-3 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap border-r border-gray-200">
                     {fmtAmt(item ? item.amount : reimb.total_amount)}
-                  </td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-                    {isFirst ? (
-                      <button
-                        onClick={() => window.open(`/expense/detail/${reimb.reimbursement_id}`, '_blank')}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold cursor-pointer transition-colors"
-                      >
-                        View
-                      </button>
-                    ) : null}
                   </td>
                 </tr>
               );
@@ -332,16 +376,20 @@ export default function ExpenseManagementPage() {
     fnToggle: () => void,
     lsItems: ReimbursementListItem[],
     strEmptyMsg: string,
+    strSectionKey: string,        // unique key for sort state
     bShowInitiator = false,
-    bIsDraft = false,
+    bShowStatus = true,           // false for Draft (all rows are DRAFT)
+    bIsHistory = false,           // true → show Date of Payment column
   ) {
     const objTone = DICT_TONES[objMeta.strTone];
     const { IconHead } = objMeta;
     return (
       <div className={`border border-gray-200 border-l-4 ${objTone.strBar} rounded-2xl mb-3 bg-white shadow-sm overflow-hidden`}>
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={fnToggle}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fnToggle(); } }}
           className="w-full flex items-center justify-between px-4 sm:px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors text-left"
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -351,7 +399,7 @@ export default function ExpenseManagementPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h4 className="text-base font-bold text-gray-900 truncate">{objMeta.strTitle}</h4>
-                <InfoButton text={objMeta.strInfo} strPlacement="bottom" />
+                <InfoButton text={objMeta.strInfo} strPlacement="bottom" asDiv />
               </div>
               <p className="text-xs text-gray-500 mt-0.5 truncate">{objMeta.strSubtitle}</p>
             </div>
@@ -364,7 +412,7 @@ export default function ExpenseManagementPage() {
               ? <ChevronDown className="w-5 h-5 text-gray-500" />
               : <ChevronRight className="w-5 h-5 text-gray-500" />}
           </div>
-        </button>
+        </div>
 
         {bExpanded && (
           <div className="border-t border-gray-100 bg-gray-50/60">
@@ -373,8 +421,8 @@ export default function ExpenseManagementPage() {
                 <p className="text-sm text-gray-500 cursor-default">{strEmptyMsg}</p>
               </div>
             ) : (
-              <div className="max-h-[480px] overflow-auto custom-scrollbar">
-                {bIsDraft ? renderDraftTable(lsItems) : renderTable(lsItems, bShowInitiator)}
+              <div className="max-h-[520px] overflow-auto custom-scrollbar">
+                {renderReimbTable(lsItems, strSectionKey, bShowInitiator, bShowStatus, bIsHistory)}
               </div>
             )}
           </div>
@@ -504,14 +552,14 @@ export default function ExpenseManagementPage() {
     <>
       <AppHeader />
       <main className="min-h-screen bg-gray-50 py-6 px-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-[1400px] mx-auto">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 cursor-default">Expense Management</h2>
                 <InfoButton
                   text="Create, submit and track your reimbursement requests. Use the collapsible sections below to review drafts, pending items and history."
-                  strPlacement="bottom"
+                  strPlacement="right"
                   strSize="md"
                 />
               </div>
@@ -536,7 +584,7 @@ export default function ExpenseManagementPage() {
           </div>
 
           {/* SLA Overdue Banner — Admins / Owners only */}
-          {bIsAdmin && iSLAOverdue > 0 && (
+          {/* {bIsAdmin && iSLAOverdue > 0 && (
             <div className="flex items-center gap-3 bg-red-50 border border-red-300 rounded-lg px-4 py-3 mb-4">
               <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
               <p className="text-sm text-red-700 font-medium">
@@ -544,7 +592,7 @@ export default function ExpenseManagementPage() {
                 <a href="/settings" className="ml-2 underline text-red-700 hover:text-red-900">View in Settings → SLA</a>
               </p>
             </div>
-          )}
+          )} */}
 
           {strError && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-4 cursor-default">
@@ -562,8 +610,11 @@ export default function ExpenseManagementPage() {
             <>
               {/* Personal Reimbursement Section — Collapsible with Blue Background */}
               <div className="mb-6 bg-blue-50 rounded-xl border-2 border-blue-200 overflow-hidden shadow-sm">
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setBPersonalExpanded(!bPersonalExpanded)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBPersonalExpanded(!bPersonalExpanded); } }}
                   className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-100 to-blue-50 hover:from-blue-200 hover:to-blue-100 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
@@ -577,6 +628,7 @@ export default function ExpenseManagementPage() {
                     <InfoButton
                       text="Your own reimbursements grouped by status: drafts you can edit, items awaiting approval, and completed records."
                       strPlacement="bottom"
+                      asDiv
                     />
                   </div>
                   <div className="flex items-center gap-3">
@@ -589,7 +641,7 @@ export default function ExpenseManagementPage() {
                       <ChevronRight className="w-6 h-6 text-gray-700" />
                     )}
                   </div>
-                </button>
+                </div>
 
                 {bPersonalExpanded && (
                   <div className="p-4 bg-white">
@@ -600,8 +652,10 @@ export default function ExpenseManagementPage() {
                       () => setBDraftExpanded(!bDraftExpanded),
                       lsDrafts,
                       'No drafts yet. Click "New Reimbursement" to create one.',
-                      false,
-                      true, // bIsDraft = true
+                      'draft',        // strSectionKey
+                      false,          // bShowInitiator
+                      false,          // bShowStatus — all are DRAFT, column not needed
+                      false,          // bIsHistory
                     )}
 
                     {renderCollapsibleSection(
@@ -610,7 +664,11 @@ export default function ExpenseManagementPage() {
                       bPendingExpanded,
                       () => setBPendingExpanded(!bPendingExpanded),
                       lsPending,
-                      'No pending reimbursements.'
+                      'No pending reimbursements.',
+                      'pending',      // strSectionKey
+                      false,          // bShowInitiator
+                      true,           // bShowStatus
+                      false,          // bIsHistory
                     )}
 
                     {renderCollapsibleSection(
@@ -619,7 +677,11 @@ export default function ExpenseManagementPage() {
                       bHistoryExpanded,
                       () => setBHistoryExpanded(!bHistoryExpanded),
                       lsHistory,
-                      'No completed reimbursements yet.'
+                      'No completed reimbursements yet.',
+                      'history',      // strSectionKey
+                      false,          // bShowInitiator
+                      true,           // bShowStatus
+                      true,           // bIsHistory — show Date of Payment
                     )}
                   </div>
                 )}
@@ -628,8 +690,11 @@ export default function ExpenseManagementPage() {
               {/* Team Reimbursement Section — Collapsible with Green Background */}
               {bShowTeam && (
                 <div className="mb-6 bg-green-50 rounded-xl border-2 border-green-200 overflow-hidden shadow-sm">
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setBTeamExpanded(!bTeamExpanded)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBTeamExpanded(!bTeamExpanded); } }}
                     className="w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-green-100 to-green-50 hover:from-green-200 hover:to-green-100 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
@@ -643,6 +708,7 @@ export default function ExpenseManagementPage() {
                       <InfoButton
                         text="Reimbursements from your team: items needing your approval, items with other reviewers, and team history."
                         strPlacement="bottom"
+                        asDiv
                       />
                     </div>
                     <div className="flex items-center gap-3">
@@ -655,7 +721,7 @@ export default function ExpenseManagementPage() {
                         <ChevronRight className="w-6 h-6 text-gray-700" />
                       )}
                     </div>
-                  </button>
+                  </div>
 
                   {bTeamExpanded && (
                     <div className="p-4 bg-white">
@@ -666,7 +732,10 @@ export default function ExpenseManagementPage() {
                         () => setBTeamPAExpanded(!bTeamPAExpanded),
                         lsTeamPendingApprovals,
                         'Nothing waiting on you right now.',
-                        true,
+                        'team-approval',  // strSectionKey
+                        true,             // bShowInitiator
+                        true,             // bShowStatus
+                        false,            // bIsHistory
                       )}
 
                       {renderCollapsibleSection(
@@ -676,7 +745,10 @@ export default function ExpenseManagementPage() {
                         () => setBTeamPCExpanded(!bTeamPCExpanded),
                         lsTeamPendingCompletion,
                         'No items currently with other reviewers.',
-                        true,
+                        'team-pending',   // strSectionKey
+                        true,             // bShowInitiator
+                        true,             // bShowStatus
+                        false,            // bIsHistory
                       )}
 
                       {renderCollapsibleSection(
@@ -686,7 +758,10 @@ export default function ExpenseManagementPage() {
                         () => setBTeamHistExpanded(!bTeamHistExpanded),
                         lsTeamHistory,
                         'No completed team reimbursements yet.',
-                        true,
+                        'team-history',   // strSectionKey
+                        true,             // bShowInitiator
+                        true,             // bShowStatus
+                        true,             // bIsHistory — show Date of Payment
                       )}
                     </div>
                   )}
@@ -694,22 +769,22 @@ export default function ExpenseManagementPage() {
               )}
 
               {/* ── Expense Report ────────────────────────────────────── */}
-              <div className="mt-6">
+              
+              {/* <div className="mt-6">
+                
                 <div className="border border-gray-200 border-l-4 border-l-[#00703C] rounded-2xl bg-white shadow-sm overflow-hidden">
-                  {/* Header */}
                   <div className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-emerald-100 text-[#00703C]">
                         <BarChart2 className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="text-base font-bold text-gray-900">Expense Report</h4>
+                        <h4 className="text-base font-bold text-gray-900">Expense Summary</h4>
                         <p className="text-xs text-gray-500 mt-0.5">Category × date breakdown with totals</p>
                       </div>
                     </div>
-                    {/* Date range controls */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
+                      <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 cursor-pointer">
                         <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                         <label className="text-xs text-gray-500 whitespace-nowrap">From</label>
                         <input
@@ -719,7 +794,7 @@ export default function ExpenseManagementPage() {
                           className="text-xs bg-transparent outline-none text-gray-800 cursor-pointer"
                         />
                       </div>
-                      <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
+                      <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 cursor-pointer">
                         <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                         <label className="text-xs text-gray-500 whitespace-nowrap">To</label>
                         <input
@@ -748,7 +823,6 @@ export default function ExpenseManagementPage() {
                     </div>
                   </div>
 
-                  {/* Report table */}
                   {bShowReport && (
                     <div className="border-t border-gray-100 p-4 sm:p-5">
                       <p className="text-xs text-gray-400 mb-3 cursor-default">
@@ -758,7 +832,8 @@ export default function ExpenseManagementPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </div> */}
+
             </>
           )}
         </div>

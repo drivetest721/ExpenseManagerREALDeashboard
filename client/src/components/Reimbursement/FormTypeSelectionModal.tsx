@@ -34,7 +34,7 @@ export default function FormTypeSelectionModal({ bIsOpen, onClose }: Props) {
           {/* General Expense */}
           <button
             onClick={() => handleSelect('general')}
-            className="w-full flex items-start gap-4 p-5 border-2 border-gray-200 rounded-xl hover:border-[#00703C] hover:bg-[#00703C]/5 transition-all group"
+            className="w-full flex items-start gap-4 p-5 border-2 border-gray-200 rounded-xl hover:border-[#00703C] hover:bg-[#00703C]/5 transition-all group cursor-pointer"
           >
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center group-hover:bg-[#00703C] transition-colors">
               <FileText className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" />
@@ -50,7 +50,7 @@ export default function FormTypeSelectionModal({ bIsOpen, onClose }: Props) {
           {/* Business Trip */}
           <button
             onClick={() => handleSelect('business-trip')}
-            className="w-full flex items-start gap-4 p-5 border-2 border-gray-200 rounded-xl hover:border-[#00703C] hover:bg-[#00703C]/5 transition-all group"
+            className="w-full flex items-start gap-4 p-5 border-2 border-gray-200 rounded-xl hover:border-[#00703C] hover:bg-[#00703C]/5 transition-all group cursor-pointer"
           >
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 flex items-center justify-center group-hover:bg-[#00703C] transition-colors">
               <Plane className="w-6 h-6 text-green-600 group-hover:text-white transition-colors" />
@@ -68,7 +68,7 @@ export default function FormTypeSelectionModal({ bIsOpen, onClose }: Props) {
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
           >
             Cancel
           </button>
