@@ -75,7 +75,7 @@ export default function SettingsPage() {
   const lsTabs: SettingsTab[] = ['users', 'departments', 'categories', 'sla', 'holidays'];
   const objActive = TAB_INFO[strActiveTab];
   const IconActive = objActive.icon;
-  const createCategoryHandlerRef = useRef<() => void>();
+  const createCategoryHandlerRef = useRef<(() => void) | undefined>(undefined);
 
   return (
     <>

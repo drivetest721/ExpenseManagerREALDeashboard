@@ -31,7 +31,7 @@ from controllers.ApprovalChainBuilder import buildChain, snapshotChain
 from controllers.NotificationService import notifyAction
 from controllers.SLAEngine import createSLAEvent
 from controllers.ReimbursementCounter import getNextReimbursementCode
-from controllers.ActivityLogService import logView
+from controllers.ActivityLogService import logView, logEdit
 
 objLogger = logging.getLogger(__name__)
 
@@ -186,6 +186,49 @@ def _serializeDatesForMongo(dictDoc: dict) -> None:
             objMeta["to_date"] = _coerceDate(objMeta["to_date"])
 
 
+def _logFieldChanges(strReimbursementId: str, strUserId: str, dictOld: dict, dictNew: dict) -> None:
+    """
+    Purpose : Compare old and new reimbursement documents and log field changes.
+
+    Inputs  : (1) strReimbursementId - Reimbursement ID (str)
+              (2) strUserId - User who made the changes (str)
+              (3) dictOld - Old document state (dict)
+              (4) dictNew - New document state (dict)
+
+    Output  : None (logs edit entries)
+    """
+    # Fields to track for changes
+    lsStrTrackedFields = ["description"]
+
+    for strField in lsStrTrackedFields:
+        strOldValue = str(dictOld.get(strField, "")) if dictOld.get(strField) else None
+        strNewValue = str(dictNew.get(strField, "")) if dictNew.get(strField) else None
+
+        if strOldValue != strNewValue:
+            logEdit(
+                strReimbursementId,
+                strUserId,
+                strField,
+                strOldValue,
+                strNewValue or "",
+                "FIELD_CHANGED"
+            )
+
+    # Track item changes (additions, removals, modifications)
+    lsOldItems = dictOld.get("items", [])
+    lsNewItems = dictNew.get("items", [])
+
+    if len(lsOldItems) != len(lsNewItems):
+        logEdit(
+            strReimbursementId,
+            strUserId,
+            "items_count",
+            str(len(lsOldItems)),
+            str(len(lsNewItems)),
+            "FIELD_CHANGED"
+        )
+
+
 def _resolveCategoryNames(lsDocs: list) -> dict:
     """
     Batch-fetch category names for all category_ids found in lsDocs' items.
@@ -306,9 +349,12 @@ async def updateDraft(
 
         objReimbs.update_one({"_id": ObjectId(reimbursement_id)}, {"$set": dictUpdates})
         dictNew = objReimbs.find_one({"_id": ObjectId(reimbursement_id)})
-        
+
+        # Log field-level changes for edit tracking
+        _logFieldChanges(reimbursement_id, strUserId, dictOld, dictNew)
+
         logMutation("reimbursements", dictOld, dictNew, "UPDATE", strUserId, reimbursement_id)
-        
+
         return _docToResponse(dictNew)
     
     except HTTPException:
