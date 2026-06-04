@@ -15,6 +15,10 @@ export default function RightSidebar({
   strSelectedPaymentMethod,
   onSelectPaymentMethod,
 }: Props) {
+  console.log('Rendering RightSidebar with payment methods:', lsPaymentMethods);
+  console.log('Selected payment method:', strSelectedPaymentMethod);
+  console.log('onSelectPaymentMethod:', onSelectPaymentMethod);
+
   return (
     <>
       {/* Approval Chain Placeholder */}
@@ -37,7 +41,7 @@ export default function RightSidebar({
       </div>
 
       {/* Payment Method Selection */}
-      <div>
+      {/* <div>
         <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-center">
           Payment Method
         </h2>
@@ -96,7 +100,7 @@ export default function RightSidebar({
             ))}
           </div>
         )}
-      </div>
+      </div> */}
     </>
   );
 }

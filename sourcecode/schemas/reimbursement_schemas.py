@@ -12,7 +12,7 @@ from typing import List, Optional
 from datetime import date
 from pydantic import BaseModel, Field
 
-from schemas.common_enums import FormTypeEnum, ReimbursementStatusEnum
+from schemas.common_enums import FormTypeEnum, ReimbursementStatusEnum, LogTypeEnum
 
 
 class ReimbursementItemSchema(BaseModel):
@@ -95,3 +95,24 @@ class ReimbursementListItemSchema(BaseModel):
     created_at: str
     updated_at: Optional[str] = None
     items: List[ReimbursementItemSummarySchema] = Field(default_factory=list)
+
+
+class ActivityLogSchema(BaseModel):
+    """Schema for activity logs (edits, activity, views)."""
+    log_id: str
+    reimbursement_id: str
+    log_type: LogTypeEnum
+    action: str
+    action_by: str
+    action_by_name: str
+    action_by_email: str
+    action_by_role: Optional[str] = None
+    action_by_department: Optional[str] = None
+    field_name: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    old_status: Optional[str] = None
+    new_status: Optional[str] = None
+    message: Optional[str] = None
+    visibility: str = "public"
+    created_at: str

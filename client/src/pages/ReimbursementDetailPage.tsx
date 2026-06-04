@@ -127,6 +127,7 @@ export default function ReimbursementDetailPage() {
           lsLogs={objChain.logs}
           strInitiatorName={objReimbursement.initiator_name}
           strStatus={objReimbursement.status}
+          strReimbursementId={objReimbursement.reimbursement_id}
         />
       }
     />

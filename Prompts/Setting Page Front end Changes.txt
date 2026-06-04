@@ -1,0 +1,54 @@
+Setting Page Front end Changes:
+ - I have Implementation file for Backend API
+
+
+Users & Permissions:
+ - The UI is Created with List of Users as Tiles.
+ - Re Structure UI Design.
+
+ > I want The Table Structure for User Listings:
+ > Columns for Summary View:
+     : Checkbox for each user
+     : User Name with User email as grey color
+     : Role
+     : Department
+     : Status (active - In active) Show In active user as Grey Background (This is Toggle button which active or de active the user)
+
+ > The Table consist row of User's, with following Data is shown; for details Information owner clicks on Row and It Expands the Row by Height and Show Every Details Information as Form.
+    > User Name: Aryan              # Editable Fully
+    > User Id: EMP001 # Read Only
+    > user Email: aryan@gmail.com   # Editable Fully
+    > Table for department and Role # Editable Fully; If Department Change then Show Roles which are present in the department; add new department Button which adds new Row; On click of department cell show Available department which is not In the table; show any list as dropdown list; Do not allow Duplicate Department
+           Department   | Role        
+           Engineering  | Manager     
+           Finance     | Sr. manager  
+           [+] add New Department
+    > Table for Manager : # Editable fully; Make usre the Priority defined by user is Unique not two manager has 1 as Priority. # Show the Manager's as dropdown list With non-circular cycle; On Hover of Department Show the Email id of That manager.
+          Manager Name | Priority
+          Aryan        | 1
+          XYZ          | 2
+          [+] Add manager
+    > Password: by default **** pattern and Visible when click on 'eye' button; copy option for Copy the Password ; Strong Password Requirement Min 6 digit mix of char and digits and symbols and max 10 digit string mix of char, digit and symbol; editable
+    > Top Right Corner Red Cross button which collapse the from; On click of this button ask discard Change confirmation; show the changes; if user click on okay then discard changes if user click on cross button of confirmation then page then close the Confirmation.
+    > Bottom right save button
+    > close and Save button both Ask Confirmation if Any Changes Happened; show changes in confirmation with this way; On Close button on Confirmation close the Confirm popup only; pn okay update the user;
+      ________________________________________________________
+      |  Confirm save Changes ( 3 fields)        (Cancel)     |
+      |  Name: Aryan(Strikethrough grey font color) -> Aryan  |
+      |  department: Finance -> Engineering                   |
+      |  password: Aryan@123 -> aryan@123                     |
+      |________________________(Okay)_________________________|
+
+> On Click of [+ New User]
+   > Show the empty form with only Auto Incremented ID Read only.
+
+Note:
+  - To Generate ID count the total entry for user's and Increase +1 for New User; this will ensure the Uniqueness.
+  - Do not make the Page is Scrollable; Only the row is scrollable; show 10 users per page and then add pagination if user count is grater then 10; Add pagination on top right side of Users Panel.
+  - Table has Headers Has up and Down arrow Icon for Sorting the Row According to the column;  
+  - Add check boxes for every row which select the or dis-select the users.
+  - Filter area
+      - Input for search user name, email, department, role, user id
+      - dropdown list for department which is Checkbox dropdown list
+      - dropdown list for role which is Checkbox dropdown list
+      - toggle button for Show and Hide In - active Users.

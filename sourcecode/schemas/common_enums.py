@@ -65,8 +65,16 @@ class FormTypeEnum(str, Enum):
 # Approval Chain / Log Enums
 # ---------------------------------------------------------------------------
 
+class LogTypeEnum(str, Enum):
+    """Type of log entry in reimbursement_logs collection."""
+    EDIT = "edit"
+    ACTIVITY = "activity"
+    VIEW = "view"
+
+
 class ActionTypeEnum(str, Enum):
     """Actions recorded in the reimbursement_logs collection."""
+    # Activity actions
     DRAFT_SAVED = "DRAFT_SAVED"
     SUBMITTED = "SUBMITTED"
     APPROVED = "APPROVED"
@@ -82,6 +90,13 @@ class ActionTypeEnum(str, Enum):
     REJECTED = "REJECTED"
     AUTO_REJECTED = "AUTO_REJECTED"
     CLOSED = "CLOSED"
+    # Edit actions
+    FIELD_CHANGED = "FIELD_CHANGED"
+    ATTACHMENT_UPLOADED = "ATTACHMENT_UPLOADED"
+    ATTACHMENT_REMOVED = "ATTACHMENT_REMOVED"
+    BUTTON_CLICKED = "BUTTON_CLICKED"
+    # View actions
+    PAGE_VIEWED = "PAGE_VIEWED"
 
 
 class VisibilityEnum(str, Enum):

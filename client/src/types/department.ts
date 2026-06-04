@@ -6,6 +6,7 @@ export interface Department {
 }
 
 export interface DepartmentCreateRequest {
+  department_id: string;
   department_name: string;
   owner_ids: string[];
 }

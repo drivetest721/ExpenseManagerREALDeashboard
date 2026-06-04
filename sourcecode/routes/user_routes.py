@@ -76,13 +76,16 @@ async def createUser(
 ):
     """
     Purpose : Create a new user with hashed password.
-    Access  : Admin (Owner/CA).
+    Access  : Admin (Owner).
     """
     try:
         objUsers = get_collection("users")
 
         if objUsers.find_one({"email": objRequest.email.lower()}):
             raise HTTPException(status_code=400, detail="User with this email already exists")
+
+        if objUsers.find_one({"employee_id": objRequest.employee_id}):
+            raise HTTPException(status_code=400, detail="User with this employee ID already exists")
 
         dictNewUser = objRequest.model_dump()
         dictNewUser["email"] = dictNewUser["email"].lower()
@@ -172,7 +175,7 @@ async def updateUser(
 ):
     """
     Purpose : Update basic user info (name, email, activity).
-    Access  : Admin (Owner/CA).
+    Access  : Admin (Owner).
     """
     try:
         objUsers = get_collection("users")
@@ -184,6 +187,9 @@ async def updateUser(
         dictUpdates = objRequest.model_dump(exclude_unset=True)
         if "email" in dictUpdates:
             dictUpdates["email"] = dictUpdates["email"].lower()
+
+        if "password" in dictUpdates:
+            dictUpdates["password_hash"] = _hashPassword(dictUpdates.pop("password"))
 
         if not dictUpdates:
             raise HTTPException(status_code=400, detail="No updates provided")

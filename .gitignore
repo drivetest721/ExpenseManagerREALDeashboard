@@ -19,7 +19,7 @@ sourcecode/logs/*.log
 sourcecode/logs/*.log.*
 
 # Env files (never commit secrets)
-.env
+
 .env.local
 .env.*.local
 client/.env

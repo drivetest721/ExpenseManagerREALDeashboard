@@ -17,6 +17,7 @@ from schemas.common_enums import UserRoleEnum
 
 class CategoryCreateRequest(BaseModel):
     """Schema for creating a new reimbursement category."""
+    category_id: str = Field(..., description="Unique 3-digit identifier for the category")
     name: str = Field(..., min_length=2, max_length=100)
     sub_categories: List[str] = Field(default_factory=list)
     max_limit: float = Field(..., ge=0, description="Maximum amount the company will reimburse for this category.")

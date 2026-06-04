@@ -1,0 +1,5 @@
+User Page Changes
+ > Table headers are Perfect but the Rows are Not Align with the Headers.
+ > Make the Headers and Row values left align.
+ > On Click of User "Do not Expand the Form"; do Open a floating form window.
+ > On Creation of User Use the same Floating Form to Enter the Data.

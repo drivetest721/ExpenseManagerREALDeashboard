@@ -3,8 +3,8 @@
  * Visible only to Initiator and Owner.
  */
 import { useState } from 'react';
-import { X, Download, Eye } from 'lucide-react';
-import type { Reimbursement, PaymentProof } from '../../types/reimbursement';
+import { X,  Eye } from 'lucide-react';
+import type { Reimbursement } from '../../types/reimbursement';
 import AttachmentViewerModal from './AttachmentViewerModal';
 
 interface PaymentDetailsModalProps {

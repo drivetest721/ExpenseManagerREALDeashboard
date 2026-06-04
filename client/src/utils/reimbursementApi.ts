@@ -8,6 +8,7 @@ import type {
   ReimbursementCreateRequest,
   ReimbursementUpdateRequest,
 } from '../types/reimbursement';
+import type { ActivityLog } from '../types/activityLog';
 
 export type {
   Reimbursement,
@@ -122,5 +123,18 @@ export interface ChainViewResponse {
 
 export const getReimbursementChainApi = async (strId: string): Promise<ChainViewResponse> => {
   const objResp = await apiClient.get<ChainViewResponse>(`/api/reimbursements/${strId}/chain`);
+  return objResp.data;
+};
+
+/**
+ * GET /api/reimbursements/:id/logs?log_types=edit,activity,view
+ * Fetch all logs for a reimbursement, optionally filtered by type.
+ */
+export const getReimbursementLogsApi = async (
+  strId: string,
+  lsTypes?: ('edit' | 'activity' | 'view')[]
+): Promise<ActivityLog[]> => {
+  const strParams = lsTypes && lsTypes.length > 0 ? `?log_types=${lsTypes.join(',')}` : '';
+  const objResp = await apiClient.get<ActivityLog[]>(`/api/reimbursements/${strId}/logs${strParams}`);
   return objResp.data;
 };

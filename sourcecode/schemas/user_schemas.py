@@ -33,6 +33,7 @@ class UserUpdateRequest(BaseModel):
     """Schema for updating an existing user profile."""
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     email: Optional[EmailStr] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=10)
     is_active: Optional[bool] = None
     departments: Optional[List[DepartmentEntrySchema]] = None
 

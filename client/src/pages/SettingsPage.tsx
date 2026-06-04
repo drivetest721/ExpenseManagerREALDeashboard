@@ -2,8 +2,8 @@
  * SettingsPage — Admin/Owner configuration hub.
  * Tabs: Users, Departments, Categories, SLA, Holidays.
  */
-import { useState, useEffect, useCallback } from 'react';
-import { Play, RefreshCw, AlertTriangle, CheckCircle, Clock, Users, Building2, Tag, Activity, CalendarDays } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Play, RefreshCw, AlertTriangle, CheckCircle, Clock, Users, Building2, Tag, Activity, CalendarDays, Plus } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { Footer } from '../components/Footer';
 import { InfoButton } from '../components/common/InfoButton';
@@ -75,6 +75,7 @@ export default function SettingsPage() {
   const lsTabs: SettingsTab[] = ['users', 'departments', 'categories', 'sla', 'holidays'];
   const objActive = TAB_INFO[strActiveTab];
   const IconActive = objActive.icon;
+  const createCategoryHandlerRef = useRef<() => void>();
 
   return (
     <>
@@ -124,14 +125,25 @@ export default function SettingsPage() {
                   <p className="text-xs text-gray-500 hidden sm:block cursor-default">{objActive.info}</p>
                 </div>
               </div>
-              <InfoButton text={objActive.info} strSize="md" strPlacement="left" />
+              <div className="flex items-center gap-3">
+                {strActiveTab === 'categories' && (
+                  <button
+                    type="button"
+                    onClick={() => createCategoryHandlerRef.current?.()}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#00703C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#005a30] transition-all duration-200 shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" /> New Category
+                  </button>
+                )}
+                <InfoButton text={objActive.info} strSize="md" strPlacement="left" />
+              </div>
             </div>
 
             {/* Tab content — fixed-height scroll area so the page stops growing as data grows */}
             <div className="p-4 sm:p-6 max-h-[calc(100vh-260px)] overflow-y-auto custom-scrollbar">
               {strActiveTab === 'users' && <UsersPanel />}
               {strActiveTab === 'departments' && <DepartmentsPanel />}
-              {strActiveTab === 'categories' && <CategoriesPanel />}
+              {strActiveTab === 'categories' && <CategoriesPanel registerCreateHandler={(handler) => { createCategoryHandlerRef.current = handler; }} />}
 
               {strActiveTab === 'sla' && (
               <div>

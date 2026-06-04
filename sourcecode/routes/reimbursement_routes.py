@@ -23,6 +23,7 @@ from schemas.reimbursement_schemas import (
     ReimbursementResponseSchema,
     ReimbursementListItemSchema,
     ReimbursementItemSummarySchema,
+    ActivityLogSchema,
 )
 from routes.payment_method_routes import hasAnyPaymentMethod
 from controllers.AuditLogger import logMutation
@@ -30,6 +31,7 @@ from controllers.ApprovalChainBuilder import buildChain, snapshotChain
 from controllers.NotificationService import notifyAction
 from controllers.SLAEngine import createSLAEvent
 from controllers.ReimbursementCounter import getNextReimbursementCode
+from controllers.ActivityLogService import logView
 
 objLogger = logging.getLogger(__name__)
 
@@ -560,6 +562,9 @@ async def getReimbursementDetail(
 
         # TODO Phase 8: Add chain-based access control
 
+        # Log page view
+        logView(reimbursement_id, dictCurrentUser["user_id"])
+
         return _docToResponse(dictDoc)
 
     except HTTPException:
@@ -707,4 +712,68 @@ async def getReimbursementChain(
         raise
     except Exception as objErr:
         objLogger.error(f"❌ GET REIMBURSEMENT CHAIN ERROR: {objErr}")
+        raise HTTPException(status_code=500, detail=str(objErr))
+
+
+@router.get("/{reimbursement_id}/logs", response_model=List[ActivityLogSchema])
+async def getReimbursementLogs(
+    reimbursement_id: str,
+    log_types: Optional[str] = Query(None, description="Comma-separated: edit,activity,view"),
+    dictCurrentUser: dict = Depends(getCurrentUserDependency),
+):
+    """
+    Purpose : Fetch all logs for a reimbursement, filtered by type.
+    Access  : Initiator, chain participants, Owner/CA.
+
+    Query Params:
+      - log_types: "edit,activity,view" (default: all types)
+    """
+    try:
+        objReimbs = get_collection("reimbursements")
+        objLogs = get_collection("reimbursement_logs")
+
+        # Verify reimbursement exists
+        dictDoc = objReimbs.find_one({"_id": ObjectId(reimbursement_id)})
+        if not dictDoc:
+            raise HTTPException(status_code=404, detail="Reimbursement not found")
+
+        # TODO Phase 8: Add chain-based access control
+
+        # Parse log_types filter
+        lsFilterTypes = []
+        if log_types:
+            lsFilterTypes = [s.strip() for s in log_types.split(",") if s.strip() in ["edit", "activity", "view"]]
+
+        # Build query
+        dictQuery = {"reimbursement_id": reimbursement_id}
+        if lsFilterTypes:
+            dictQuery["log_type"] = {"$in": lsFilterTypes}
+
+        # Fetch logs
+        lsLogs = list(objLogs.find(dictQuery).sort("created_at", -1))
+
+        # Serialize
+        lsResult = []
+        for dictLog in lsLogs:
+            dictLog["log_id"] = str(dictLog.pop("_id"))
+            # Ensure all required fields exist
+            dictLog.setdefault("action_by_name", "Unknown")
+            dictLog.setdefault("action_by_email", "unknown@example.com")
+            dictLog.setdefault("action_by_role", None)
+            dictLog.setdefault("action_by_department", None)
+            dictLog.setdefault("field_name", None)
+            dictLog.setdefault("old_value", None)
+            dictLog.setdefault("new_value", None)
+            dictLog.setdefault("old_status", None)
+            dictLog.setdefault("new_status", None)
+            dictLog.setdefault("message", None)
+            dictLog.setdefault("visibility", "public")
+            lsResult.append(dictLog)
+
+        return lsResult
+
+    except HTTPException:
+        raise
+    except Exception as objErr:
+        objLogger.error(f"❌ GET REIMBURSEMENT LOGS ERROR: {objErr}")
         raise HTTPException(status_code=500, detail=str(objErr))

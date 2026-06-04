@@ -2,17 +2,18 @@
  * ActivityLogsPanel — Right panel for detail view showing activity timeline with tabs.
  *
  * Tabs:
- * - Activity Log: Shows detailed action history with status badges, search, etc.
- * - Approval Chain: Shows approval chain timeline with current reviewer, statuses, etc.
+ * - Activity Log: Shows workflow action history (LEGACY)
+ * - Approval Chain: Shows approval chain timeline
+ * - All Logs: Shows comprehensive logs (Edits | Activity | View) with multi-select
  *
  * Features:
  * - Activity logs show detailed action history with status badges
+ * - All Logs tab supports filtering by type (edit, activity, view)
  * - Latest log at the top
  * - Email and details hidden by default, expand on click
  * - Search by name, email, message
- * - Toggle to show/hide private messages
  */
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   ChevronDown,
@@ -30,8 +31,18 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  Pencil,
+  Upload,
+  Trash2,
+  Save,
+  MousePointer,
+  Eye,
+  List,
 } from 'lucide-react';
 import type { ChainStep, ChainLog } from '../../utils/reimbursementApi';
+import type { ActivityLog } from '../../types/activityLog';
+import { formatLogDate } from '../../types/activityLog';
+import { getReimbursementLogsApi } from '../../utils/reimbursementApi';
 import { useAuth } from '../../hooks/useAuth';
 
 interface Props {
@@ -40,6 +51,7 @@ interface Props {
   lsLogs: ChainLog[];
   strInitiatorName: string;
   strStatus?: string;
+  strReimbursementId: string;
 }
 
 const ACTION_STYLE: Record<
@@ -108,6 +120,24 @@ const ACTION_STYLE: Record<
   },
 };
 
+// Icon mapping for all log types (for "All Logs" tab)
+const ALL_LOG_ICONS: Record<string, { Icon: any; color: string }> = {
+  FIELD_CHANGED: { Icon: Pencil, color: 'text-blue-600' },
+  ATTACHMENT_UPLOADED: { Icon: Upload, color: 'text-green-600' },
+  ATTACHMENT_REMOVED: { Icon: Trash2, color: 'text-red-600' },
+  DRAFT_SAVED: { Icon: Save, color: 'text-gray-600' },
+  BUTTON_CLICKED: { Icon: MousePointer, color: 'text-blue-600' },
+  SUBMITTED: { Icon: Send, color: 'text-blue-600' },
+  APPROVED: { Icon: ThumbsUp, color: 'text-green-600' },
+  QUERY_RAISED: { Icon: HelpCircle, color: 'text-orange-600' },
+  PRIVATE_ASK: { Icon: Lock, color: 'text-purple-600' },
+  REAPPLIED: { Icon: RotateCcw, color: 'text-blue-600' },
+  REJECTED: { Icon: Ban, color: 'text-red-600' },
+  PAID: { Icon: CreditCard, color: 'text-emerald-600' },
+  PAYMENT_ACKNOWLEDGED: { Icon: Check, color: 'text-green-600' },
+  PAGE_VIEWED: { Icon: Eye, color: 'text-gray-600' },
+};
+
 function fmtDateTime(str: string): string {
   if (!str) return '—';
   const d = new Date(str);
@@ -127,12 +157,21 @@ export default function ActivityLogsPanel({
   lsLogs,
   strInitiatorName,
   strStatus,
+  strReimbursementId,
 }: Props) {
   const { objUser } = useAuth();
   const [strSearchQuery, setStrSearchQuery] = useState('');
   const [bShowPrivate, setBShowPrivate] = useState(true);
   const [setExpandedLogs, setSetExpandedLogs] = useState<Set<string>>(new Set());
-  const [strActiveTab, setStrActiveTab] = useState<'activity' | 'chain'>('activity');
+  const [strActiveTab, setStrActiveTab] = useState<'activity' | 'chain' | 'all'>('activity');
+
+  // State for "All Logs" tab
+  const [lsAllLogs, setLsAllLogs] = useState<ActivityLog[]>([]);
+  const [bLoadingAllLogs, setBLoadingAllLogs] = useState(false);
+  const [strAllLogsError, setStrAllLogsError] = useState('');
+  const [bShowEdits, setBShowEdits] = useState(true);
+  const [bShowActivity, setBShowActivity] = useState(true);
+  const [bShowView, setBShowView] = useState(true);
 
   const bIsOwner = objUser?.departments?.some((d) => d.role === 'owner') ?? false;
   const strInitiatorId = lsLogs.find(l => l.action === 'SUBMIT')?.action_by || '';
@@ -179,6 +218,59 @@ export default function ActivityLogsPanel({
     });
   };
 
+  // Load all logs when "all" tab is active
+  useEffect(() => {
+    if (strActiveTab === 'all' && lsAllLogs.length === 0 && !bLoadingAllLogs) {
+      loadAllLogs();
+    }
+  }, [strActiveTab]);
+
+  async function loadAllLogs() {
+    setBLoadingAllLogs(true);
+    setStrAllLogsError('');
+    try {
+      const lsLogs = await getReimbursementLogsApi(strReimbursementId);
+      setLsAllLogs(lsLogs);
+    } catch (objErr: any) {
+      setStrAllLogsError(objErr.response?.data?.detail || 'Failed to load logs');
+    } finally {
+      setBLoadingAllLogs(false);
+    }
+  }
+
+  // Filter all logs based on selected types
+  const lsFilteredAllLogs = useMemo(() => {
+    let lsFiltered = lsAllLogs;
+
+    // Filter by selected types
+    const lsSelectedTypes: ('edit' | 'activity' | 'view')[] = [];
+    if (bShowEdits) lsSelectedTypes.push('edit');
+    if (bShowActivity) lsSelectedTypes.push('activity');
+    if (bShowView) lsSelectedTypes.push('view');
+
+    if (lsSelectedTypes.length === 0) {
+      return [];
+    }
+
+    lsFiltered = lsFiltered.filter(log => lsSelectedTypes.includes(log.log_type));
+
+    // Search filter
+    if (strSearchQuery.trim() && strActiveTab === 'all') {
+      const q = strSearchQuery.toLowerCase();
+      lsFiltered = lsFiltered.filter(log =>
+        log.action_by_name.toLowerCase().includes(q) ||
+        log.action_by_email.toLowerCase().includes(q) ||
+        log.message?.toLowerCase().includes(q) ||
+        log.field_name?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort by timestamp (newest first)
+    return lsFiltered.sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [lsAllLogs, bShowEdits, bShowActivity, bShowView, strSearchQuery, strActiveTab]);
+
   // Helper functions for Approval Chain
   function getStepIcon(stepStatus: string, bIsCurrent: boolean) {
     if (stepStatus === 'APPROVED') {
@@ -206,7 +298,7 @@ export default function ActivityLogsPanel({
         <div className="flex">
           <button
             onClick={() => setStrActiveTab('activity')}
-            className={`flex-1 px-4 py-3 text-sm font-semibold transition-all border-b-2 ${
+            className={`flex-1 px-3 py-3 text-sm font-semibold transition-all border-b-2 ${
               strActiveTab === 'activity'
                 ? 'border-[#00703C] text-[#00703C] bg-white'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -214,12 +306,12 @@ export default function ActivityLogsPanel({
           >
             <div className="flex items-center justify-center gap-2">
               <Clock className="w-4 h-4" />
-              Activity Log
+              Activity
             </div>
           </button>
           <button
             onClick={() => setStrActiveTab('chain')}
-            className={`flex-1 px-4 py-3 text-sm font-semibold transition-all border-b-2 ${
+            className={`flex-1 px-3 py-3 text-sm font-semibold transition-all border-b-2 ${
               strActiveTab === 'chain'
                 ? 'border-[#00703C] text-[#00703C] bg-white'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -227,7 +319,20 @@ export default function ActivityLogsPanel({
           >
             <div className="flex items-center justify-center gap-2">
               <User className="w-4 h-4" />
-              Approval Chain
+              Chain
+            </div>
+          </button>
+          <button
+            onClick={() => setStrActiveTab('all')}
+            className={`flex-1 px-3 py-3 text-sm font-semibold transition-all border-b-2 ${
+              strActiveTab === 'all'
+                ? 'border-[#00703C] text-[#00703C] bg-white'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <List className="w-4 h-4" />
+              All Logs
             </div>
           </button>
         </div>
@@ -477,6 +582,195 @@ export default function ActivityLogsPanel({
             </div>
           </div>
         </div>
+      )}
+
+      {/* All Logs Tab */}
+      {strActiveTab === 'all' && (
+        <>
+          {/* Header with multi-select checkboxes */}
+          <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <h3 className="text-lg font-bold text-gray-900 mb-3">All Logs</h3>
+
+            {/* Multi-select checkboxes */}
+            <div className="flex items-center gap-4 mb-3 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bShowEdits}
+                  onChange={e => setBShowEdits(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">Edits</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bShowActivity}
+                  onChange={e => setBShowActivity(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">Activity</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bShowView}
+                  onChange={e => setBShowView(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">View</span>
+              </label>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search logs..."
+                value={strSearchQuery}
+                onChange={e => setStrSearchQuery(e.target.value)}
+                className="w-full h-10 pl-10 pr-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Logs Timeline */}
+          <div className="flex-1 overflow-auto custom-scrollbar p-4">
+            {bLoadingAllLogs ? (
+              <p className="text-sm text-gray-500 text-center py-8">Loading logs...</p>
+            ) : strAllLogsError ? (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-md px-4 py-3">
+                {strAllLogsError}
+              </div>
+            ) : lsFilteredAllLogs.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-8">
+                {strSearchQuery ? 'No matching logs found' : 'No logs to display'}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {lsFilteredAllLogs.map((log) => {
+                  const bExpanded = setExpandedLogs.has(log.log_id);
+                  const objIconData = ALL_LOG_ICONS[log.action] || { Icon: User, color: 'text-gray-600' };
+                  const Icon = objIconData.Icon;
+                  const { day, date, time } = formatLogDate(log.created_at);
+
+                  return (
+                    <div
+                      key={log.log_id}
+                      className="rounded-lg border-2 border-gray-200 bg-white transition-all hover:shadow-md"
+                    >
+                      <button
+                        onClick={() => toggleExpand(log.log_id)}
+                        className="w-full p-4 text-left"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Icon */}
+                          <div className="flex-shrink-0 mt-1">
+                            <Icon className={`w-6 h-6 ${objIconData.color}`} />
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            {/* Header: Action + Date */}
+                            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                              <span className="font-semibold text-gray-900 capitalize">
+                                {log.action.replace(/_/g, ' ')}
+                              </span>
+                              <span className="text-xs text-gray-500">{day}, {date}</span>
+                            </div>
+
+                            {/* Edit Log */}
+                            {log.log_type === 'edit' && log.field_name && (
+                              <div className="space-y-1 text-sm">
+                                <div className="text-gray-700 font-medium capitalize">{log.field_name.replace(/_/g, ' ')}</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500">from:</span>
+                                  <span className="line-through text-gray-400">{log.old_value}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500">to:</span>
+                                  <span className="text-gray-900 font-medium">{log.new_value}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Activity Log */}
+                            {log.log_type === 'activity' && (
+                              <div className="space-y-1 text-sm">
+                                {log.message && (
+                                  <div className="text-gray-700 mb-2">{log.message}</div>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500">from:</span>
+                                  <span className="line-through text-gray-400">{log.old_status}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500">to:</span>
+                                  <span className="text-gray-900 font-medium">{log.new_status}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="font-semibold text-gray-900">{log.action_by_name}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* View Log */}
+                            {log.log_type === 'view' && (
+                              <div className="text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-gray-900">{log.action_by_name}</span>
+                                  <span className="text-gray-600">viewed this page</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Timestamp */}
+                            <div className="text-xs text-gray-500 mt-2">{time}</div>
+                          </div>
+
+                          {/* Expand Icon */}
+                          <div className="flex-shrink-0">
+                            {bExpanded ? (
+                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            ) : (
+                              <ChevronRight className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Expanded Details */}
+                      {bExpanded && (
+                        <div className="px-4 pb-4 space-y-2 border-t-2 border-gray-200 pt-3 bg-gray-50">
+                          <div className="text-xs font-bold text-gray-700 mb-2">User Details</div>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="block text-xs font-semibold text-gray-600">Email</span>
+                              <span className="text-gray-900">{log.action_by_email}</span>
+                            </div>
+                            {log.action_by_department && (
+                              <div>
+                                <span className="block text-xs font-semibold text-gray-600">Department</span>
+                                <span className="text-gray-900">{log.action_by_department}</span>
+                              </div>
+                            )}
+                            {log.action_by_role && (
+                              <div>
+                                <span className="block text-xs font-semibold text-gray-600">Role</span>
+                                <span className="text-gray-900 capitalize">{log.action_by_role}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

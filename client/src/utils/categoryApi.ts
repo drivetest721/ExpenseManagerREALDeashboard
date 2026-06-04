@@ -8,8 +8,8 @@ import type { Category, CategoryCreateRequest, CategoryUpdateRequest } from '../
  * GET /api/categories/list
  * Returns all active categories. Available to any authenticated user.
  */
-export const listCategoriesApi = async (): Promise<Category[]> => {
-  const objResp = await apiClient.get<Category[]>('/api/categories/list');
+export const listCategoriesApi = async (include_inactive = false): Promise<Category[]> => {
+  const objResp = await apiClient.get<Category[]>('/api/categories/list', { params: { include_inactive } });
   return objResp.data;
 };
 

@@ -21,7 +21,7 @@ export default function CAPayDialog({
   const [strTxRef, setStrTxRef] = useState<string>('');
   const [strMethod, setStrMethod] = useState<string>('UPI');
   const [strNote, setStrNote] = useState<string>('');
-  const [objProofFile, setObjProofFile] = useState<File | null>(null);
+  // const [objProofFile, setObjProofFile] = useState<File | null>(null);
   const [strProofFileName, setStrProofFileName] = useState<string>('');
   const [bIsLoading, setBIsLoading] = useState<boolean>(false);
   const [bIsUploading, setBIsUploading] = useState<boolean>(false);
@@ -45,7 +45,7 @@ export default function CAPayDialog({
       return;
     }
 
-    setObjProofFile(file);
+    // setObjProofFile(file);
     setStrProofFileName(file.name);
     setStrError('');
 
@@ -56,7 +56,7 @@ export default function CAPayDialog({
       setStrProofAttachmentId(response.attachment_id);
     } catch (err: any) {
       setStrError(err?.response?.data?.detail || 'Failed to upload proof file');
-      setObjProofFile(null);
+      // setObjProofFile(null);
       setStrProofFileName('');
     } finally {
       setBIsUploading(false);
@@ -151,7 +151,7 @@ export default function CAPayDialog({
                 </span>
                 <button
                   onClick={() => {
-                    setObjProofFile(null);
+                    // setObjProofFile(null);
                     setStrProofFileName('');
                     setStrProofAttachmentId('');
                   }}

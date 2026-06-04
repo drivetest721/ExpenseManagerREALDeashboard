@@ -38,23 +38,28 @@ async def createDepartment(
     """
     try:
         objDepts = get_collection("departments")
-        
+
+        # Check if department_id already exists
+        if objDepts.find_one({"department_id": objRequest.department_id}):
+            raise HTTPException(status_code=400, detail="Department ID already exists")
+
         # Check if department already exists
         if objDepts.find_one({"department_name": objRequest.department_name}):
             raise HTTPException(status_code=400, detail="Department already exists")
 
         dictNewDept = {
+            "department_id": objRequest.department_id,
             "department_name": objRequest.department_name,
             "owner_ids": objRequest.owner_ids,
             "is_active": True,
         }
-        
+
         objResult = objDepts.insert_one(dictNewDept)
         strId = str(objResult.inserted_id)
-        dictNewDept["department_id"] = strId
 
-        logMutation("departments", None, dictNewDept, "INSERT", dictCurrentUser["user_id"], strId)
-        
+        logMutation("departments", None, dictNewDept, "INSERT", dictCurrentUser["user_id"], objRequest.department_id)
+
+        dictNewDept.pop("_id", None)
         return DepartmentResponseSchema(**dictNewDept)
 
     except HTTPException:
@@ -80,7 +85,10 @@ async def listDepartments(
 
         lsResponse = []
         for dictDept in lsDepts:
-            dictDept["department_id"] = str(dictDept.pop("_id"))
+            # Provide a fallback for older data that doesn't have department_id
+            if "department_id" not in dictDept:
+                dictDept["department_id"] = str(dictDept.get("_id"))
+            dictDept.pop("_id", None)
             lsResponse.append(DepartmentResponseSchema(**dictDept))
 
         return lsResponse
@@ -102,8 +110,14 @@ async def updateDepartment(
     """
     try:
         objDepts = get_collection("departments")
-        dictOld = objDepts.find_one({"_id": ObjectId(department_id)})
-        
+        dictOld = objDepts.find_one({"department_id": department_id})
+        # Fallback to ObjectId for backward compatibility
+        if not dictOld:
+            try:
+                dictOld = objDepts.find_one({"_id": ObjectId(department_id)})
+            except:
+                pass
+
         if not dictOld:
             raise HTTPException(status_code=404, detail="Department not found")
 
@@ -111,10 +125,12 @@ async def updateDepartment(
         if not dictUpdates:
             raise HTTPException(status_code=400, detail="No updates provided")
 
-        objDepts.update_one({"_id": ObjectId(department_id)}, {"$set": dictUpdates})
-        
-        dictNew = objDepts.find_one({"_id": ObjectId(department_id)})
-        dictNew["department_id"] = str(dictNew.pop("_id"))
+        objDepts.update_one({"_id": dictOld["_id"]}, {"$set": dictUpdates})
+
+        dictNew = objDepts.find_one({"_id": dictOld["_id"]})
+        if "department_id" not in dictNew:
+            dictNew["department_id"] = str(dictNew.get("_id"))
+        dictNew.pop("_id", None)
 
         logMutation("departments", dictOld, dictNew, "UPDATE", dictCurrentUser["user_id"], department_id)
         
@@ -138,12 +154,17 @@ async def deleteDepartment(
     """
     try:
         objDepts = get_collection("departments")
-        dictOld = objDepts.find_one({"_id": ObjectId(department_id)})
-        
+        dictOld = objDepts.find_one({"department_id": department_id})
+        if not dictOld:
+            try:
+                dictOld = objDepts.find_one({"_id": ObjectId(department_id)})
+            except:
+                pass
+
         if not dictOld:
             raise HTTPException(status_code=404, detail="Department not found")
 
-        objDepts.update_one({"_id": ObjectId(department_id)}, {"$set": {"is_active": False}})
+        objDepts.update_one({"_id": dictOld["_id"]}, {"$set": {"is_active": False}})
         
         dictNew = dictOld.copy()
         dictNew["is_active"] = False

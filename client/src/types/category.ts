@@ -13,6 +13,7 @@ export interface Category {
 }
 
 export interface CategoryCreateRequest {
+  category_id: string;
   name: string;
   sub_categories: string[];
   max_limit: number;

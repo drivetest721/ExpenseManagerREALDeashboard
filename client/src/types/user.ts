@@ -14,6 +14,12 @@ export interface ManagerEntry {
   approval_type: 'mandatory' | 'optional';
 }
 
+export interface CategoryAllowanceEntry {
+  category_id: string;
+  category_name?: string;
+  sub_category?: string;
+}
+
 export interface User {
   user_id: string;
   employee_id?: string;
@@ -22,6 +28,7 @@ export interface User {
   primary_role?: UserRole;
   departments: DepartmentEntry[];
   managers: ManagerEntry[];
+  default_allowances?: CategoryAllowanceEntry[];
   is_active: boolean;
   has_payment_method: boolean;
   ask_public_key?: string;
@@ -39,6 +46,7 @@ export interface UserCreateRequest {
 export interface UserUpdateRequest {
   name?: string;
   email?: string;
+  password?: string;
   is_active?: boolean;
   departments?: DepartmentEntry[];
 }

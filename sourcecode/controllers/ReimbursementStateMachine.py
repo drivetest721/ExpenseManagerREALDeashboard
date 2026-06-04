@@ -17,6 +17,7 @@ from config.mongodb_config import get_collection
 from controllers.AuditLogger import logMutation
 from controllers.NotificationService import notifyAction
 from controllers.SLAEngine import createSLAEvent, resolveSLAEvents
+from controllers.ActivityLogService import logActivity
 
 objLogger = logging.getLogger(__name__)
 
@@ -244,16 +245,17 @@ def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPay
             )
         
         dictNew = objReimbs.find_one({"_id": ObjectId(strReimbursementId)})
-        
-        # Log action
-        objLogs.insert_one({
-            "reimbursement_id": strReimbursementId,
-            "action": strAction,
-            "action_by": strActorId,
-            "message": dictPayload.get("message", "") if dictPayload else "",
-            "visibility": dictPayload.get("visibility", "public") if dictPayload else "public",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+
+        # Log activity using ActivityLogService
+        logActivity(
+            strReimbursementId,
+            strActorId,
+            strAction,
+            strCurrentStatus,
+            strNextStatus,
+            dictPayload.get("message", "") if dictPayload else "",
+            dictPayload.get("visibility", "public") if dictPayload else "public",
+        )
         
         logMutation("reimbursements", dictOld, dictNew, "UPDATE", strActorId, strReimbursementId)
         objLogger.info(f"✅ STATE TRANSITION: {strReimbursementId} {strCurrentStatus} → {strNextStatus} by {strActorId}")

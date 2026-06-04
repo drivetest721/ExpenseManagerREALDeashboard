@@ -2,7 +2,7 @@
  * userApi.ts — Axios wrappers for User CRUD and hierarchy management.
  */
 import { apiClient } from './apiClient';
-import type { User, UserCreateRequest, UserUpdateRequest, UserManagersUpdateRequest } from '../types/user';
+import type { User, UserCreateRequest, UserUpdateRequest, UserManagersUpdateRequest, CategoryAllowanceEntry } from '../types/user';
 
 /**
  * GET /api/users/list
@@ -45,6 +45,11 @@ export const updateUserApi = async (strId: string, objPayload: UserUpdateRequest
  */
 export const updateManagersApi = async (strId: string, objPayload: UserManagersUpdateRequest): Promise<User> => {
   const objResp = await apiClient.put<User>(`/api/users/${strId}/managers`, objPayload);
+  return objResp.data;
+};
+
+export const updateCategoriesApi = async (strId: string, objPayload: { default_allowances: CategoryAllowanceEntry[] }): Promise<User> => {
+  const objResp = await apiClient.put<User>(`/api/users/${strId}/categories`, objPayload);
   return objResp.data;
 };
 

@@ -35,7 +35,9 @@ router = APIRouter(prefix="/api/categories", tags=["Categories"])
 def _docToSchema(dictDoc: dict) -> CategoryResponseSchema:
     """Map a MongoDB document to CategoryResponseSchema."""
     dictDoc = dict(dictDoc)
-    dictDoc["category_id"] = str(dictDoc.pop("_id"))
+    if "category_id" not in dictDoc:
+        dictDoc["category_id"] = str(dictDoc.get("_id"))
+    dictDoc.pop("_id", None)
     # Convert ObjectId dept ids stored as strings/ObjectIds
     dictDoc.setdefault("department_ids", [])
     dictDoc.setdefault("sub_categories", [])
@@ -56,6 +58,9 @@ async def createCategory(
     """
     try:
         objCats = get_collection("reimbursement_categories")
+
+        if objCats.find_one({"category_id": objRequest.category_id}):
+            raise HTTPException(status_code=400, detail="Category ID already exists")
 
         if objCats.find_one({"name": objRequest.name, "is_active": True}):
             raise HTTPException(status_code=400, detail="A category with this name already exists")
@@ -113,7 +118,12 @@ async def updateCategory(
     """
     try:
         objCats = get_collection("reimbursement_categories")
-        dictOld = objCats.find_one({"_id": ObjectId(category_id)})
+        dictOld = objCats.find_one({"category_id": category_id})
+        if not dictOld:
+            try:
+                dictOld = objCats.find_one({"_id": ObjectId(category_id)})
+            except:
+                pass
 
         if not dictOld:
             raise HTTPException(status_code=404, detail="Category not found")
@@ -126,8 +136,8 @@ async def updateCategory(
         if "allowed_roles" in dictUpdates:
             dictUpdates["allowed_roles"] = [r.value if hasattr(r, "value") else r for r in dictUpdates["allowed_roles"]]
 
-        objCats.update_one({"_id": ObjectId(category_id)}, {"$set": dictUpdates})
-        dictNew = objCats.find_one({"_id": ObjectId(category_id)})
+        objCats.update_one({"_id": dictOld["_id"]}, {"$set": dictUpdates})
+        dictNew = objCats.find_one({"_id": dictOld["_id"]})
 
         logMutation("reimbursement_categories", dictOld, dictNew, "UPDATE", dictCurrentUser["user_id"], category_id)
 
@@ -151,12 +161,17 @@ async def deleteCategory(
     """
     try:
         objCats = get_collection("reimbursement_categories")
-        dictOld = objCats.find_one({"_id": ObjectId(category_id)})
+        dictOld = objCats.find_one({"category_id": category_id})
+        if not dictOld:
+            try:
+                dictOld = objCats.find_one({"_id": ObjectId(category_id)})
+            except:
+                pass
 
         if not dictOld:
             raise HTTPException(status_code=404, detail="Category not found")
 
-        objCats.update_one({"_id": ObjectId(category_id)}, {"$set": {"is_active": False}})
+        objCats.update_one({"_id": dictOld["_id"]}, {"$set": {"is_active": False}})
         dictNew = {**dictOld, "is_active": False}
 
         logMutation("reimbursement_categories", dictOld, dictNew, "DELETE", dictCurrentUser["user_id"], category_id)
