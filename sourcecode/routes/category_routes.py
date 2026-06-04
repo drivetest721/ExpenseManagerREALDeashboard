@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 from config.mongodb_config import get_collection
 from middleware.jwt_middleware import getOwnerUserDependency, getCurrentUserDependency
@@ -82,14 +82,18 @@ async def createCategory(
 
 
 @router.get("/list", response_model=List[CategoryResponseSchema])
-async def listCategories(dictCurrentUser: dict = Depends(getCurrentUserDependency)):
+async def listCategories(
+    include_inactive: bool = Query(False, description="Include inactive categories"),
+    dictCurrentUser: dict = Depends(getCurrentUserDependency)
+):
     """
-    Purpose : List all active categories.
+    Purpose : List all active categories (or all if include_inactive=true).
     Access  : Any authenticated user.
     """
     try:
         objCats = get_collection("reimbursement_categories")
-        lsDocs = list(objCats.find({"is_active": True}))
+        query = {} if include_inactive else {"is_active": True}
+        lsDocs = list(objCats.find(query))
         return [_docToSchema(d) for d in lsDocs]
 
     except Exception as objErr:

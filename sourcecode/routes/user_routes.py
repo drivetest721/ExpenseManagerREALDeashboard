@@ -21,6 +21,7 @@ from schemas.user_schemas import (
     UserUpdateRequest,
     UserResponseSchema,
     UserManagersUpdateRequest,
+    UserCategoriesUpdateRequest,
 )
 from controllers.AuditLogger import logMutation
 
@@ -32,6 +33,40 @@ router = APIRouter(prefix="/api/users", tags=["Users"])
 def _hashPassword(strPlain: str) -> str:
     """Truncate to 72 bytes (bcrypt's hard limit) and hash via bcrypt directly."""
     return bcrypt.hashpw(strPlain.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+
+
+def _detectCircularHierarchy(user_id: str, new_manager_id: str, objUsers) -> bool:
+    """
+    Purpose : Check if assigning new_manager_id as a manager of user_id would create a circular hierarchy.
+    Returns : True if circular dependency detected, False otherwise.
+    Algorithm: Walk up the manager chain from new_manager_id. If we encounter user_id, it's circular.
+    """
+    visited = set()
+    current = new_manager_id
+
+    while current:
+        # If we've reached the user we're trying to assign a manager to, it's circular
+        if current == user_id:
+            return True
+
+        # Prevent infinite loops if data is already corrupted
+        if current in visited:
+            break
+        visited.add(current)
+
+        # Get current user's first manager (primary approver)
+        try:
+            dictUser = objUsers.find_one({"_id": ObjectId(current)}, {"managers": 1})
+            if not dictUser or not dictUser.get("managers"):
+                break
+
+            # Follow the chain through the highest priority manager
+            lsManagers = sorted(dictUser["managers"], key=lambda m: m.get("priority", 999))
+            current = lsManagers[0].get("manager_id") if lsManagers else None
+        except:
+            break
+
+    return False
 
 
 @router.post("/create", response_model=UserResponseSchema, status_code=status.HTTP_201_CREATED)
@@ -54,6 +89,7 @@ async def createUser(
         dictNewUser["password_hash"] = _hashPassword(dictNewUser.pop("password"))
         dictNewUser["is_active"] = True
         dictNewUser["has_payment_method"] = False
+        dictNewUser.setdefault("default_allowances", [])
 
         objResult = objUsers.insert_one(dictNewUser)
         strId = str(objResult.inserted_id)
@@ -202,6 +238,13 @@ async def updateManagers(
             if not objUsers.find_one({"_id": ObjectId(m.manager_id)}):
                 raise HTTPException(status_code=400, detail=f"Manager {m.manager_id} not found")
 
+            # Validation: No circular hierarchy (transitive dependency check)
+            if _detectCircularHierarchy(user_id, m.manager_id, objUsers):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Circular hierarchy detected: Assigning manager {m.manager_id} would create a circular dependency"
+                )
+
         # Resolve manager names for storage
         lsResolvedManagers = []
         for m in lsManagers:
@@ -226,6 +269,72 @@ async def updateManagers(
         raise
     except Exception as objErr:
         objLogger.error(f"❌ UPDATE MANAGERS ERROR: {objErr}")
+        raise HTTPException(status_code=500, detail=str(objErr))
+
+
+@router.put("/{user_id}/categories", response_model=UserResponseSchema)
+async def updateCategories(
+    user_id: str,
+    objRequest: UserCategoriesUpdateRequest,
+    dictCurrentUser: dict = Depends(getOwnerUserDependency),
+):
+    """
+    Purpose : Update user's default category allowances.
+    Access  : Owner only.
+    Validation: Duplicate category check, category existence verification.
+    """
+    try:
+        objUsers = get_collection("users")
+        objCategories = get_collection("reimbursement_categories")
+
+        dictOld = objUsers.find_one({"_id": ObjectId(user_id)})
+
+        if not dictOld:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        lsAllowances = objRequest.default_allowances
+
+        # Validation: Check for duplicate category_id entries
+        lsCategoryIds = [a.category_id for a in lsAllowances]
+        if len(lsCategoryIds) != len(set(lsCategoryIds)):
+            raise HTTPException(status_code=400, detail="Duplicate category assignments not allowed")
+
+        # Validation: Verify all categories exist and are active
+        for a in lsAllowances:
+            dictCat = objCategories.find_one({"_id": ObjectId(a.category_id), "is_active": True})
+            if not dictCat:
+                raise HTTPException(status_code=400, detail=f"Category {a.category_id} not found or inactive")
+
+            # Validate sub_category if provided
+            if a.sub_category and a.sub_category not in dictCat.get("sub_categories", []):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Sub-category '{a.sub_category}' not found in category {dictCat['name']}"
+                )
+
+        # Resolve category names for storage
+        lsResolvedAllowances = []
+        for a in lsAllowances:
+            dictCat = objCategories.find_one({"_id": ObjectId(a.category_id)}, {"name": 1})
+            lsResolvedAllowances.append({
+                "category_id": a.category_id,
+                "category_name": dictCat["name"],
+                "sub_category": a.sub_category,
+            })
+
+        objUsers.update_one({"_id": ObjectId(user_id)}, {"$set": {"default_allowances": lsResolvedAllowances}})
+
+        dictNew = objUsers.find_one({"_id": ObjectId(user_id)})
+        dictNew["user_id"] = str(dictNew.pop("_id"))
+
+        logMutation("users", dictOld, dictNew, "UPDATE_CATEGORIES", dictCurrentUser["user_id"], user_id)
+
+        return UserResponseSchema(**dictNew)
+
+    except HTTPException:
+        raise
+    except Exception as objErr:
+        objLogger.error(f"❌ UPDATE CATEGORIES ERROR: {objErr}")
         raise HTTPException(status_code=500, detail=str(objErr))
 
 

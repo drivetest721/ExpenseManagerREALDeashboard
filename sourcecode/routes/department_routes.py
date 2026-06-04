@@ -10,7 +10,7 @@ Dependencies: fastapi, mongodb_config, jwt_middleware, department_schemas, Audit
 
 import logging
 from typing import List
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from bson import ObjectId
 
 from config.mongodb_config import get_collection
@@ -34,7 +34,7 @@ async def createDepartment(
 ):
     """
     Purpose : Create a new department.
-    Access  : Admin (Owner/CA).
+    Access  : Admin (Owner).
     """
     try:
         objDepts = get_collection("departments")
@@ -65,20 +65,24 @@ async def createDepartment(
 
 
 @router.get("/list", response_model=List[DepartmentResponseSchema])
-async def listDepartments(dictCurrentUser: dict = Depends(getCurrentUserDependency)):
+async def listDepartments(
+    include_inactive: bool = Query(False, description="Include inactive departments"),
+    dictCurrentUser: dict = Depends(getCurrentUserDependency)
+):
     """
-    Purpose : List all active departments.
+    Purpose : List all active departments (or all if include_inactive=true).
     Access  : Any authenticated user.
     """
     try:
         objDepts = get_collection("departments")
-        lsDepts = list(objDepts.find({"is_active": True}))
-        
+        query = {} if include_inactive else {"is_active": True}
+        lsDepts = list(objDepts.find(query))
+
         lsResponse = []
         for dictDept in lsDepts:
             dictDept["department_id"] = str(dictDept.pop("_id"))
             lsResponse.append(DepartmentResponseSchema(**dictDept))
-            
+
         return lsResponse
 
     except Exception as objErr:
@@ -94,7 +98,7 @@ async def updateDepartment(
 ):
     """
     Purpose : Update department name or owners.
-    Access  : Admin (Owner/CA).
+    Access  : Admin (Owner).
     """
     try:
         objDepts = get_collection("departments")

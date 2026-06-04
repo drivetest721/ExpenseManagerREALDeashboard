@@ -76,6 +76,14 @@ class ManagerEntrySchema(BaseModel):
     approval_type: str = Field(..., description="mandatory | optional")
 
 
+class CategoryAllowanceEntrySchema(BaseModel):
+    """Single category allowance entry for default reimbursement categories assigned to user."""
+
+    category_id: str = Field(..., description="ObjectId of the category")
+    category_name: Optional[str] = Field(None, description="Resolved category name")
+    sub_category: Optional[str] = Field(None, description="Specific sub-category within the category")
+
+
 # ── Response Schemas ───────────────────────────────────────────────────────────
 
 class UserProfileSchema(BaseModel):
@@ -87,6 +95,10 @@ class UserProfileSchema(BaseModel):
     email: str = Field(..., description="Email address")
     departments: List[DepartmentEntrySchema] = Field(default_factory=list)
     managers: List[ManagerEntrySchema] = Field(default_factory=list)
+    default_allowances: List[CategoryAllowanceEntrySchema] = Field(
+        default_factory=list,
+        description="Default reimbursement categories assigned to this user",
+    )
     is_active: bool = Field(default=True)
     has_payment_method: bool = Field(
         default=False,

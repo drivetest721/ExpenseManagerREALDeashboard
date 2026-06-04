@@ -193,7 +193,6 @@ objApp.include_router(objSLARouter)
 objApp.include_router(objHolidayRouter)
 objApp.include_router(objAnalyticsRouter)
 
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

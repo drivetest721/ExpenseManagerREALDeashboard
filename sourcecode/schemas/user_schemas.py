@@ -10,7 +10,7 @@ Dependencies: pydantic, schemas.auth_schemas, schemas.common_enums
 
 from typing import List, Optional
 from pydantic import BaseModel, Field, EmailStr
-from schemas.auth_schemas import DepartmentEntrySchema, ManagerEntrySchema, UserProfileSchema
+from schemas.auth_schemas import DepartmentEntrySchema, ManagerEntrySchema, UserProfileSchema, CategoryAllowanceEntrySchema
 from schemas.common_enums import UserRoleEnum, ApprovalTypeEnum
 
 
@@ -47,6 +47,17 @@ class ManagerUpdateEntrySchema(BaseModel):
 class UserManagersUpdateRequest(BaseModel):
     """Schema for updating a user's manager hierarchy."""
     managers: List[ManagerUpdateEntrySchema]
+
+
+class CategoryAllowanceUpdateEntrySchema(BaseModel):
+    """Simplified schema for updating category allowances."""
+    category_id: str
+    sub_category: Optional[str] = None
+
+
+class UserCategoriesUpdateRequest(BaseModel):
+    """Schema for updating a user's default category allowances."""
+    default_allowances: List[CategoryAllowanceUpdateEntrySchema]
 
 
 class UserResponseSchema(UserProfileSchema):

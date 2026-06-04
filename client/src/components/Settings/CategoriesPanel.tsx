@@ -235,8 +235,8 @@ export default function CategoriesPanel() {
           </div>
 
           {/* ── Allowed For picker ── */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
+          {/* <div className="mb-4"> */}
+            {/* <div className="flex items-center justify-between mb-2">
               <label className={strLbl + ' mb-0'}>Allowed For</label>
               <div className="flex bg-gray-100 rounded-lg p-0.5 gap-0.5">
                 {(['role', 'dept', 'individual'] as PickerTab[]).map(tab => (
@@ -249,10 +249,10 @@ export default function CategoriesPanel() {
                   </button>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* By Role */}
-            {objForm.picker_tab === 'role' && (
+            {/* {objForm.picker_tab === 'role' && (
               <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 {ALL_ROLES.map(r => {
                   const bChecked = objForm.allowed_roles.includes(r);
@@ -264,10 +264,10 @@ export default function CategoriesPanel() {
                   );
                 })}
               </div>
-            )}
+            )} */}
 
             {/* By Department */}
-            {objForm.picker_tab === 'dept' && (
+            {/* {objForm.picker_tab === 'dept' && (
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
                 {lsDepts.length === 0 && <p className="text-xs text-gray-500 italic">No departments found.</p>}
                 {lsDepts.map(d => {
@@ -280,10 +280,10 @@ export default function CategoriesPanel() {
                   );
                 })}
               </div>
-            )}
+            )} */}
 
             {/* By Individual — hierarchical tree */}
-            {objForm.picker_tab === 'individual' && (
+            {/* {objForm.picker_tab === 'individual' && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
                   <div className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -306,8 +306,8 @@ export default function CategoriesPanel() {
                     const bCollapsed = setCollapsedDepts.has(dg.dept.department_id);
                     return (
                       <div key={dg.dept.department_id}>
-                        {/* Department row */}
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 hover:bg-gray-100/80 border-b border-gray-100 sticky top-0">
+
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50/80 hover:bg-gray-100/80 border-b border-gray-100 sticky top-0">
                           <input
                             type="checkbox" checked={bAllSel}
                             ref={el => { if (el) el.indeterminate = bSomeSel; }}
@@ -326,7 +326,7 @@ export default function CategoriesPanel() {
                           const bRoleSome = !bRoleAll && rg.lsUsers.some(u => setSelUsers.has(u.user_id));
                           return (
                             <div key={rg.role}>
-                              {/* Role row */}
+
                               <div className="flex items-center gap-2 px-5 py-1.5 bg-gray-50/40 border-b border-gray-100">
                                 <input
                                   type="checkbox" checked={bRoleAll}
@@ -337,7 +337,7 @@ export default function CategoriesPanel() {
                                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{rg.role.replace(/_/g,' ')}</span>
                                 <span className="text-xs text-gray-400">({rg.lsUsers.length})</span>
                               </div>
-                              {/* User rows */}
+
                               {rg.lsUsers.map(u => (
                                 <label key={u.user_id} className="flex items-center gap-3 px-7 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
                                   <input type="checkbox" checked={setSelUsers.has(u.user_id)} onChange={() => toggleUser(u.user_id)} className="cursor-pointer" />
@@ -356,13 +356,13 @@ export default function CategoriesPanel() {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
 
-          <div className="flex flex-wrap gap-4 mb-4 text-sm text-gray-700">
+          {/* <div className="flex flex-wrap gap-4 mb-4 text-sm text-gray-700">
             <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={objForm.requires_invoice} onChange={e => set('requires_invoice', e.target.checked)} className="rounded" /> Requires Invoice</label>
             <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={objForm.approval_required} onChange={e => set('approval_required', e.target.checked)} className="rounded" /> Approval Required</label>
             {strEditId && <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={objForm.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" /> Active</label>}
-          </div>
+          </div> */}
           <div className="flex justify-end gap-2">
             <button onClick={closeForm} className="inline-flex items-center gap-1.5 px-4 h-10 text-sm border border-gray-300 rounded-md text-[#4A4A4A] bg-white hover:bg-[#F7F7F7] cursor-pointer shadow-sm">
               <X className="w-4 h-4" /> Cancel

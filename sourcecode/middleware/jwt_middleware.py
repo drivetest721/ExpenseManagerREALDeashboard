@@ -35,7 +35,7 @@ objLogger = logging.getLogger(__name__)
 _objBearer = HTTPBearer(auto_error=True)
 
 # Roles considered "admin" for access control purposes
-_ADMIN_ROLES = {"owner", "ca"}
+_ADMIN_ROLES = {"owner"}
 _OWNER_ROLES = {"owner"}
 _CA_ROLES = {"ca"}
 

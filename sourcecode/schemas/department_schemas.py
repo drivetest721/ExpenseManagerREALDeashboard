@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 class DepartmentCreateRequest(BaseModel):
     """Schema for creating a new department."""
+    department_id: str = Field(..., description="Unique identifier for the department")
     department_name: str = Field(..., min_length=2, max_length=100)
     owner_ids: List[str] = Field(default_factory=list, description="List of User IDs who own this department.")
 
