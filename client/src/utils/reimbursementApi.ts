@@ -90,14 +90,23 @@ export const deleteReimbursementApi = async (strId: string): Promise<void> => {
  * Get approval chain and visible logs.
  */
 export interface ChainStep {
+  level: number;
   user_id: string;
   name: string;
   email: string;
+  role: string;
+  department?: string;
   priority: number;
   approval_type: string;
   status: string;
+  action?: string;
+  received_date?: string;
+  response_date?: string;
+  remaining_days?: number;
   approved_at?: string;
   approved_by?: string;
+  submitted_at?: string;
+  is_initiator?: boolean;
 }
 
 export interface ChainLog {

@@ -45,6 +45,90 @@ body {
 /* Universal cursor-pointer on any element marked .clickable. */
 .clickable { cursor: pointer; }
 
+/* Notification card styles for HTML notifications with SSE */
+.notification-card {
+  border-left-width: 4px;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+.notification-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.notification-card p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.notification-card strong {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.notification-card table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.notification-card th,
+.notification-card td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.notification-card th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+
+.notification-card.status-submitted {
+  border-color: #3b82f6;
+  background: linear-gradient(to right, #eff6ff, #dbeafe);
+}
+
+.notification-card.status-query {
+  border-color: #eab308;
+  background: linear-gradient(to right, #fefce8, #fef3c7);
+}
+
+.notification-card.status-ask {
+  border-color: #f59e0b;
+  background: linear-gradient(to right, #fffbeb, #fed7aa);
+}
+
+.notification-card.status-approved {
+  border-color: #10b981;
+  background: linear-gradient(to right, #ecfdf5, #d1fae5);
+}
+
+.notification-card.status-paid {
+  border-color: #059669;
+  background: linear-gradient(to right, #f0fdf4, #dcfce7);
+}
+
+.notification-card.status-rejected {
+  border-color: #ef4444;
+  background: linear-gradient(to right, #fef2f2, #fee2e2);
+}
+
+.notification-card .action-required {
+  margin-top: 12px;
+  padding: 8px;
+  background: #fef3c7;
+  border-radius: 4px;
+  font-weight: 500;
+  color: #92400e;
+}
+
 /* Fade-in animation for tab transitions and dropdowns */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-4px); }

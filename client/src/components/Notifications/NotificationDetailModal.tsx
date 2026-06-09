@@ -23,6 +23,7 @@ interface Props {
 export default function NotificationDetailModal({
   notif, bStarred, bArchived, onClose, onStarred, onArchived, onViewDetails,
 }: Props) {
+  console.log('📢 Rendering NotificationDetailModal for:', notif);
   const meta = getNotifMeta(notif.type);
   const tone = TONE_CLASSES[meta.tone];
   const [bStar, setBStar] = useState<boolean>(bStarred);
@@ -67,13 +68,21 @@ export default function NotificationDetailModal({
             <h4 className={`text-base sm:text-lg font-bold ${tone.bannerText}`}>{meta.label}</h4>
           </div>
 
-          {/* Message */}
-          {notif.message && (
-            <p className="text-sm text-gray-700 leading-relaxed mb-4 whitespace-pre-wrap">{notif.message}</p>
+          {/* HTML Content (if available) */}
+          {notif.html_content ? (
+            <div
+              className="mb-4"
+              dangerouslySetInnerHTML={{ __html: notif.html_content }}
+            />
+          ) : (
+            /* Fallback to plain message */
+            notif.message && (
+              <p className="text-sm text-gray-700 leading-relaxed mb-4 whitespace-pre-wrap">{notif.message}</p>
+            )
           )}
 
           {/* Details box */}
-          <div className={`rounded-xl border border-gray-200 ${tone.softBg} px-4 py-4 space-y-2`}>
+          {/* <div className={`rounded-xl border border-gray-200 ${tone.softBg} px-4 py-4 space-y-2`}>
             <DetailRow label="Type" value={meta.label} />
             <DetailRow label="Notification ID" value={notif.notification_id} mono />
             {notif.reimbursement_id && (
@@ -81,7 +90,7 @@ export default function NotificationDetailModal({
             )}
             <DetailRow label="Status" value={notif.is_read ? 'Read' : 'Unread'} />
             <DetailRow label="Received" value={new Date(notif.created_at).toLocaleString()} />
-          </div>
+          </div> */}
         </div>
 
         {/* ── Footer ── */}
@@ -116,11 +125,11 @@ export default function NotificationDetailModal({
   );
 }
 
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="text-sm">
-      <span className="font-semibold text-gray-900">{label}: </span>
-      <span className={`text-gray-700 ${mono ? 'font-mono text-xs' : ''}`}>{value}</span>
-    </div>
-  );
-}
+// function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+//   return (
+//     <div className="text-sm">
+//       <span className="font-semibold text-gray-900">{label}: </span>
+//       <span className={`text-gray-700 ${mono ? 'font-mono text-xs' : ''}`}>{value}</span>
+//     </div>
+//   );
+// }

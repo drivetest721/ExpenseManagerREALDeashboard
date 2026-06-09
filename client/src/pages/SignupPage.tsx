@@ -129,7 +129,7 @@ export default function SignupPage() {
 
           {/* Brand mark with favicon logo */}
           <div className="flex flex-col items-center gap-3 cursor-default">
-            <img src="/favicon.png" alt="Logo" className="w-16 h-16" />
+            <img src="/favicon.png" alt="Logo" className="h-16" />
             <h1 className="text-2xl font-bold text-gray-900">Real Dashboard</h1>
             <p className="text-sm text-gray-500">Expense Management · Create your account</p>
           </div>
@@ -185,8 +185,6 @@ export default function SignupPage() {
     </>
   );
 }
-
-
 
 // ── Sub-component: Signup details form ────────────────────────────────────────
 interface SignupFormProps {

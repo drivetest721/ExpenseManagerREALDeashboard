@@ -11,6 +11,7 @@ import { useAuth } from '../../hooks/useAuth';
 import QueryAskDialog from './QueryAskDialog';
 import CAPayDialog from './CAPayDialog';
 import PaymentDetailsModal from './PaymentDetailsModal';
+import { fmtDateTimeFull } from '../common/DateTimeFormatter';
 
 interface ReimbursementDetailModalProps {
   strReimbursementId: string;
@@ -115,7 +116,7 @@ export default function ReimbursementDetailModal({
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">Created</p>
               <p className="font-semibold text-gray-900 mt-0.5">
-                {new Date(objReimbursement.created_at).toLocaleString()}
+                {fmtDateTimeFull(objReimbursement.created_at)}
               </p>
             </div>
           </div>

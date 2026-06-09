@@ -88,6 +88,8 @@ interface Props {
   iPageSize: number;
   iPageIdx: number;
   onRowAdded?: () => void;
+  // optional: highlight row that contains the currently previewed attachment
+  iHighlightedRowIdx?: number;
 }
 
 export default function BusinessTripMatrix({
@@ -107,6 +109,7 @@ export default function BusinessTripMatrix({
   iPageSize,
   iPageIdx,
   onRowAdded: _onRowAdded,
+  iHighlightedRowIdx = -1,
 }: Props) {
   const [strUploadingKey, setStrUploadingKey] = useState('');
   const iPageStart = iPageIdx * iPageSize;
@@ -280,7 +283,11 @@ export default function BusinessTripMatrix({
               return (
                 <tr
                   key={iActualIdx}
-                  className="hover:bg-gradient-to-r hover:from-amber-50/40 hover:to-yellow-50/20 transition-all border-b border-gray-100"
+                  className={`transition-all border-b border-gray-100 ${
+                    iActualIdx === iHighlightedRowIdx
+                      ? 'bg-gradient-to-r from-blue-100 to-cyan-100 hover:from-blue-150 hover:to-cyan-150 ring-2 ring-blue-400 ring-inset'
+                      : 'hover:bg-gradient-to-r hover:from-amber-50/40 hover:to-yellow-50/20'
+                  }`}
                 >
                   <td className="px-3 py-3 text-center text-xs font-bold text-gray-400 border-l-2 border-r border-gray-200">
                     {iActualIdx + 1}

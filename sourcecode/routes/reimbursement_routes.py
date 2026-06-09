@@ -14,8 +14,9 @@ from typing import List, Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status, Depends, Query
+from gridfs import GridFS
 
-from config.mongodb_config import get_collection
+from config.mongodb_config import get_collection, get_database
 from middleware.jwt_middleware import getCurrentUserDependency
 from schemas.reimbursement_schemas import (
     ReimbursementCreateRequest,
@@ -164,6 +165,60 @@ def _validateCategoryLimits(lsItems: list) -> None:
             )
 
 
+def _resolveCategoryNamesByIds(lsIds: list) -> dict:
+    """Resolve category names for a list of category_id strings."""
+    objCats = get_collection("reimbursement_categories")
+    setIds = set()
+    for strCatId in lsIds:
+        if not strCatId:
+            continue
+        try:
+            setIds.add(ObjectId(strCatId))
+        except Exception:
+            pass
+    dictNameMap = {}
+    if setIds:
+        for dictCat in objCats.find({"_id": {"$in": list(setIds)}}, {"name": 1}):
+            dictNameMap[str(dictCat["_id"])] = dictCat.get("name", str(dictCat.get("_id")))
+    return dictNameMap
+
+
+def _resolveAttachmentNames(lsIds: list) -> dict:
+    """Resolve attachment names for a list of attachment_id strings."""
+    dictNameMap = {}
+    try:
+        objGridFS = GridFS(get_database())
+        for strAttachId in lsIds:
+            if not strAttachId:
+                continue
+            try:
+                objFile = objGridFS.get(ObjectId(strAttachId))
+                dictNameMap[strAttachId] = objFile.filename or strAttachId
+            except Exception:
+                dictNameMap[strAttachId] = strAttachId
+    except Exception:
+        pass
+    return dictNameMap
+
+
+def _getItemValue(objItem, key: str):
+    if hasattr(objItem, key):
+        return getattr(objItem, key)
+    if isinstance(objItem, dict):
+        return objItem.get(key)
+    return None
+
+
+def _normalizeValue(objVal):
+    if objVal is None:
+        return ""
+    if isinstance(objVal, bool):
+        return "Yes" if objVal else "No"
+    if hasattr(objVal, "isoformat"):
+        return objVal.isoformat()
+    return str(objVal)
+
+
 def _coerceDate(objVal):
     """Convert datetime.date (not datetime) → datetime at midnight UTC for BSON encoding."""
     if isinstance(objVal, datetime):
@@ -215,8 +270,8 @@ def _logFieldChanges(strReimbursementId: str, strUserId: str, dictOld: dict, dic
             )
 
     # Track item changes (additions, removals, modifications)
-    lsOldItems = dictOld.get("items", [])
-    lsNewItems = dictNew.get("items", [])
+    lsOldItems = dictOld.get("items", []) or []
+    lsNewItems = dictNew.get("items", []) or []
 
     if len(lsOldItems) != len(lsNewItems):
         logEdit(
@@ -227,6 +282,71 @@ def _logFieldChanges(strReimbursementId: str, strUserId: str, dictOld: dict, dic
             str(len(lsNewItems)),
             "FIELD_CHANGED"
         )
+
+    # Resolve category names and attachment labels for any changed item IDs.
+    setCatIds = set()
+    setAttachIds = set()
+    for objItem in lsOldItems + lsNewItems:
+        strCatId = _getItemValue(objItem, "category_id")
+        if strCatId:
+            setCatIds.add(strCatId)
+        for strAttach in _getItemValue(objItem, "attachments") or []:
+            if strAttach:
+                setAttachIds.add(strAttach)
+
+    dictCatNames = _resolveCategoryNamesByIds(list(setCatIds))
+    dictAttachNames = _resolveAttachmentNames(list(setAttachIds))
+
+    def _itemLabel(value, lookup):
+        if not value:
+            return "-"
+        return lookup.get(str(value), str(value))
+
+    maxItems = max(len(lsOldItems), len(lsNewItems))
+    for iIdx in range(maxItems):
+        objOld = lsOldItems[iIdx] if iIdx < len(lsOldItems) else {}
+        objNew = lsNewItems[iIdx] if iIdx < len(lsNewItems) else {}
+
+        oldCatId = _getItemValue(objOld, "category_id")
+        newCatId = _getItemValue(objNew, "category_id")
+        if oldCatId != newCatId:
+            logEdit(
+                strReimbursementId,
+                strUserId,
+                f"items[{iIdx + 1}].category_name",
+                _itemLabel(oldCatId, dictCatNames),
+                _itemLabel(newCatId, dictCatNames),
+                "FIELD_CHANGED"
+            )
+
+        for strField in ["sub_category", "amount", "expense_date", "description"]:
+            strOldValue = _normalizeValue(_getItemValue(objOld, strField))
+            strNewValue = _normalizeValue(_getItemValue(objNew, strField))
+            if strOldValue != strNewValue:
+                logEdit(
+                    strReimbursementId,
+                    strUserId,
+                    f"items[{iIdx + 1}].{strField}",
+                    strOldValue or "-",
+                    strNewValue,
+                    "FIELD_CHANGED"
+                )
+
+        lsOldAttach = _getItemValue(objOld, "attachments") or []
+        lsNewAttach = _getItemValue(objNew, "attachments") or []
+        lsOldNames = [dictAttachNames.get(str(a), str(a)) for a in lsOldAttach if a]
+        lsNewNames = [dictAttachNames.get(str(a), str(a)) for a in lsNewAttach if a]
+        strOldAttach = ", ".join(lsOldNames) if lsOldNames else "-"
+        strNewAttach = ", ".join(lsNewNames) if lsNewNames else "-"
+        if strOldAttach != strNewAttach:
+            logEdit(
+                strReimbursementId,
+                strUserId,
+                f"items[{iIdx + 1}].attachments",
+                strOldAttach,
+                strNewAttach,
+                "FIELD_CHANGED"
+            )
 
 
 def _resolveCategoryNames(lsDocs: list) -> dict:
@@ -304,8 +424,13 @@ async def createDraft(
 
         objResult = objReimbs.insert_one(dictNew)
         dictNew["_id"] = objResult.inserted_id
+        strReimbId = str(objResult.inserted_id)
         
-        logMutation("reimbursements", None, dictNew, "INSERT", strUserId, str(objResult.inserted_id))
+        logMutation("reimbursements", None, dictNew, "INSERT", strUserId, strReimbId)
+        
+        # Log draft creation - treat as creation where old_value is "-" for each item field
+        dictOldEmpty = {"items": []}
+        _logFieldChanges(strReimbId, strUserId, dictOldEmpty, dictNew)
         
         return _docToResponse(dictNew)
     

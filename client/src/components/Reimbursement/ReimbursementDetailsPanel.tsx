@@ -20,7 +20,7 @@ import {
 import { submitReimbursementApi, deleteReimbursementApi } from '../../utils/reimbursementApi';
 import { useAuth } from '../../hooks/useAuth';
 import { uploadAttachmentApi } from '../../utils/attachmentApi';
-
+import { fmtDateTimeFull } from './../common/DateTimeFormatter';
 interface Props {
   objReimbursement: Reimbursement;
   strCurrentReviewerId?: string;
@@ -230,7 +230,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
             <span className="font-semibold">Initiator:</span> {objReimbursement.initiator_name}
           </div>
           <div>
-            <span className="font-semibold">Created:</span> {fmtDate(objReimbursement.created_at)}
+            <span className="font-semibold">Created:</span> {fmtDateTimeFull(objReimbursement.created_at)}
           </div>
           {/* {objReimbursement.description && (
             <div>

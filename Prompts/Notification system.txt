@@ -1,0 +1,86 @@
+Notification system:
+ - Currently The Notification system is built with Simple Polling Method; where client is try to Connect and ask any updates from Backend.
+ - I want to Upgrade this System to the new Method: "Server Side Events".
+ - Use the Fast API's Streaming Response to Generate the Server Side Events for Any Notification.
+ - I have Different Statuses for Reimbursement Cycle; I want to send different Template for Each Statuses.
+
+Status:
+1) Submitted:
+ - when Initiator Submitted the Reimbursement then use then Use Following Template to Initiator:
+   > Initiator Gets Following in the Notification: 
+        Heading: "Application Submitted"
+	Reimbursement ID,         
+	Name of Initiator,
+        Categories(comma Separated),
+        Total Amount(Sum of All category),
+        Application Date(with Time Stamp).
+
+   > Manager of Initiator Gets Following:
+        Heading: "Approval Required"
+	Reimbursement ID,        
+	Name of Initiator, 
+        Categories(Comma Separated),
+        Total Amount(Sum of All category), 
+        Application Date,
+        Due Date.
+        
+   (If manager of Initiator approved then Manager of Manager Gets Following):
+        Heading: "Approval Required"
+	Reimbursement ID,        
+	Name of Initiator, 
+        Categories(Comma Separated),
+        Total Amount(Sum of All category), 
+        Application Date,
+        Due Date.
+        Summary of History:
+         | Manager Name | Received date  | Approved date |
+         | Initiator    |  -             | Application date |
+         | manager 1    |  received date | approved date |
+
+2) Manager Raised Query:
+  - If Any manager Raised Query for an Reimbursement then Use Following Template:
+    Heading: "Query Raised by Manager Name"
+    Reimbursement ID,        
+    Reason of Query: Message from the Manager
+    Due Date.
+
+3) Manager Ask:
+  - If Any manager Raised ask for an Reimbursement then Use Following Template:
+    Heading: "Ask by Manager Name"
+    Reimbursement ID,        
+    Reason of Ask: Message from the Manager
+    Due Date.
+
+4) Approved the Reimbursement:
+  - When any Manager Approved Reimbursement then Send the Approved Notification to the Initiator with Following Templates
+    Heading: "Approved by Manager Name"
+    Reimbursement ID,        
+    Name of manager, 
+    Total Amount(Sum of All category),
+    Categories(Comma Separated),
+    Approved date
+
+5) Paid to the Initiator:
+   Heading: "Paid Amount"
+   Reimbursement ID,
+   Total Amount(Sum of All category),
+   Categories(Comma Separated),
+   Payment date:
+
+6) reject the Initiator's Reimbursement:
+   Heading: "Rejected Reimbursement"
+   Reimbursement ID,
+   Reason: message or description from the accountant for rejection.
+   Total Amount(Sum of All category),
+   Categories(Comma Separated),
+   Rejected date:
+
+Note:
+ - define the html template for each Status and Notification.
+ - Use this Template and send directly from the Backend.
+ - To render the Notification for different Status use the Color Scheme of The Statuses.
+   > Submitted: Blue
+   > QUERY: Yellow
+   > Rejected: Red
+   > PAYMENT RECIEVED: Green
+   > QUERY ANSER or ASK ANSWER: Yellowish Color not exact yellow.

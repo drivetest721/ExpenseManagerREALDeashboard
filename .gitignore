@@ -44,3 +44,6 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .augment/
+
+# Custome Library build artifacts
+Library/

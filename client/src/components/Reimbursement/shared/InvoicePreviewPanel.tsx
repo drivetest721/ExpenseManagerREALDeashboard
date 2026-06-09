@@ -13,6 +13,15 @@ interface Props {
   bScanning: boolean;
 }
 
+// Helper: format bytes to human-readable size
+function formatFileSize(iBytes: number): string {
+  if (iBytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(iBytes) / Math.log(k));
+  return Math.round((iBytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
 export default function InvoicePreviewPanel({
   lsAllAttachments,
   iPreviewIdx,
@@ -54,7 +63,11 @@ export default function InvoicePreviewPanel({
                 <span className="text-lg text-[#00703C]">{lsAllAttachments.length}</span>
               </p>
               {objPreviewMeta && (
-                <p className="text-xs text-gray-500 mt-0.5 truncate">{objPreviewMeta.file_name}</p>
+                <div className="mt-1.5">
+                  <span className="text-xs text-gray-600 font-semibold">File Name: {objPreviewMeta.file_name}</span>
+                  &nbsp;|&nbsp;
+                  <span className="text-xs text-gray-600 font-semibold">size: {formatFileSize(objPreviewMeta.size)}</span>
+                </div>
               )}
             </div>
             <button

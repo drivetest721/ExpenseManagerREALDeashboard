@@ -62,6 +62,8 @@ interface Props {
   onRowAdded?: () => void;
   // optional: lock first row's category (used for business trip seed)
   bLockFirstCategory?: boolean;
+  // optional: highlight row that contains the currently previewed attachment
+  iHighlightedRowIdx?: number;
 }
 
 export default function GeneralExpenseTable({
@@ -81,6 +83,7 @@ export default function GeneralExpenseTable({
   iPageIdx,
   onRowAdded,
   bLockFirstCategory = false,
+  iHighlightedRowIdx = -1,
 }: Props) {
   const [iUploadingIdx, setIUploadingIdx] = useState(-1);
   const [objColumnWidths, setObjColumnWidths] = useState<Record<string, number>>({
@@ -244,7 +247,11 @@ export default function GeneralExpenseTable({
               return (
                 <tr
                   key={iActualIdx}
-                  className="hover:bg-gradient-to-r hover:from-amber-50/50 hover:to-yellow-50/30 transition-all border-b border-gray-100"
+                  className={`transition-all border-b border-gray-100 ${
+                    iActualIdx === iHighlightedRowIdx
+                      ? 'bg-gradient-to-r from-blue-100 to-cyan-100 hover:from-blue-150 hover:to-cyan-150 ring-2 ring-blue-400 ring-inset'
+                      : 'hover:bg-gradient-to-r hover:from-amber-50/50 hover:to-yellow-50/30'
+                  }`}
                 >
                   <td className="px-3 py-3 text-center text-xs font-bold text-gray-400 border-l-2 border-r border-gray-200">
                     {iActualIdx + 1}

@@ -8,7 +8,9 @@ export interface Notification {
   user_id: string;
   type: string;
   title: string;
-  message: string;
+  message: string; // Plain text message (deprecated, use html_content)
+  html_content?: string; // NEW: Rich HTML notification template
+  metadata?: Record<string, any>; // NEW: Structured notification data
   reimbursement_id?: string;
   is_read: boolean;
   created_at: string;

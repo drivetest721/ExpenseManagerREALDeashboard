@@ -1,7 +1,7 @@
 /**
  * RightSidebar — Approval Chain placeholder + Payment Method selector.
  */
-import { AlertTriangle, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { PaymentMethod } from '../../../types/paymentMethod';
 
 interface Props {

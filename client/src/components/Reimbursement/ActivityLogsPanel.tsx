@@ -48,6 +48,7 @@ import { useAuth } from '../../hooks/useAuth';
 interface Props {
   lsChain: ChainStep[];
   iCurrentStep: number;
+  strCurrentReviewerId: string;
   lsLogs: ChainLog[];
   strInitiatorName: string;
   strStatus?: string;
@@ -141,19 +142,24 @@ const ALL_LOG_ICONS: Record<string, { Icon: any; color: string }> = {
 function fmtDateTime(str: string): string {
   if (!str) return '—';
   const d = new Date(str);
-  return d.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  // Format: dd/mm/yyyy hh:mm:ss AM/PM IST
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
+  let hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  const seconds = d.getSeconds().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const hoursStr = hours.toString().padStart(2, '0');
+
+  return `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm} IST`;
 }
 
 export default function ActivityLogsPanel({
   lsChain,
   iCurrentStep,
+  strCurrentReviewerId,
   lsLogs,
   strInitiatorName,
   strStatus,
@@ -163,7 +169,7 @@ export default function ActivityLogsPanel({
   const [strSearchQuery, setStrSearchQuery] = useState('');
   const [bShowPrivate, setBShowPrivate] = useState(true);
   const [setExpandedLogs, setSetExpandedLogs] = useState<Set<string>>(new Set());
-  const [strActiveTab, setStrActiveTab] = useState<'activity' | 'chain' | 'all'>('activity');
+  const [strActiveTab, setStrActiveTab] = useState<'activity' | 'chain' | 'all'>('chain');
 
   // State for "All Logs" tab
   const [lsAllLogs, setLsAllLogs] = useState<ActivityLog[]>([]);
@@ -206,15 +212,15 @@ export default function ActivityLogsPanel({
     );
   }, [lsLogs, bShowPrivate, strSearchQuery, objUser, bIsOwner, strInitiatorId]);
 
-  const toggleExpand = (strLogId: string) => {
+  const handleLogHoverStart = (strLogId: string) => {
+    setSetExpandedLogs((prev) => new Set(prev).add(strLogId));
+  };
+
+  const handleLogHoverEnd = (strLogId: string) => {
     setSetExpandedLogs((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(strLogId)) {
-        newSet.delete(strLogId);
-      } else {
-        newSet.add(strLogId);
-      }
-      return newSet;
+      const next = new Set(prev);
+      next.delete(strLogId);
+      return next;
     });
   };
 
@@ -239,6 +245,8 @@ export default function ActivityLogsPanel({
   }
 
   // Filter all logs based on selected types
+  const bShowLogTypeBadge = [bShowEdits, bShowActivity, bShowView].filter(Boolean).length >= 2;
+
   const lsFilteredAllLogs = useMemo(() => {
     let lsFiltered = lsAllLogs;
 
@@ -272,43 +280,59 @@ export default function ActivityLogsPanel({
   }, [lsAllLogs, bShowEdits, bShowActivity, bShowView, strSearchQuery, strActiveTab]);
 
   // Helper functions for Approval Chain
-  function getStepIcon(stepStatus: string, bIsCurrent: boolean) {
-    if (stepStatus === 'APPROVED') {
-      return <CheckCircle className="w-5 h-5 text-green-600" />;
+  function getStepIcon(stepStatus: string, bIsCurrent: boolean, strAction?: string) {
+    // Manager action completed
+    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strAction.toUpperCase())) {
+      return <CheckCircle className="w-4 h-4 text-green-600" />;
+    }
+    // Query/Ask icons
+    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK'].includes(strAction.toUpperCase())) {
+      return <AlertCircle className="w-4 h-4 text-orange-600" />;
+    }
+    if (stepStatus === 'APPROVED' || stepStatus === 'COMPLETED') {
+      return <CheckCircle className="w-4 h-4 text-green-600" />;
+    } else if (stepStatus === 'INITIATED') {
+      return <Clock className="w-4 h-4 text-blue-600" />;
     } else if (bIsCurrent) {
-      return <Clock className="w-5 h-5 text-yellow-600" />;
+      return <Clock className="w-4 h-4 text-yellow-600" />;
     } else if (stepStatus === 'REJECTED') {
-      return <XCircle className="w-5 h-5 text-red-600" />;
+      return <XCircle className="w-4 h-4 text-red-600" />;
     } else {
-      return <User className="w-5 h-5 text-gray-400" />;
+      return <User className="w-4 h-4 text-gray-400" />;
     }
   }
 
-  function getStepColor(stepStatus: string, bIsCurrent: boolean) {
-    if (stepStatus === 'APPROVED') return 'border-green-600 bg-green-50';
-    if (bIsCurrent) return 'border-yellow-600 bg-yellow-50';
-    if (stepStatus === 'REJECTED') return 'border-red-600 bg-red-50';
-    return 'border-gray-300 bg-gray-50';
+  function getStepColor(stepStatus: string, bIsCurrent: boolean, strAction?: string) {
+    // Manager who took action (QUERY/ASK/PAID/REJECT) - completed state
+    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strAction.toUpperCase())) {
+      return 'border-l-4 border-green-600 bg-green-50';
+    }
+    // Query/Ask highlighting
+    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK'].includes(strAction.toUpperCase())) {
+      return 'border-l-4 border-orange-600 bg-orange-50';
+    }
+    if (stepStatus === 'APPROVED' || stepStatus === 'COMPLETED') return 'border-l-4 border-green-600 bg-green-50';
+    if (bIsCurrent) return 'border-l-4 border-yellow-600 bg-yellow-50';
+    if (stepStatus === 'REJECTED') return 'border-l-4 border-red-600 bg-red-50';
+    if (stepStatus === 'INITIATED') return 'border-l-4 border-blue-600 bg-blue-50';
+    return 'border-l-4 border-gray-300 bg-gray-50';
   }
+
+  const getDisplayFieldName = (fieldName: string | null | undefined, action: string): string => {
+    if (!fieldName) return action.replace(/_/g, ' ');
+    
+    // Extract just the last field name after the last dot
+    // e.g., "items[2].attachments" → "attachments"
+    const parts = fieldName.split('.');
+    const lastPart = parts[parts.length - 1];
+    return lastPart.replace(/_/g, ' ');
+  };
 
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Tab Navigation */}
+      {/* Tab Navigation - Hidden Activity, Only Chain and All Logs */}
       <div className="border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
         <div className="flex">
-          <button
-            onClick={() => setStrActiveTab('activity')}
-            className={`flex-1 px-3 py-3 text-sm font-semibold transition-all border-b-2 ${
-              strActiveTab === 'activity'
-                ? 'border-[#00703C] text-[#00703C] bg-white'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Clock className="w-4 h-4" />
-              Activity
-            </div>
-          </button>
           <button
             onClick={() => setStrActiveTab('chain')}
             className={`flex-1 px-3 py-3 text-sm font-semibold transition-all border-b-2 ${
@@ -391,7 +415,8 @@ export default function ActivityLogsPanel({
                       }`}
                     >
                       <button
-                        onClick={() => toggleExpand(log.log_id)}
+                        onMouseEnter={() => handleLogHoverStart(log.log_id)}
+                        onMouseLeave={() => handleLogHoverEnd(log.log_id)}
                         className="w-full p-4 text-left"
                       >
                         <div className="flex items-start gap-3">
@@ -440,18 +465,6 @@ export default function ActivityLogsPanel({
                                 <div className="leading-relaxed">
                                   {bExpanded ? log.message : `${log.message.substring(0, 120)}${log.message.length > 120 ? '...' : ''}`}
                                 </div>
-                                {log.message.length > 120 && (
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      toggleExpand(log.log_id);
-                                    }}
-                                    className="mt-2 text-sm font-semibold text-blue-700 hover:text-blue-900"
-                                  >
-                                    {bExpanded ? 'Read less' : 'Read more'}
-                                  </button>
-                                )}
                               </div>
                             ) : (
                               <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
@@ -471,35 +484,38 @@ export default function ActivityLogsPanel({
                         </div>
                       </button>
 
-                      {/* Expanded Details */}
-                      {bExpanded && (
-                        <div className="px-4 pb-4 space-y-2 border-t-2 border-gray-200 pt-3 bg-gray-50">
-                          <div className="grid grid-cols-2 gap-3">
+                      {/* Expanded Details (animated) */}
+                      <div
+                        className={`px-4 pb-4 space-y-2 border-t-2 border-gray-200 bg-gray-50 overflow-hidden transition-all duration-300 ease-in-out ${
+                          bExpanded ? 'max-h-[420px] opacity-100 pt-3' : 'max-h-0 opacity-0 pt-0'
+                        }`}
+                        aria-hidden={!bExpanded}
+                      >
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <span className="block text-xs font-bold text-gray-700 mb-1">Actor Email</span>
+                            <span className="text-sm text-gray-800">{log.action_by_email || '—'}</span>
+                          </div>
+                          {log.action_by_role && (
                             <div>
-                              <span className="block text-xs font-bold text-gray-700 mb-1">Actor Email</span>
-                              <span className="text-sm text-gray-800">{log.action_by_email || '—'}</span>
+                              <span className="block text-xs font-bold text-gray-700 mb-1">Role</span>
+                              <span className="text-sm text-gray-800 capitalize">
+                                {log.action_by_role.replace(/_/g, ' ')}
+                              </span>
                             </div>
-                            {log.action_by_role && (
-                              <div>
-                                <span className="block text-xs font-bold text-gray-700 mb-1">Role</span>
-                                <span className="text-sm text-gray-800 capitalize">
-                                  {log.action_by_role.replace(/_/g, ' ')}
-                                </span>
-                              </div>
-                            )}
-                            {log.action_by_department && (
-                              <div>
-                                <span className="block text-xs font-bold text-gray-700 mb-1">Department</span>
-                                <span className="text-sm text-gray-800">{log.action_by_department}</span>
-                              </div>
-                            )}
+                          )}
+                          {log.action_by_department && (
                             <div>
-                              <span className="block text-xs font-bold text-gray-700 mb-1">Visibility</span>
-                              <span className="text-sm text-gray-800 capitalize">{log.visibility}</span>
+                              <span className="block text-xs font-bold text-gray-700 mb-1">Department</span>
+                              <span className="text-sm text-gray-800">{log.action_by_department}</span>
                             </div>
+                          )}
+                          <div>
+                            <span className="block text-xs font-bold text-gray-700 mb-1">Visibility</span>
+                            <span className="text-sm text-gray-800 capitalize">{log.visibility}</span>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })}
@@ -512,72 +528,306 @@ export default function ActivityLogsPanel({
       {/* Approval Chain Tab */}
       {strActiveTab === 'chain' && (
         <div className="flex-1 overflow-auto custom-scrollbar">
-          <div className="p-4 space-y-6">
-            {/* Approval Chain */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-3 cursor-default">Approval Chain</h4>
-              <div className="space-y-3">
-                {lsChain.map((objStep, iIdx) => {
-                  const bIsCurrent = !bIsTerminal && iIdx === iCurrentStep;
-                  return (
+          <div className="p-4 space-y-4">
+            {/* Approval Chain Header */}
+            <div className="pb-2">
+              <h4 className="text-sm font-bold text-gray-900">📋 Approval Chain</h4>
+            </div>
+
+            {/* Chain Steps with Connector Lines */}
+            <div className="space-y-0">
+              {lsChain.map((objStep, iIdx) => {
+                // Determine if this step is the current reviewer by matching user_id with current_reviewer_id
+                const bIsCurrent = !bIsTerminal && objStep.user_id === strCurrentReviewerId;
+                const strUpperAction = objStep.action?.toUpperCase() || '';
+                const bIsQuery = ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK'].includes(strUpperAction);
+                const bIsInitiator = objStep.is_initiator === true;
+                const bIsLast = iIdx === lsChain.length - 1;
+
+                return (
+                  <div key={objStep.user_id + iIdx} className="relative">
+                    {/* Connector Line (before this step, except for first) */}
+                    {iIdx > 0 && (
+                      <div className="absolute left-[17px] top-0 w-0.5 h-4 bg-gradient-to-b from-gray-300 to-gray-200 transform -translate-y-4"></div>
+                    )}
+
+                    {/* Step Card - Simplified with Current Reviewer Highlighting */}
                     <div
-                      key={objStep.user_id}
-                      className={`flex items-start gap-3 border-l-4 pl-4 py-2 rounded transition-all ${getStepColor(objStep.status, bIsCurrent)}`}
+                      className={`flex gap-2.5 p-3 rounded-lg transition-all duration-300 hover:shadow-md border-l-4 ${
+                        bIsCurrent
+                          ? 'border-yellow-600 bg-yellow-50 shadow-lg ring-2 ring-yellow-400 ring-opacity-50'
+                          : getStepColor(objStep.status, bIsCurrent, objStep.action)
+                      }`}
                     >
-                      <div className="flex-shrink-0 mt-1">
-                        {getStepIcon(objStep.status, bIsCurrent)}
+                      {/* Icon Circle - Smaller */}
+                      <div className="flex-shrink-0 relative">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all ${
+                          // Manager action taken
+                          !bIsInitiator && strUpperAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strUpperAction)
+                            ? 'bg-green-50 border-green-400'
+                            : bIsQuery 
+                            ? 'bg-orange-50 border-orange-400' 
+                            : bIsInitiator
+                            ? 'bg-blue-50 border-blue-400'
+                            : objStep.status === 'APPROVED' || objStep.status === 'COMPLETED'
+                            ? 'bg-green-50 border-green-400'
+                            : bIsCurrent
+                            ? 'bg-yellow-50 border-yellow-400'
+                            : 'bg-gray-50 border-gray-300'
+                        }`}>
+                          {getStepIcon(objStep.status, bIsCurrent, objStep.action)}
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">{objStep.name}</p>
-                        <p className="text-xs text-gray-600">{objStep.email}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap text-sm">
-                          <span className="text-xs text-gray-500">
-                            Priority {objStep.priority} • {objStep.approval_type}
-                          </span>
-                          {objStep.status === 'APPROVED' && objStep.approved_at && (
-                            <span className="text-xs text-green-700 font-medium">
-                              ✓ Approved on {new Date(objStep.approved_at).toLocaleDateString()}
+
+                      {/* Content - Simplified */}
+                      <div className="flex-1 min-w-0">
+                        {/* Header Row: Name, Role, Status */}
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                          {/* User Name with Tooltip */}
+                          <div className="relative group">
+                            <p className="text-sm font-semibold text-gray-900 cursor-pointer hover:text-[#00703C] transition-colors">
+                              {objStep.name}
+                            </p>
+                            {/* Tooltip on Hover */}
+                            <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg shadow-lg py-2 px-3 min-w-max max-w-xs">
+                              <div className="space-y-1">
+                                {/* <div className="font-semibold">{objStep.name}</div> */}
+                                <div className="text-gray-300">{objStep.email}</div>
+                                {/* {objStep.department && (
+                                  <div className="text-gray-300">
+                                    <span className="font-medium">Dept:</span> {objStep.department}
+                                  </div>
+                                )} */}
+                              </div>
+                              {/* Arrow */}
+                              <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                            </div>
+                          </div>
+
+                          {objStep.role && (
+                            <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-semibold uppercase">
+                              {objStep.role}
                             </span>
                           )}
-                          {bIsCurrent && (
-                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
-                              Awaiting Review
+                          {/* Show action badge for managers who've taken action */}
+                          {!bIsInitiator && strUpperAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strUpperAction) && (
+                            <span className="px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs font-bold">
+                              {strUpperAction}
                             </span>
+                          )}
+                          {bIsQuery && !['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strUpperAction) && (
+                            <span className="px-1.5 py-0.5 bg-orange-100 text-orange-800 rounded text-xs font-bold animate-pulse">
+                              {strUpperAction}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Email - Keep visible for quick reference */}
+                        {/* <div className="text-xs text-gray-600 mb-1.5">{objStep.email}</div> */}
+
+                        {/* Status/Timestamp Section - Compact */}
+                        <div className="space-y-1 bg-white/50 rounded px-2 py-1.5 text-xs">
+                          {bIsCurrent && (
+                            <div className="flex items-center gap-1.5 bg-yellow-100 border border-yellow-400 rounded px-2 py-1.5 mb-2 animate-pulse">
+                              <Clock className="w-4 h-4 text-yellow-700" />
+                              <span className="text-yellow-900 font-bold text-sm">⏳ CURRENTLY REVIEWING</span>
+                            </div>
+                          )}
+
+                          {/* Completed Status for Past Approvals and Initiator when Submitted */}
+                          {((objStep.status === 'APPROVED' && !bIsCurrent) || (bIsInitiator && objStep.status === 'COMPLETED')) && (
+                            <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>✓ Completed</span>
+                              {objStep.approved_at && <span className="text-gray-600 ml-auto">{fmtDateTime(objStep.approved_at)}</span>}
+                            </div>
+                          )}
+
+                          {/* Current Approval */}
+                          {objStep.status === 'APPROVED' && bIsCurrent && (
+                            <div className="flex items-center gap-1.5 text-green-700">
+                              <Check className="w-3 h-3" />
+                              <span className="font-medium">Approved</span>
+                              {objStep.approved_at && <span className="text-gray-600">{fmtDateTime(objStep.approved_at)}</span>}
+                            </div>
+                          )}
+
+                          {objStep.status === 'REJECTED' && (
+                            <div className="flex items-center gap-1.5 text-red-700">
+                              <XCircle className="w-3 h-3" />
+                              <span className="font-medium">Rejected</span>
+                            </div>
+                          )}
+
+                          {/* For Initiator: Show Submitted At (always) and Received At (when returning from query) */}
+                          {bIsInitiator && (
+                            <>
+                              {/* Always show submission timestamp */}
+                              {objStep.submitted_at && (
+                                <div className="flex items-center gap-1.5 text-blue-700 font-medium">
+                                  <Send className="w-3 h-3" />
+                                  <span>Submitted at:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.submitted_at)}</span>
+                                </div>
+                              )}
+
+                              {/* Show Received At only when initiator is current reviewer (returning from QUERY/ASK) */}
+                              {objStep.received_date && objStep.status !== 'COMPLETED' && (
+                                <div className="flex items-center gap-1.5 text-orange-700 font-medium">
+                                  <Clock className="w-3 h-3" />
+                                  <span>Received at:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.received_date)}</span>
+                                </div>
+                              )}
+
+                              {/* Show Response At when initiator has responded (REAPPLIED) */}
+                              {objStep.response_date && (
+                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>Reapplied at:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.response_date)}</span>
+                                </div>
+                              )}
+
+                              {/* Show remaining days when initiator is current reviewer */}
+                              {objStep.remaining_days !== undefined && objStep.remaining_days !== null && objStep.status !== 'COMPLETED' && (
+                                <div className={`flex items-center gap-1.5 font-bold ${
+                                  objStep.remaining_days < 0
+                                    ? 'text-red-700'
+                                    : objStep.remaining_days === 0
+                                    ? 'text-orange-700'
+                                    : objStep.remaining_days <= 1
+                                    ? 'text-yellow-700'
+                                    : 'text-green-700'
+                                }`}>
+                                  <AlertCircle className="w-3 h-3" />
+                                  <span>
+                                    {objStep.remaining_days < 0
+                                      ? `${Math.abs(objStep.remaining_days)} days OVERDUE`
+                                      : objStep.remaining_days === 0
+                                      ? 'Due TODAY'
+                                      : `Due in ${objStep.remaining_days} days`
+                                    }
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* For Past Reviewers: Show Received At and Action Taken */}
+                          {!bIsInitiator && !bIsCurrent && objStep.received_date && (
+                            <div className="flex items-center gap-1.5 text-blue-600">
+                              <Clock className="w-3 h-3" />
+                              <span>Received:</span>
+                              <span className="text-gray-700">{fmtDateTime(objStep.received_date)}</span>
+                            </div>
+                          )}
+
+                          {/* For Query/Ask/Action States: Show Manager Action with Completion */}
+                          {bIsQuery && (
+                            <>
+                              {objStep.received_date && (
+                                <div className="flex items-center gap-1.5 text-blue-600">
+                                  <Clock className="w-3 h-3" />
+                                  <span>Received:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.received_date)}</span>
+                                </div>
+                              )}
+                              {objStep.response_date && (
+                                <div className="flex items-center gap-1.5 text-orange-700 font-bold">
+                                  <AlertCircle className="w-3 h-3" />
+                                  <span>{strUpperAction}:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.response_date)}</span>
+                                </div>
+                              )}
+                              {/* Show Manager as Completed with their action */}
+                              <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                                <CheckCircle className="w-3 h-3" />
+                                <span>✓ Completed</span>
+                              </div>
+                              {objStep.remaining_days !== undefined && objStep.remaining_days !== null && (
+                                <div className={`flex items-center gap-1.5 font-bold ${
+                                  objStep.remaining_days < 0
+                                    ? 'text-red-700'
+                                    : objStep.remaining_days === 0
+                                    ? 'text-orange-700'
+                                    : 'text-yellow-700'
+                                }`}>
+                                  <AlertCircle className="w-3 h-3" />
+                                  <span>
+                                    {objStep.remaining_days < 0
+                                      ? `${Math.abs(objStep.remaining_days)} days OVERDUE`
+                                      : objStep.remaining_days === 0
+                                      ? 'Due TODAY'
+                                      : `Due in ${objStep.remaining_days} days`
+                                    }
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* Remaining Days for Current Reviewer (non-query) */}
+                          {bIsCurrent && !bIsInitiator && !bIsQuery && objStep.remaining_days !== undefined && objStep.remaining_days !== null && (
+                            <div className={`flex items-center gap-1.5 font-bold ${
+                              objStep.remaining_days < 0
+                                ? 'text-red-700'
+                                : objStep.remaining_days === 0
+                                ? 'text-orange-700'
+                                : objStep.remaining_days <= 1
+                                ? 'text-yellow-700'
+                                : 'text-green-700'
+                            }`}>
+                              <AlertCircle className="w-3 h-3" />
+                              <span>
+                                {objStep.remaining_days < 0
+                                  ? `${Math.abs(objStep.remaining_days)} days OVERDUE`
+                                  : objStep.remaining_days === 0
+                                  ? 'Due TODAY'
+                                  : `Due in ${objStep.remaining_days} days`
+                                }
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Received at for past non-completed steps */}
+                          {!bIsInitiator && !bIsCurrent && !bIsQuery && objStep.received_date && objStep.status !== 'APPROVED' && (
+                            <div className="flex items-center gap-1.5 text-blue-600 text-xs">
+                              <Clock className="w-3 h-3" />
+                              <span>{fmtDateTime(objStep.received_date)}</span>
+                            </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Connector Line (after this step) */}
+                    {!bIsLast && (
+                      <div className="h-3 flex justify-center">
+                        <div className="w-0.5 h-full bg-gradient-to-b from-gray-300 to-gray-200"></div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Chain Summary */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-2 cursor-default">Status Summary</h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Total Steps:</span>
-                  <span className="font-semibold text-gray-900">{lsChain.length}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Completed:</span>
-                  <span className="font-semibold text-green-700">
-                    {lsChain.filter(s => s.status === 'APPROVED').length}
-                  </span>
-                </div>
-                {!bIsTerminal && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Current Step:</span>
-                    <span className="font-semibold text-yellow-700">{iCurrentStep + 1}</span>
-                  </div>
-                )}
-                {bIsTerminal && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Status:</span>
-                    <span className="font-semibold text-green-700">Completed</span>
-                  </div>
-                )}
+            {/* Quick Status */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+              <div className="text-sm font-semibold text-gray-900 mb-2">Current Status</div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                <span className="text-gray-700">
+                  {bIsTerminal
+                    ? '✓ Process Complete'
+                    : (() => {
+                        const objCurrentReviewer = lsChain.find(step => step.user_id === strCurrentReviewerId);
+                        return objCurrentReviewer
+                          ? `Currently with: ${objCurrentReviewer.name} (${objCurrentReviewer.role || 'Reviewer'})`
+                          : `Step ${iCurrentStep + 1} of ${lsChain.length - 1}`;
+                      })()
+                  }
+                </span>
               </div>
             </div>
           </div>
@@ -661,36 +911,42 @@ export default function ActivityLogsPanel({
                       className="rounded-lg border-2 border-gray-200 bg-white transition-all hover:shadow-md"
                     >
                       <button
-                        onClick={() => toggleExpand(log.log_id)}
-                        className="w-full p-4 text-left"
+                        onMouseEnter={() => handleLogHoverStart(log.log_id)}
+                        onMouseLeave={() => handleLogHoverEnd(log.log_id)}
+                        className="w-full p-4 text-left transition-all duration-200 hover:shadow-md cursor-pointer"
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-3 cursor-pointer">
                           {/* Icon */}
                           <div className="flex-shrink-0 mt-1">
                             <Icon className={`w-6 h-6 ${objIconData.color}`} />
                           </div>
 
                           {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            {/* Header: Action + Date */}
+                          <div className="flex-1 min-w-0" style={{fontFamily: 'Calibri, sans-serif'}}>
+                            {/* Header: Field Name + Log Type */}
                             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                              <span className="font-semibold text-gray-900 capitalize">
-                                {log.action.replace(/_/g, ' ')}
+                              <span className="font-semibold text-[#00703C] capitalize text-sm">
+                                {getDisplayFieldName(log.field_name, log.action)}
                               </span>
-                              <span className="text-xs text-gray-500">{day}, {date}</span>
+                              {bShowLogTypeBadge && (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    {log.log_type === 'edit' ? 'Edit' : log.log_type === 'activity' ? 'Activity' : 'View'}
+                                  </span>
+                                </div>
+                              )}
                             </div>
 
                             {/* Edit Log */}
                             {log.log_type === 'edit' && log.field_name && (
                               <div className="space-y-1 text-sm">
-                                <div className="text-gray-700 font-medium capitalize">{log.field_name.replace(/_/g, ' ')}</div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-gray-500">from:</span>
-                                  <span className="line-through text-gray-400">{log.old_value}</span>
+                                  <span className="text-gray-600">from:</span>
+                                  <span className="text-gray-700 font-medium">{log.old_value}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-gray-500">to:</span>
-                                  <span className="text-gray-900 font-medium">{log.new_value}</span>
+                                  <span className="text-gray-600">to:</span>
+                                  <span className="text-gray-900 font-semibold">{log.new_value}</span>
                                 </div>
                               </div>
                             )}
@@ -702,15 +958,12 @@ export default function ActivityLogsPanel({
                                   <div className="text-gray-700 mb-2">{log.message}</div>
                                 )}
                                 <div className="flex items-center gap-2">
-                                  <span className="text-gray-500">from:</span>
-                                  <span className="line-through text-gray-400">{log.old_status}</span>
+                                  <span className="text-gray-600">from:</span>
+                                  <span className="text-gray-700 font-medium">{log.old_status}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-gray-500">to:</span>
-                                  <span className="text-gray-900 font-medium">{log.new_status}</span>
-                                </div>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <span className="font-semibold text-gray-900">{log.action_by_name}</span>
+                                  <span className="text-gray-600">to:</span>
+                                  <span className="text-gray-900 font-semibold">{log.new_status}</span>
                                 </div>
                               </div>
                             )}
@@ -719,14 +972,21 @@ export default function ActivityLogsPanel({
                             {log.log_type === 'view' && (
                               <div className="text-sm">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-gray-900">{log.action_by_name}</span>
                                   <span className="text-gray-600">viewed this page</span>
                                 </div>
                               </div>
                             )}
 
-                            {/* Timestamp */}
-                            <div className="text-xs text-gray-500 mt-2">{time}</div>
+                            {/* User Info - Always Visible */}
+                            <div className="mt-3 text-sm text-gray-800 flex items-center gap-2">
+                              <span className="font-semibold text-gray-900 text-sm">{log.action_by_name}</span>
+                            </div>
+
+                            {/* Timestamp + Date at Bottom Left */}
+                            <div className="text-xs text-gray-500 mt-2 flex items-center">
+                              <span className='pr-5'>{day}, {date.split('/')[0]}/{date.split('/')[1]}/{new Date(log.created_at).getFullYear()}</span>
+                              <span>{time}</span>
+                            </div>
                           </div>
 
                           {/* Expand Icon */}
@@ -740,30 +1000,38 @@ export default function ActivityLogsPanel({
                         </div>
                       </button>
 
-                      {/* Expanded Details */}
-                      {bExpanded && (
-                        <div className="px-4 pb-4 space-y-2 border-t-2 border-gray-200 pt-3 bg-gray-50">
-                          <div className="text-xs font-bold text-gray-700 mb-2">User Details</div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <span className="block text-xs font-semibold text-gray-600">Email</span>
-                              <span className="text-gray-900">{log.action_by_email}</span>
-                            </div>
-                            {log.action_by_department && (
-                              <div>
-                                <span className="block text-xs font-semibold text-gray-600">Department</span>
-                                <span className="text-gray-900">{log.action_by_department}</span>
-                              </div>
-                            )}
-                            {log.action_by_role && (
-                              <div>
-                                <span className="block text-xs font-semibold text-gray-600">Role</span>
-                                <span className="text-gray-900 capitalize">{log.action_by_role}</span>
-                              </div>
-                            )}
+                      {/* Expanded User Details - Animated (on hover/click) */}
+                      <div
+                        className={`px-4 pb-4 space-y-2 border-t-2 border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 overflow-hidden transition-all duration-300 ease-in-out ${
+                          bExpanded ? 'max-h-[420px] opacity-100 pt-3' : 'max-h-0 opacity-0 pt-0'
+                        }`}
+                        style={{fontFamily: 'Calibri, sans-serif'}}
+                        aria-hidden={!bExpanded}
+                      >
+                        <div className="text-xs font-bold text-gray-700 mb-3">User Details</div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="bg-white p-2 rounded border border-gray-200">
+                            <span className="block text-xs font-semibold text-[#00703C] mb-1">Name</span>
+                            <span className="text-gray-900 text-sm">{log.action_by_name}</span>
                           </div>
+                          <div className="bg-white p-2 rounded border border-gray-200">
+                            <span className="block text-xs font-semibold text-[#00703C] mb-1">Email</span>
+                            <span className="text-gray-900 text-xs truncate">{log.action_by_email}</span>
+                          </div>
+                          {log.action_by_department && (
+                            <div className="bg-white p-2 rounded border border-gray-200">
+                              <span className="block text-xs font-semibold text-[#00703C] mb-1">Department</span>
+                              <span className="text-gray-900 text-sm">{log.action_by_department}</span>
+                            </div>
+                          )}
+                          {log.action_by_role && (
+                            <div className="bg-white p-2 rounded border border-gray-200">
+                              <span className="block text-xs font-semibold text-[#00703C] mb-1">Role</span>
+                              <span className="text-gray-900 text-sm capitalize">{log.action_by_role}</span>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })}

@@ -262,6 +262,34 @@ export default function NewReimbursementPage() {
     /* attachments are watched via useEffect above */
   };
 
+  // ── Helper: Find which row contains the currently previewed attachment ──
+  const getCurrentPreviewedRowIndex = (): number => {
+    if (preview.lsAllAttachments.length === 0) return -1;
+    const strCurrentAttachmentId = preview.lsAllAttachments[preview.iPreviewIdx];
+    
+    if (bShowMatrix) {
+      // For matrix: find row that contains this attachment
+      for (let i = 0; i < lsMatrixRows.length; i++) {
+        const row = lsMatrixRows[i];
+        for (const cell of Object.values(row.cells)) {
+          if (cell.attachments.includes(strCurrentAttachmentId)) {
+            return i;
+          }
+        }
+      }
+    } else {
+      // For general table: find row that contains this attachment
+      for (let i = 0; i < lsRows.length; i++) {
+        if (lsRows[i].attachments.includes(strCurrentAttachmentId)) {
+          return i;
+        }
+      }
+    }
+    return -1;
+  };
+
+  const iHighlightedRowIdx = getCurrentPreviewedRowIndex();
+
   // ── Save / Submit ──
   const buildPayload = () => {
     if (bIsBusinessTrip) {
@@ -421,6 +449,7 @@ export default function NewReimbursementPage() {
         iPageSize={iLeftPageSize}
         iPageIdx={iLeftPageIdx}
         onRowAdded={handleLeftRowAdded}
+        iHighlightedRowIdx={iHighlightedRowIdx}
       />
     ) : (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
@@ -450,6 +479,7 @@ export default function NewReimbursementPage() {
       iPageSize={iLeftPageSize}
       iPageIdx={iLeftPageIdx}
       onRowAdded={handleLeftRowAdded}
+      iHighlightedRowIdx={iHighlightedRowIdx}
     />
   );
 

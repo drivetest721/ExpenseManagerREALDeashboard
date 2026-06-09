@@ -100,6 +100,7 @@ export default function NotificationsInboxPage() {
       setLsAll(ls => ls.map(x => x.notification_id === n.notification_id ? { ...x, is_read: true } : x));
     }
     setObjOpen({ ...n, is_read: true });
+    console.log('📖 Opened notification:', n);
   }
 
   const grouped = useMemo(() => {

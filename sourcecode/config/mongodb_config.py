@@ -155,10 +155,10 @@ def ensure_indexes() -> None:
     # ── departments ─────────────────────────────────────────────────────────────
     objDepartments = get_collection("departments")
     # Drop the old wrong index (name_1) if it exists, then ensure correct one.
-    try:
-        objDepartments.drop_index("name_1")
-    except Exception:
-        pass
+    # try:
+    #     objDepartments.drop_index("name_1")
+    # except Exception:
+    #     pass
     objDepartments.create_index([("department_name", ASCENDING)], unique=True)
 
     # ── pending_signups ─────────────────────────────────────────────────────────

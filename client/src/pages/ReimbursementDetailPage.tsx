@@ -124,6 +124,7 @@ export default function ReimbursementDetailPage() {
         <ActivityLogsPanel
           lsChain={objChain.approval_chain}
           iCurrentStep={objChain.current_step}
+          strCurrentReviewerId={objChain.current_reviewer_id}
           lsLogs={objChain.logs}
           strInitiatorName={objReimbursement.initiator_name}
           strStatus={objReimbursement.status}
