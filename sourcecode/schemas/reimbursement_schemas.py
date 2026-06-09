@@ -101,7 +101,7 @@ class ActivityLogSchema(BaseModel):
     """Schema for activity logs (edits, activity, views)."""
     log_id: str
     reimbursement_id: str
-    log_type: LogTypeEnum
+    log_type: Optional[LogTypeEnum] = None
     action: str
     action_by: str
     action_by_name: str

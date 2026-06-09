@@ -126,7 +126,7 @@ def scanFileBytes(bytContent: bytes, strFileName: str) -> dict:
 
     Output  : dict { status, engine, details }
     """
-    if os.getenv("VIRUS_SCAN_ENABLED", "1") == "0":
+    if os.getenv("VIRUS_SCAN_ENABLED", "true") == "false":
         return {"status": "skipped", "engine": "disabled", "details": "Scanning disabled"}
 
     strLower = (strFileName or "").lower()

@@ -29,7 +29,8 @@ from schemas.reimbursement_schemas import (
 from routes.payment_method_routes import hasAnyPaymentMethod
 from controllers.AuditLogger import logMutation
 from controllers.ApprovalChainBuilder import buildChain, snapshotChain
-from controllers.NotificationService import notifyAction
+from controllers.ApprovalChainEngine import build_approval_chain_for_reimbursement
+from controllers.NotificationServiceEnhanced import notifyActionEnhanced
 from controllers.SLAEngine import createSLAEvent
 from controllers.ReimbursementCounter import getNextReimbursementCode
 from controllers.ActivityLogService import logView, logEdit
@@ -390,7 +391,6 @@ def _buildItemSummaries(dictDoc: dict, dictNameMap: dict) -> list:
 
 
 # ── routes ────────────────────────────────────────────────────────────────────
-
 @router.post("/draft", response_model=ReimbursementResponseSchema, status_code=status.HTTP_201_CREATED)
 async def createDraft(
     objRequest: ReimbursementCreateRequest,
@@ -420,6 +420,7 @@ async def createDraft(
         dictNew["form_type"] = objRequest.form_type.value
         dictNew["reimbursement_code"] = getNextReimbursementCode(str(datetime.now(timezone.utc).year))
         dictNew["created_at"] = datetime.now(timezone.utc).isoformat()
+        dictNew["draft_created_at"] = datetime.now(timezone.utc).isoformat()
         dictNew["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         objResult = objReimbs.insert_one(dictNew)
@@ -515,21 +516,34 @@ async def submitReimbursement(
 
         strCurrentStatus = dictOld.get("status")
         bIsNewForm = strCurrentStatus == "DRAFT"
+
         bReapplyForQueryOrAsk = (strCurrentStatus == "PRIVATE_ASK") or (strCurrentStatus == "QUERY_RAISED")
         if (not bReapplyForQueryOrAsk) and (not bIsNewForm):
             raise HTTPException(status_code=400, detail=f"Cannot Submit Existing Form {strCurrentStatus}")
 
-        # Build approval chain
-        lsChain = buildChain(strUserId)
+        # Build approval chain using new ApprovalChainEngine
+        try:
+            tree, lsChain = build_approval_chain_for_reimbursement(strUserId)
+        except ValueError as e:
+            # Cycle detected or other validation error
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            # Fallback to old builder
+            objLogger.warning(f"ApprovalChainEngine failed, falling back to old builder: {e}")
+            lsChain = buildChain(strUserId)
+            tree = None
+
         if not lsChain:
             raise HTTPException(status_code=500, detail="Failed to build approval chain (no managers found)")
 
         dictUpdates = {
             "status": "SUBMITTED",
-            "approval_chain": snapshotChain(lsChain),
+            "approval_chain": lsChain,  # Already in correct format from new engine
+            "approval_tree": tree if tree else None,  # Store full tree for reference
             "current_step": 0,
             "current_reviewer_id": lsChain[0]["user_id"] if lsChain else None,
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         objReimbs.update_one({"_id": ObjectId(reimbursement_id)}, {"$set": dictUpdates})
@@ -540,7 +554,7 @@ async def submitReimbursement(
 
         # Notify the first reviewer that an approval is pending
         try:
-            notifyAction(dictNew, "APPROVE", strUserId)
+            await notifyActionEnhanced(dictNew, "APPROVE", strUserId)
         except Exception as objNotifErr:
             objLogger.error(f"⚠️  Submit notification failed: {objNotifErr}")
 
@@ -819,7 +833,7 @@ async def getReimbursementChain(
                 lsVisibleLogs.append(dictLog)
             elif strVisibility == "private":
                 strActionBy = str(dictLog.get("action_by", ""))
-                if strActionBy == strUserId or bIsInitiator or bIsOwner:
+                if (strActionBy == strUserId) or bIsInitiator or bIsOwner:
                     lsVisibleLogs.append(dictLog)
 
         # Enrich logs with actor name / email / role / department.
@@ -872,10 +886,243 @@ async def getReimbursementChain(
             dictLog["action_by_role"] = dictInfo.get("role", "")
             dictLog["action_by_department"] = strDept
 
+        # Enrich approval chain with received/response dates and remaining days
+        lsEnrichedChain = []
+        lsChain = dictDoc.get("approval_chain", [])
+        iCurrentStep = dictDoc.get("current_step", 0)
+        strStatus = dictDoc.get("status", "")
+
+        from env_config import objSettings
+        from datetime import timedelta
+
+        # Import SLA config
+        iReviewDays = objSettings.SLA_APPROVAL_DAYS
+
+        # Add Initiator as the first step
+        strInitiatorId = str(dictDoc.get("initiator_id", ""))
+        if strInitiatorId:
+            dictInitiator = objUsers.find_one({"_id": ObjectId(strInitiatorId)})
+            if dictInitiator:
+                lsDepts = dictInitiator.get("departments", [])
+                dictPrimary = next((d for d in lsDepts if d.get("is_primary")), lsDepts[0] if lsDepts else {})
+                strDeptName = dictPrimary.get("department_name", "")
+                strDeptId = str(dictPrimary.get("department_id", "")) if dictPrimary else ""
+                if not strDeptName and strDeptId:
+                    try:
+                        dictDeptObj = objDepts.find_one({"_id": ObjectId(strDeptId)})
+                        if dictDeptObj:
+                            strDeptName = dictDeptObj.get("name", "")
+                    except Exception:
+                        pass
+
+                # Get submission date from logs (first SUBMIT action or reimbursement creation date)
+                strSubmitDate = dictDoc.get("created_at")
+                for log in lsVisibleLogs:
+                    if log.get("action", "").upper() == "SUBMIT":
+                        strSubmitDate = log.get("created_at")
+                        break
+
+                # Determine initiator status: COMPLETED if submitted, else INITIATED
+                strInitiatorStatus = "COMPLETED" if strStatus != "DRAFT" else "INITIATED"
+
+                # Check if initiator is current reviewer (due to QUERY/ASK from manager)
+                bInitiatorIsCurrentReviewer = False
+                strInitiatorReceivedDate = None
+                strInitiatorResponseDate = None
+                iInitiatorRemainingDays = None
+                strInitiatorAction = "SUBMITTED" if strStatus != "DRAFT" else "INITIATED"
+
+                # Find if any manager has raised QUERY/ASK
+                strLastQueryAskDate = None
+                for log in lsVisibleLogs:
+                    strAction = log.get("action", "").upper()
+                    if strAction in ["QUERY", "ASK", "QUERY_RAISED", "PRIVATE_ASK"]:
+                        strLastQueryAskDate = log.get("created_at")
+                        # Don't break - we want the LAST query/ask
+
+                # If there was a QUERY/ASK, check if initiator has reapplied
+                bInitiatorReapplied = False
+                if strLastQueryAskDate:
+                    for log in lsVisibleLogs:
+                        strAction = log.get("action", "").upper()
+                        strActionBy = str(log.get("action_by", ""))
+                        if strActionBy == strInitiatorId and strAction in ["REAPPLIED", "REAPPLY"]:
+                            bInitiatorReapplied = True
+                            strInitiatorResponseDate = log.get("created_at")
+                            strInitiatorAction = "REAPPLIED"
+                            break
+
+                # If there's a QUERY/ASK and initiator hasn't reapplied, they are current reviewer
+                if strLastQueryAskDate and not bInitiatorReapplied:
+                    bInitiatorIsCurrentReviewer = True
+                    strInitiatorStatus = "PENDING"
+                    strInitiatorAction = "QUERY_RESPONSE_REQUIRED"
+
+                    # Find first VIEW log by initiator after the last QUERY/ASK
+                    lsInitiatorLogs = [
+                        log for log in lsVisibleLogs
+                        if str(log.get("action_by", "")) == strInitiatorId and log.get("log_type", "") == "view"
+                    ]
+                    for log in lsInitiatorLogs:
+                        strLogCreatedAt = log.get("created_at", "")
+                        # Check if this VIEW is after the QUERY/ASK
+                        try:
+                            from datetime import datetime as dt
+                            dtQueryAsk = dt.fromisoformat(strLastQueryAskDate.replace("Z", "+00:00"))
+                            dtView = dt.fromisoformat(strLogCreatedAt.replace("Z", "+00:00"))
+                            if dtView > dtQueryAsk:
+                                strInitiatorReceivedDate = strLogCreatedAt
+                                break
+                        except Exception:
+                            pass
+
+                    # Calculate remaining days if received
+                    if strInitiatorReceivedDate:
+                        try:
+                            from datetime import datetime as dt
+                            dtReceived = dt.fromisoformat(strInitiatorReceivedDate.replace("Z", "+00:00"))
+                            dtDeadline = dtReceived + timedelta(days=iReviewDays)
+                            dtNow = datetime.now(timezone.utc)
+                            iInitiatorRemainingDays = (dtDeadline - dtNow).days
+                        except Exception as e:
+                            objLogger.warning(f"Failed to calculate initiator remaining days: {e}")
+
+                # For initial submission (not returned from query)
+                if not bInitiatorIsCurrentReviewer:
+                    # Use submission date, no received_date for initial submission
+                    strInitiatorReceivedDate = None
+                    strInitiatorResponseDate = strSubmitDate if strStatus != "DRAFT" else None
+
+                dictInitiatorStep = {
+                    "level": 0,
+                    "user_id": strInitiatorId,
+                    "name": dictInitiator.get("name", ""),
+                    "email": dictInitiator.get("email", ""),
+                    "role": dictPrimary.get("role", "") if dictPrimary else "",
+                    "department": strDeptName,
+                    "priority": 0,
+                    "approval_type": "INITIATOR",
+                    "status": strInitiatorStatus,
+                    "action": strInitiatorAction,
+                    "received_date": strInitiatorReceivedDate,
+                    "response_date": strInitiatorResponseDate,
+                    "remaining_days": iInitiatorRemainingDays,
+                    "approved_at": strSubmitDate if strStatus != "DRAFT" and not bInitiatorIsCurrentReviewer else None,
+                    "submitted_at": strSubmitDate,  # Always show submission date
+                    "is_initiator": True,
+                }
+                lsEnrichedChain.append(dictInitiatorStep)
+
+        for iIdx, dictStep in enumerate(lsChain):
+            dictEnrichedStep = dict(dictStep)
+
+            # Calculate received_date and response_date from logs
+            strStepUserId = str(dictStep.get("user_id", ""))
+
+            # Find when this reviewer first viewed after becoming current reviewer
+            # Received date = first VIEW log by this reviewer after they became current
+            strReceivedDate = None
+            strResponseDate = None
+            iRemainingDays = None
+            strActionTaken = None
+
+            # Find logs for this reviewer
+            lsReviewerLogs = [
+                log for log in lsVisibleLogs
+                if str(log.get("action_by", "")) == strStepUserId
+            ]
+
+            # If this is a past reviewer (step < current_step), check for approval/response
+            if iIdx < iCurrentStep:
+                # Find response action (APPROVE, REJECT, QUERY, ASK)
+                for log in lsReviewerLogs:
+                    strAction = log.get("action", "").upper()
+                    if strAction in ["APPROVE", "APPROVED", "REJECT", "REJECTED", "QUERY", "ASK", "QUERY_RAISED", "PRIVATE_ASK"]:
+                        strResponseDate = log.get("created_at")
+                        dictEnrichedStep["action"] = strAction
+                        strActionTaken = strAction
+                        # If QUERY or ASK was raised, calculate remaining days for response
+                        if strAction in ["QUERY", "ASK", "QUERY_RAISED", "PRIVATE_ASK"]:
+                            try:
+                                from datetime import datetime as dt
+                                dtResponse = dt.fromisoformat(strResponseDate.replace("Z", "+00:00"))
+                                dtDeadline = dtResponse + timedelta(days=iReviewDays)
+                                dtNow = datetime.now(timezone.utc)
+                                iRemainingDays = (dtDeadline - dtNow).days
+                                dictEnrichedStep["remaining_days"] = iRemainingDays
+                            except Exception as e:
+                                objLogger.warning(f"Failed to calculate remaining days for query: {e}")
+                        break
+
+                # Find received date (first VIEW after assignment)
+                for log in lsReviewerLogs:
+                    strLogType = log.get("log_type", "")
+                    if strLogType == "view":
+                        strReceivedDate = log.get("created_at")
+                        break
+                        
+                # Mark past reviewers as having taken action if they performed an action
+                if strActionTaken and strActionTaken not in ["QUERY", "ASK", "QUERY_RAISED", "PRIVATE_ASK"]:
+                    dictEnrichedStep["status"] = "APPROVED"  # Completed action
+
+            # If this is the current reviewer, find received date and calculate remaining days
+            elif iIdx == iCurrentStep and strStatus not in ["PAID", "REJECTED", "CLOSED", "PAYMENT_ACKNOWLEDGED"]:
+                # Find first VIEW log by current reviewer
+                for log in lsReviewerLogs:
+                    strLogType = log.get("log_type", "")
+                    if strLogType == "view":
+                        strReceivedDate = log.get("created_at")
+                        break
+
+                # Calculate remaining days if received
+                if strReceivedDate:
+                    try:
+                        from datetime import datetime as dt
+                        dtReceived = dt.fromisoformat(strReceivedDate.replace("Z", "+00:00"))
+                        dtDeadline = dtReceived + timedelta(days=iReviewDays)
+                        dtNow = datetime.now(timezone.utc)
+                        iRemainingDays = (dtDeadline - dtNow).days
+                    except Exception as e:
+                        objLogger.warning(f"Failed to calculate remaining days: {e}")
+
+            dictEnrichedStep["received_date"] = strReceivedDate
+            dictEnrichedStep["response_date"] = strResponseDate
+            dictEnrichedStep["remaining_days"] = iRemainingDays
+
+            lsEnrichedChain.append(dictEnrichedStep)
+
+        # Check if current reviewer should be updated to initiator (if a manager took QUERY/ASK action)
+        # BUT only if initiator hasn't reapplied yet
+        strUpdatedCurrentReviewerId = dictDoc.get("current_reviewer_id", "")
+        if lsChain and iCurrentStep < len(lsChain):
+            dictCurrentStep = lsChain[iCurrentStep]
+            strCurrentStepUserId = str(dictCurrentStep.get("user_id", ""))
+
+            # Check if initiator has already reapplied
+            bInitiatorHasReapplied = any(
+                log.get("action", "").upper() in ["REAPPLIED", "REAPPLY", "CA_REAPPLIED", "CA_REAPPLY"]
+                and str(log.get("action_by", "")) == strInitiatorId
+                for log in lsVisibleLogs
+            )
+
+            # Only override to initiator if manager raised QUERY/ASK AND initiator hasn't reapplied
+            if not bInitiatorHasReapplied:
+                # Check if this step has taken a QUERY/ASK action
+                lsCurrentStepLogs = [
+                    log for log in lsVisibleLogs
+                    if str(log.get("action_by", "")) == strCurrentStepUserId
+                ]
+                for log in lsCurrentStepLogs:
+                    strAction = log.get("action", "").upper()
+                    if strAction in ["QUERY", "ASK", "QUERY_RAISED", "PRIVATE_ASK"]:
+                        # Update current reviewer to initiator only if not reapplied
+                        strUpdatedCurrentReviewerId = strInitiatorId
+                        break
+
         return {
-            "approval_chain": dictDoc.get("approval_chain", []),
+            "approval_chain": lsEnrichedChain,
             "current_step": dictDoc.get("current_step", 0),
-            "current_reviewer_id": dictDoc.get("current_reviewer_id", ""),
+            "current_reviewer_id": strUpdatedCurrentReviewerId,
             "logs": lsVisibleLogs,
         }
 

@@ -15,7 +15,7 @@ from bson import ObjectId
 
 from config.mongodb_config import get_collection
 from controllers.AuditLogger import logMutation
-from controllers.NotificationService import notifyAction
+from controllers.NotificationServiceEnhanced import notifyActionEnhanced
 from controllers.SLAEngine import createSLAEvent, resolveSLAEvents
 from controllers.ActivityLogService import logActivity
 
@@ -78,7 +78,7 @@ TRANSITIONS = {
 }
 
 
-def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPayload: dict = None) -> dict:
+async def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPayload: dict = None) -> dict:
     """
     Purpose : Execute a state transition on a reimbursement.
 
@@ -109,7 +109,7 @@ def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPay
             raise ValueError(f"Action {strAction} not allowed from status {strCurrentStatus}")
         
         strNextStatus = TRANSITIONS[strCurrentStatus][strAction]
-        
+
         # Build update dict
         dictUpdates = {
             "status": strNextStatus,
@@ -192,6 +192,15 @@ def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPay
             dictUpdates["current_step"] = len(lsChain)
             dictUpdates["current_reviewer_id"] = ""
 
+        # REAPPLY: Reset current_reviewer_id back to the manager who raised the query
+        if strAction in ("REAPPLY", "CA_REAPPLY"):
+            # Get the current_step and set current_reviewer back to that step's user
+            lsChain = dictOld.get("approval_chain", [])
+            iCurrentStep = dictOld.get("current_step", 0)
+            if iCurrentStep < len(lsChain):
+                dictUpdates["current_reviewer_id"] = lsChain[iCurrentStep]["user_id"]
+                objLogger.info(f"📧 REAPPLY: Returning to reviewer {lsChain[iCurrentStep]['user_id']} at step {iCurrentStep}")
+
         # ACKNOWLEDGE: record acknowledgement metadata; also auto-close
         if strAction == "ACKNOWLEDGE":
             dictUpdates["acknowledged_at"] = datetime.now(timezone.utc).isoformat()
@@ -262,7 +271,7 @@ def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPay
 
         # Best-effort notification dispatch (never blocks the transition)
         try:
-            notifyAction(
+            await notifyActionEnhanced(
                 dictNew,
                 strAction,
                 strActorId,

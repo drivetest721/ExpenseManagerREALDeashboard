@@ -42,7 +42,7 @@ async def approveReimbursement(
     """
     try:
         strUserId = dictCurrentUser["user_id"]
-        dictNew = transition(reimbursement_id, strUserId, "APPROVE")
+        dictNew = await transition(reimbursement_id, strUserId, "APPROVE")
         
         return {"success": True, "status": dictNew.get("status")}
     
@@ -66,7 +66,7 @@ async def queryReimbursement(
     try:
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {"message": objRequest.message, "visibility": "public"}
-        dictNew = transition(reimbursement_id, strUserId, "QUERY", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "QUERY", dictPayload)
         
         return {"success": True, "status": dictNew.get("status")}
     
@@ -90,7 +90,7 @@ async def askReimbursement(
     try:
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {"message": objRequest.message, "visibility": "private"}
-        dictNew = transition(reimbursement_id, strUserId, "ASK", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "ASK", dictPayload)
         
         return {"success": True, "status": dictNew.get("status")}
     
@@ -114,7 +114,7 @@ async def reapplyReimbursement(
     try:
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {"message": objRequest.message, "visibility": "public"}
-        dictNew = transition(reimbursement_id, strUserId, "REAPPLY", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "REAPPLY", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}
 
@@ -126,7 +126,6 @@ async def reapplyReimbursement(
 
 
 # ─── CA Workflow Routes ────────────────────────────────────────────────────────
-
 @router.post("/{reimbursement_id}/ca/pay", status_code=status.HTTP_200_OK)
 async def payReimbursement(
     reimbursement_id: str,
@@ -158,7 +157,7 @@ async def payReimbursement(
                 "payment_method": objRequest.payment_method,
             }
         
-        dictNew = transition(reimbursement_id, strUserId, "PAY", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "PAY", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}
 
@@ -182,7 +181,7 @@ async def caQueryReimbursement(
     try:
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {"message": objRequest.message, "visibility": "public"}
-        dictNew = transition(reimbursement_id, strUserId, "CA_QUERY", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "CA_QUERY", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}
 
@@ -206,7 +205,7 @@ async def caReapplyReimbursement(
     try:
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {"message": objRequest.message, "visibility": "public"}
-        dictNew = transition(reimbursement_id, strUserId, "CA_REAPPLY", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "CA_REAPPLY", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}
 
@@ -233,7 +232,7 @@ async def acknowledgePayment(
             "message": objRequest.note or "Payment acknowledged",
             "visibility": "public",
         }
-        dictNew = transition(reimbursement_id, strUserId, "ACKNOWLEDGE", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "ACKNOWLEDGE", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}
 
@@ -257,7 +256,7 @@ async def rejectReimbursement(
     try:
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {"message": objRequest.message, "visibility": "public"}
-        dictNew = transition(reimbursement_id, strUserId, "REJECT", dictPayload)
+        dictNew = await transition(reimbursement_id, strUserId, "REJECT", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}
 

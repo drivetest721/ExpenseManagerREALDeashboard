@@ -34,6 +34,8 @@ def _docToResponse(dictDoc: dict) -> NotificationResponseSchema:
         reimbursement_id=dictDoc.get("reimbursement_id"),
         is_read=dictDoc.get("is_read", False),
         created_at=dictDoc.get("created_at", ""),
+        html_content=dictDoc.get("html_content"),
+        metadata=dictDoc.get("metadata"),
     )
 
 
@@ -46,6 +48,7 @@ async def listNotifications(
     """
     Purpose : List notifications for the current user (newest first).
     """
+    print(f"[notification_routes][listNotifications]")
     try:
         objNotifs = get_collection("notifications")
         strUserId = dictCurrentUser["user_id"]
@@ -71,6 +74,7 @@ async def getUnreadCount(
     dictCurrentUser: dict = Depends(getCurrentUserDependency),
 ):
     """Lightweight endpoint for the bell icon badge."""
+    print(f"[notification_routes][getUnreadCount]")
     try:
         objNotifs = get_collection("notifications")
         iCount = objNotifs.count_documents({
@@ -91,6 +95,7 @@ async def markRead(
     """
     Purpose : Mark notifications as read (specific IDs or all for the user).
     """
+    print(f"[notification_routes][markRead]")
     try:
         objNotifs = get_collection("notifications")
         strUserId = dictCurrentUser["user_id"]
@@ -128,6 +133,7 @@ async def deleteNotification(
     dictCurrentUser: dict = Depends(getCurrentUserDependency),
 ):
     """Delete a single notification owned by the current user."""
+    print(f"[notification_routes][deleteNotification]")
     try:
         objNotifs = get_collection("notifications")
         objResult = objNotifs.delete_one({
