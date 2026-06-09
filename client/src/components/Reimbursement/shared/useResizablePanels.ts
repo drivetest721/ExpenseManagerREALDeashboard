@@ -7,11 +7,12 @@ import { useEffect, useRef, useState } from 'react';
 export function useResizablePanels(
   iInitialLeft = 45,
   iInitialCenter = 30,
+  bInitialRightCollapsed = false,
 ) {
   const [iLeftWidth, setILeftWidth] = useState(iInitialLeft);
   const [iCenterWidth, setICenterWidth] = useState(iInitialCenter);
   const [bLeftCollapsed, setBLeftCollapsed] = useState(false);
-  const [bRightCollapsed, setBRightCollapsed] = useState(false);
+  const [bRightCollapsed, setBRightCollapsed] = useState(bInitialRightCollapsed);
   const [bResizing, setBResizing] = useState<'left' | 'right' | null>(null);
   const refContainer = useRef<HTMLDivElement>(null);
 

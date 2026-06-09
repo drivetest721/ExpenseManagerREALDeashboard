@@ -11,6 +11,7 @@ import { Plus, Trash2, Paperclip, X } from 'lucide-react';
 import StyledDropdown from '../common/StyledDropdown';
 import DateInputDDMMYYYY from '../common/DateInputDDMMYYYY';
 import { uploadAttachmentApi } from '../../utils/attachmentApi';
+import { EXPENSE_LOOKBACK_DAYS } from '../../config/expenseConfig';
 import type { Category } from '../../types/category';
 import type { ReimbursementItem } from '../../types/reimbursement';
 
@@ -86,6 +87,20 @@ export default function GeneralExpenseTable({
   iHighlightedRowIdx = -1,
 }: Props) {
   const [iUploadingIdx, setIUploadingIdx] = useState(-1);
+
+  // Helper functions for date constraints
+  const getTodayDate = (): Date => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  };
+
+  const getMinDate = (): Date => {
+    const minDate = new Date();
+    minDate.setDate(minDate.getDate() - EXPENSE_LOOKBACK_DAYS);
+    minDate.setHours(0, 0, 0, 0);
+    return minDate;
+  };
   const [objColumnWidths, setObjColumnWidths] = useState<Record<string, number>>({
     '#': 50,
     category: 200,
@@ -349,6 +364,8 @@ export default function GeneralExpenseTable({
                           setObjErrorField(null);
                         }
                       }}
+                      minDate={getMinDate()}
+                      maxDate={getTodayDate()}
                     />
                   </td>
 

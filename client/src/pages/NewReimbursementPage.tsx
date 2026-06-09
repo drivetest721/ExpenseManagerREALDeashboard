@@ -540,6 +540,7 @@ export default function NewReimbursementPage() {
       strReApplyMessage={strReApplyMessage}
       onReApplyMessageChange={setStrReApplyMessage}
       onReApply={handleReApply}
+      bInitialRightCollapsed={true}
     />
   );
 }

@@ -17,7 +17,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   ChevronDown,
-  ChevronRight,
+ 
   Lock,
   Clock,
   User,
@@ -167,6 +167,7 @@ export default function ActivityLogsPanel({
 }: Props) {
   const { objUser } = useAuth();
   const [strSearchQuery, setStrSearchQuery] = useState('');
+  const [strAllLogsSearch, setStrAllLogsSearch] = useState('');
   const [bShowPrivate, setBShowPrivate] = useState(true);
   const [setExpandedLogs, setSetExpandedLogs] = useState<Set<string>>(new Set());
   const [strActiveTab, setStrActiveTab] = useState<'activity' | 'chain' | 'all'>('chain');
@@ -178,6 +179,7 @@ export default function ActivityLogsPanel({
   const [bShowEdits, setBShowEdits] = useState(true);
   const [bShowActivity, setBShowActivity] = useState(true);
   const [bShowView, setBShowView] = useState(true);
+  const [bDropdownOpen, setBDropdownOpen] = useState(false);
 
   const bIsOwner = objUser?.departments?.some((d) => d.role === 'owner') ?? false;
   const strInitiatorId = lsLogs.find(l => l.action === 'SUBMIT')?.action_by || '';
@@ -224,6 +226,13 @@ export default function ActivityLogsPanel({
     });
   };
 
+  useEffect(() => {
+    if (!bDropdownOpen) return;
+    const handleClickOutside = () => setBDropdownOpen(false);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [bDropdownOpen]);
+
   // Load all logs when "all" tab is active
   useEffect(() => {
     if (strActiveTab === 'all' && lsAllLogs.length === 0 && !bLoadingAllLogs) {
@@ -247,6 +256,13 @@ export default function ActivityLogsPanel({
   // Filter all logs based on selected types
   const bShowLogTypeBadge = [bShowEdits, bShowActivity, bShowView].filter(Boolean).length >= 2;
 
+  const bAllSelected = bShowEdits && bShowActivity && bShowView;
+  const lsSelectedLabels = [
+    bShowEdits ? 'Edits' : null,
+    bShowActivity ? 'Activity' : null,
+    bShowView ? 'View' : null,
+  ].filter(Boolean);
+  const strDropdownLabel = bAllSelected ? 'All' : lsSelectedLabels.join(', ') || 'None';
   const lsFilteredAllLogs = useMemo(() => {
     let lsFiltered = lsAllLogs;
 
@@ -263,13 +279,13 @@ export default function ActivityLogsPanel({
     lsFiltered = lsFiltered.filter(log => lsSelectedTypes.includes(log.log_type));
 
     // Search filter
-    if (strSearchQuery.trim() && strActiveTab === 'all') {
-      const q = strSearchQuery.toLowerCase();
+     if (strAllLogsSearch.trim()) {
+      const q = strAllLogsSearch.toLowerCase();
       lsFiltered = lsFiltered.filter(log =>
-        log.action_by_name.toLowerCase().includes(q) ||
-        log.action_by_email.toLowerCase().includes(q) ||
-        log.message?.toLowerCase().includes(q) ||
-        log.field_name?.toLowerCase().includes(q)
+        (log.action_by_name ?? '').toLowerCase().includes(q) ||
+        (log.action_by_email ?? '').toLowerCase().includes(q) ||
+        (log.message ?? '').toLowerCase().includes(q) ||
+        (log.field_name ?? '').toLowerCase().includes(q)
       );
     }
 
@@ -277,7 +293,7 @@ export default function ActivityLogsPanel({
     return lsFiltered.sort((a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [lsAllLogs, bShowEdits, bShowActivity, bShowView, strSearchQuery, strActiveTab]);
+  }, [lsAllLogs, bShowEdits, bShowActivity, bShowView, strAllLogsSearch, strActiveTab]);
 
   // Helper functions for Approval Chain
   function getStepIcon(stepStatus: string, bIsCurrent: boolean, strAction?: string) {
@@ -374,16 +390,25 @@ export default function ActivityLogsPanel({
             </div>
 
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search activity logs..."
-                value={strSearchQuery}
-                onChange={(e) => setStrSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, field..."
+                  value={strAllLogsSearch}
+                  onChange={e => setStrAllLogsSearch(e.target.value)}
+                  className="w-full h-10 pl-10 pr-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#00703C]"
+                />
+                {strAllLogsSearch && (
+                  <button
+                    onClick={() => setStrAllLogsSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                )}
+</div>
           </div>
 
           {/* Activity Timeline */}
@@ -414,11 +439,7 @@ export default function ActivityLogsPanel({
                           : 'bg-white border-gray-200'
                       }`}
                     >
-                      <button
-                        onMouseEnter={() => handleLogHoverStart(log.log_id)}
-                        onMouseLeave={() => handleLogHoverEnd(log.log_id)}
-                        className="w-full p-4 text-left"
-                      >
+                      <div className="w-full p-4 text-left">
                         <div className="flex items-start gap-3">
                           {/* Icon */}
                           <div
@@ -473,16 +494,10 @@ export default function ActivityLogsPanel({
                             )}
                           </div>
 
-                          {/* Expand Icon */}
-                          <div className="flex-shrink-0">
-                            {bExpanded ? (
-                              <ChevronDown className="w-5 h-5 text-gray-400" />
-                            ) : (
-                              <ChevronRight className="w-5 h-5 text-gray-400" />
-                            )}
-                          </div>
+                          
+                          
                         </div>
-                      </button>
+                      </div>
 
                       {/* Expanded Details (animated) */}
                       <div
@@ -838,11 +853,11 @@ export default function ActivityLogsPanel({
       {strActiveTab === 'all' && (
         <>
           {/* Header with multi-select checkboxes */}
-          <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="p-4 border-b border-gray-200 ">
             <h3 className="text-lg font-bold text-gray-900 mb-3">All Logs</h3>
 
             {/* Multi-select checkboxes */}
-            <div className="flex items-center gap-4 mb-3 flex-wrap">
+            {/* <div className="flex items-center gap-4 mb-3 flex-wrap">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -870,6 +885,71 @@ export default function ActivityLogsPanel({
                 />
                 <span className="text-sm font-medium text-gray-700">View</span>
               </label>
+            </div> */}
+            {/* Multi-select Dropdown */}
+            <div className="relative mb-3" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setBDropdownOpen(prev => !prev); }}
+                className="flex items-center gap-2 px-3 py-2 bg-white border-2 border-[#00703C] rounded-lg text-sm font-semibold text-[#00703C] hover:bg-green-50 transition-all shadow-sm min-w-[140px] justify-between"
+              >
+                <span>Filter: {strDropdownLabel}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${bDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {bDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-[160px] overflow-hidden">
+                  {/* All option */}
+                  <label className="flex items-center gap-3 px-4 py-2.5 hover:bg-green-50 cursor-pointer border-b border-gray-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={bAllSelected}
+                      onChange={e => {
+                        setBShowEdits(e.target.checked);
+                        setBShowActivity(e.target.checked);
+                        setBShowView(e.target.checked);
+                      }}
+                      className="w-4 h-4 accent-[#00703C] rounded"
+                    />
+                    <span className="text-sm font-bold text-gray-800">All</span>
+                  </label>
+                  {/* Edits */}
+                  <label className="flex items-center gap-3 px-4 py-2.5 hover:bg-green-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={bShowEdits}
+                      onChange={e => setBShowEdits(e.target.checked)}
+                      className="w-4 h-4 accent-[#00703C] rounded"
+                    />
+                    <span className="flex items-center gap-2 text-sm text-gray-700">
+                      <Pencil className="w-3.5 h-3.5 text-blue-500" /> Edits
+                    </span>
+                  </label>
+                  {/* Activity */}
+                  <label className="flex items-center gap-3 px-4 py-2.5 hover:bg-green-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={bShowActivity}
+                      onChange={e => setBShowActivity(e.target.checked)}
+                      className="w-4 h-4 accent-[#00703C] rounded"
+                    />
+                    <span className="flex items-center gap-2 text-sm text-gray-700">
+                      <MousePointer className="w-3.5 h-3.5 text-green-500" /> Activity
+                    </span>
+                  </label>
+                  {/* View */}
+                  <label className="flex items-center gap-3 px-4 py-2.5 hover:bg-green-50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={bShowView}
+                      onChange={e => setBShowView(e.target.checked)}
+                      className="w-4 h-4 accent-[#00703C] rounded"
+                    />
+                    <span className="flex items-center gap-2 text-sm text-gray-700">
+                      <Eye className="w-3.5 h-3.5 text-gray-500" /> View
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Search */}
@@ -878,8 +958,8 @@ export default function ActivityLogsPanel({
               <input
                 type="text"
                 placeholder="Search logs..."
-                value={strSearchQuery}
-                onChange={e => setStrSearchQuery(e.target.value)}
+                value={strAllLogsSearch}                          
+                onChange={e => setStrAllLogsSearch(e.target.value)} 
                 className="w-full h-10 pl-10 pr-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -895,26 +975,21 @@ export default function ActivityLogsPanel({
               </div>
             ) : lsFilteredAllLogs.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-8">
-                {strSearchQuery ? 'No matching logs found' : 'No logs to display'}
+                {strAllLogsSearch  ? 'No matching logs found' : 'No logs to display'}
               </p>
             ) : (
               <div className="space-y-3">
                 {lsFilteredAllLogs.map((log) => {
-                  const bExpanded = setExpandedLogs.has(log.log_id);
+                  
                   const objIconData = ALL_LOG_ICONS[log.action] || { Icon: User, color: 'text-gray-600' };
                   const Icon = objIconData.Icon;
-                  const { day, date, time } = formatLogDate(log.created_at);
-
+                  
                   return (
                     <div
                       key={log.log_id}
                       className="rounded-lg border-2 border-gray-200 bg-white transition-all hover:shadow-md"
                     >
-                      <button
-                        onMouseEnter={() => handleLogHoverStart(log.log_id)}
-                        onMouseLeave={() => handleLogHoverEnd(log.log_id)}
-                        className="w-full p-4 text-left transition-all duration-200 hover:shadow-md cursor-pointer"
-                      >
+                      <div className="w-full p-4 text-left">
                         <div className="flex items-start gap-3 cursor-pointer">
                           {/* Icon */}
                           <div className="flex-shrink-0 mt-1">
@@ -977,61 +1052,34 @@ export default function ActivityLogsPanel({
                               </div>
                             )}
 
-                            {/* User Info - Always Visible */}
-                            <div className="mt-3 text-sm text-gray-800 flex items-center gap-2">
-                              <span className="font-semibold text-gray-900 text-sm">{log.action_by_name}</span>
-                            </div>
+                            {/* User Info + Timestamp on same row */}
+                              <div className="mt-3 flex items-center justify-between gap-2 ">
+                                {/* Name with email tooltip on hover */}
+                                <div className="relative group">
+                                  <span className="font-semibold text-gray-900 text-sm cursor-default">
+                                    {log.action_by_name}
+                                  </span>
+                                  {/* Email tooltip */}
+                                  <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:flex items-center gap-1.5 bg-gray-900 text-white text-xs rounded-lg px-3 py-1.5 shadow-lg whitespace-nowrap z-50">
+                                    <User className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                                    <span>{log.action_by_email}</span>
+                                    {/* Arrow pointing down */}
+                                    <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 rotate-45 -translate-y-1"></div>
+                                  </div>
+                                </div>
 
-                            {/* Timestamp + Date at Bottom Left */}
-                            <div className="text-xs text-gray-500 mt-2 flex items-center">
-                              <span className='pr-5'>{day}, {date.split('/')[0]}/{date.split('/')[1]}/{new Date(log.created_at).getFullYear()}</span>
-                              <span>{time}</span>
-                            </div>
+                                {/* Timestamp */}
+                                <span className="text-sm text-gray-400 whitespace-nowrap">
+                                  {fmtDateTime(log.created_at)}
+                                </span>
+                              </div>
                           </div>
 
-                          {/* Expand Icon */}
-                          <div className="flex-shrink-0">
-                            {bExpanded ? (
-                              <ChevronDown className="w-5 h-5 text-gray-400" />
-                            ) : (
-                              <ChevronRight className="w-5 h-5 text-gray-400" />
-                            )}
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Expanded User Details - Animated (on hover/click) */}
-                      <div
-                        className={`px-4 pb-4 space-y-2 border-t-2 border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 overflow-hidden transition-all duration-300 ease-in-out ${
-                          bExpanded ? 'max-h-[420px] opacity-100 pt-3' : 'max-h-0 opacity-0 pt-0'
-                        }`}
-                        style={{fontFamily: 'Calibri, sans-serif'}}
-                        aria-hidden={!bExpanded}
-                      >
-                        <div className="text-xs font-bold text-gray-700 mb-3">User Details</div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-white p-2 rounded border border-gray-200">
-                            <span className="block text-xs font-semibold text-[#00703C] mb-1">Name</span>
-                            <span className="text-gray-900 text-sm">{log.action_by_name}</span>
-                          </div>
-                          <div className="bg-white p-2 rounded border border-gray-200">
-                            <span className="block text-xs font-semibold text-[#00703C] mb-1">Email</span>
-                            <span className="text-gray-900 text-xs truncate">{log.action_by_email}</span>
-                          </div>
-                          {log.action_by_department && (
-                            <div className="bg-white p-2 rounded border border-gray-200">
-                              <span className="block text-xs font-semibold text-[#00703C] mb-1">Department</span>
-                              <span className="text-gray-900 text-sm">{log.action_by_department}</span>
-                            </div>
-                          )}
-                          {log.action_by_role && (
-                            <div className="bg-white p-2 rounded border border-gray-200">
-                              <span className="block text-xs font-semibold text-[#00703C] mb-1">Role</span>
-                              <span className="text-gray-900 text-sm capitalize">{log.action_by_role}</span>
-                            </div>
-                          )}
+                         
                         </div>
                       </div>
+
+                     
                     </div>
                   );
                 })}

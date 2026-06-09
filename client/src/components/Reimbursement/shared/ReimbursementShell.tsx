@@ -42,6 +42,9 @@ interface Props {
   // Left panel content (caller's expense entry UI)
   leftPanel: ReactNode;
 
+  // Initial right panel state (collapse Approval Chain by default for new/edit)
+  bInitialRightCollapsed?: boolean;
+
   // Center: invoice preview
   lsAllAttachments: string[];
   iPreviewIdx: number;
@@ -83,6 +86,7 @@ export default function ReimbursementShell(props: Props) {
     bIsSaving, onSaveDraft, onSubmit,
     strFooterMode: _strFooterMode, strReApplyMessage: _strReApplyMessage,
     onReApplyMessageChange: _onReApplyMessageChange, onReApply: _onReApply,
+    bInitialRightCollapsed = false,
   } = props;
 
   const {
@@ -96,7 +100,7 @@ export default function ReimbursementShell(props: Props) {
     getActualLeftWidth,
     getActualCenterWidth,
     getActualRightWidth,
-  } = useResizablePanels();
+  } = useResizablePanels(45, 30, bInitialRightCollapsed);
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-blue-50 flex flex-col overflow-hidden">

@@ -10,6 +10,8 @@ interface DateInputDDMMYYYYProps {
   value: string; // yyyy-mm-dd format
   onChange: (value: string) => void; // yyyy-mm-dd format
   className?: string;
+  minDate?: Date; // Minimum selectable date
+  maxDate?: Date; // Maximum selectable date
 }
 
 // Render popper into document.body so it escapes overflow-hidden / transformed ancestors
@@ -21,7 +23,9 @@ const PopperContainer = ({ children }: { children?: React.ReactNode }) => {
 export default function DateInputDDMMYYYY({ 
   value, 
   onChange, 
-  className = ''
+  className = '',
+  minDate,
+  maxDate,
 }: DateInputDDMMYYYYProps) {
   // Convert yyyy-mm-dd to Date object
   const dateValue = value ? new Date(value + 'T00:00:00') : null;
@@ -42,6 +46,8 @@ export default function DateInputDDMMYYYY({
     <DatePicker
       selected={dateValue}
       onChange={handleDateChange}
+      minDate={minDate}
+      maxDate={maxDate}
       dateFormat="dd/MM/yyyy"
       placeholderText="DD/MM/YYYY"
       className={`w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#00703C] focus:border-[#00703C] cursor-pointer hover:border-[#00703C] hover:shadow-md transition-all shadow-sm font-medium ${className}`}

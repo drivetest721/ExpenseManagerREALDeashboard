@@ -270,7 +270,7 @@ export function NotificationBell() {
                       {/* View Details Link */}
                       {n.reimbursement_id && (
                         <Link
-                          to={`/reimbursements/${n.reimbursement_id}`}
+                          to={`/expense/detail/${n.reimbursement_id}`}
                           onClick={() => setOpen(false)}
                           className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-[#00703C] hover:bg-[#005a30] rounded-lg transition-colors"
                         >
