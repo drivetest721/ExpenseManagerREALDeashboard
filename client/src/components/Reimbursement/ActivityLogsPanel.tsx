@@ -138,6 +138,38 @@ const ALL_LOG_ICONS: Record<string, { Icon: any; color: string }> = {
   PAYMENT_ACKNOWLEDGED: { Icon: Check, color: 'text-green-600' },
   PAGE_VIEWED: { Icon: Eye, color: 'text-gray-600' },
 };
+const LOG_TYPE_STYLE = {
+  view: {
+    border: 'border-l-[#00703C]',
+    badge: 'bg-green-100 text-green-700',
+    avatar: 'bg-[#00703C]',
+    label: 'VIEW',
+  },
+
+  edit: {
+    border: 'border-l-[#00703C]',
+    badge: 'bg-blue-100 text-blue-700',
+    avatar: 'bg-[#00703C]',
+    label: 'EDIT',
+  },
+
+  activity: {
+    border: 'border-l-[#00703C]',
+    badge: 'bg-purple-100 text-purple-700',
+    avatar: 'bg-[#00703C]',
+    label: 'ACTIVITY',
+  },
+};
+const getInitials = (strName?: string) => {
+  if (!strName) return '?';
+
+  return strName
+    .split(' ')
+    .map(x => x[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+};
 
 function fmtDateTime(str: string): string {
   if (!str) return '—';
@@ -155,6 +187,7 @@ function fmtDateTime(str: string): string {
 
   return `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm} IST`;
 }
+
 
 export default function ActivityLogsPanel({
   lsChain,
@@ -225,6 +258,7 @@ export default function ActivityLogsPanel({
       return next;
     });
   };
+  
 
   useEffect(() => {
     if (!bDropdownOpen) return;
@@ -343,6 +377,25 @@ export default function ActivityLogsPanel({
     const lastPart = parts[parts.length - 1];
     return lastPart.replace(/_/g, ' ');
   };
+  const getLogDescription = (log: ActivityLog) => {
+
+  if (log.log_type === 'view') {
+    return 'Page viewed';
+  }
+
+  if (log.log_type === 'edit') {
+    return `${getDisplayFieldName(
+      log.field_name,
+      log.action
+    )} was modified`;
+  }
+
+  if (log.log_type === 'activity') {
+    return log.message || 'Activity performed';
+  }
+
+  return log.message || 'Operation performed';
+};
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -981,108 +1034,153 @@ export default function ActivityLogsPanel({
             ) : (
               <div className="space-y-3">
                 {lsFilteredAllLogs.map((log) => {
-                  
-                  const objIconData = ALL_LOG_ICONS[log.action] || { Icon: User, color: 'text-gray-600' };
-                  const Icon = objIconData.Icon;
-                  
+                 const style = LOG_TYPE_STYLE[
+                    log.log_type as 'view' | 'edit' | 'activity'
+                  ];
+
                   return (
                     <div
                       key={log.log_id}
-                      className="rounded-lg border-2 border-gray-200 bg-white transition-all hover:shadow-md"
+                      className={`
+                          rounded-xl
+                          border-l-4
+                          ${style.border}
+                          bg-white
+                          border
+                          border-gray-200
+                          hover:shadow-md
+                          transition-all
+                          duration-200
+                        `}
                     >
-                      <div className="w-full p-4 text-left">
-                        <div className="flex items-start gap-3 cursor-pointer">
-                          {/* Icon */}
-                          <div className="flex-shrink-0 mt-1">
-                            <Icon className={`w-6 h-6 ${objIconData.color}`} />
-                          </div>
+                      <div className="p-4">
 
-                          {/* Content */}
-                          <div className="flex-1 min-w-0" style={{fontFamily: 'Calibri, sans-serif'}}>
-                            {/* Header: Field Name + Log Type */}
-                            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                              <span className="font-semibold text-[#00703C] capitalize text-sm">
-                                {getDisplayFieldName(log.field_name, log.action)}
+                        {/* Title */}
+
+                        <div className="mb-1">
+                          <h4
+                            className={`
+                              text-sm
+                              font-bold
+                              tracking-wide
+                             
+                            `}
+                          >
+                            {style.label}
+                          </h4>
+                        </div>
+
+                        {/* Description */}
+
+                        <p className="text-sm text-gray-600 mb-4">
+                          {getLogDescription(log)}
+                        </p>
+
+                        {/* Edit Details */}
+
+                        {log.log_type === 'edit' && (
+                          <div className="mb-4 text-sm">
+                            <div className="text-gray-500">
+                              From:
+                              <span className="ml-2 text-gray-700">
+                                {log.old_value || '-'}
                               </span>
-                              {bShowLogTypeBadge && (
-                                <div className="flex items-center gap-2">
-                                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                    {log.log_type === 'edit' ? 'Edit' : log.log_type === 'activity' ? 'Activity' : 'View'}
-                                  </span>
-                                </div>
-                              )}
                             </div>
 
-                            {/* Edit Log */}
-                            {log.log_type === 'edit' && log.field_name && (
-                              <div className="space-y-1 text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">from:</span>
-                                  <span className="text-gray-700 font-medium">{log.old_value}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">to:</span>
-                                  <span className="text-gray-900 font-semibold">{log.new_value}</span>
-                                </div>
+                            <div className="text-gray-500">
+                              To:
+                              <span className="ml-2 font-semibold text-gray-900">
+                                {log.new_value || '-'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Footer */}
+
+                        <div className="flex items-center justify-between">
+
+                          <div className="flex items-center gap-2">
+
+                            {/* Avatar */}
+
+                            <div className="relative group">
+
+                              <div
+                                className={`
+                                  w-8 h-8
+                                  rounded-full
+                                  ${style.avatar}
+                                  text-white
+                                  flex
+                                  items-center
+                                  justify-center
+                                  text-sm
+                                  font-bold
+                                `}
+                              >
+                                {getInitials(log.action_by_name)}
                               </div>
+
+                              {/* Email Tooltip */}
+
+                              <div
+                                className="
+                                  hidden
+                                  group-hover:block
+                                  absolute
+                                  bottom-full
+                                  left-0
+                                  mb-2
+                                  px-3
+                                  py-2
+                                  bg-gray-900
+                                  text-white
+                                  text-sm
+                                  rounded-lg
+                                  whitespace-nowrap
+                                  z-50
+                                "
+                              >
+                                {log.action_by_name}
+                              </div>
+                            </div>
+
+                            {/* Role */}
+
+                            {log.action_by_role && (
+                              <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-sm">
+                                {log.action_by_role}
+                              </span>
                             )}
 
-                            {/* Activity Log */}
-                            {log.log_type === 'activity' && (
-                              <div className="space-y-1 text-sm">
-                                {log.message && (
-                                  <div className="text-gray-700 mb-2">{log.message}</div>
-                                )}
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">from:</span>
-                                  <span className="text-gray-700 font-medium">{log.old_status}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">to:</span>
-                                  <span className="text-gray-900 font-semibold">{log.new_status}</span>
-                                </div>
-                              </div>
-                            )}
+                            {/* Date */}
 
-                            {/* View Log */}
-                            {log.log_type === 'view' && (
-                              <div className="text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-600">viewed this page</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* User Info + Timestamp on same row */}
-                              <div className="mt-3 flex items-center justify-between gap-2 ">
-                                {/* Name with email tooltip on hover */}
-                                <div className="relative group">
-                                  <span className="font-semibold text-gray-900 text-sm cursor-default">
-                                    {log.action_by_name}
-                                  </span>
-                                  {/* Email tooltip */}
-                                  <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:flex items-center gap-1.5 bg-gray-900 text-white text-xs rounded-lg px-3 py-1.5 shadow-lg whitespace-nowrap z-50">
-                                    <User className="w-3 h-3 text-gray-300 flex-shrink-0" />
-                                    <span>{log.action_by_email}</span>
-                                    {/* Arrow pointing down */}
-                                    <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 rotate-45 -translate-y-1"></div>
-                                  </div>
-                                </div>
-
-                                {/* Timestamp */}
-                                <span className="text-sm text-gray-400 whitespace-nowrap">
-                                  {fmtDateTime(log.created_at)}
-                                </span>
-                              </div>
+                            <span className="text-sm text-gray-500">
+                              {fmtDateTime(log.created_at)}
+                            </span>
                           </div>
 
-                         
+                          {/* Badge */}
+
+                          <span
+                            className={`
+                              px-3
+                              py-1
+                              rounded-full
+                              text-sm
+                              font-semibold
+                              ${style.badge}
+                            `}
+                          >
+                            {style.label}
+                          </span>
+
                         </div>
                       </div>
-
-                     
                     </div>
                   );
+                  
                 })}
               </div>
             )}

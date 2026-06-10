@@ -2,7 +2,15 @@
  * DepartmentsPanel — list, create and edit departments from the Settings page.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, X, Check, Search, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  X,
+  Check,
+  Search,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
 import { listDepartmentsApi, createDepartmentApi, updateDepartmentApi, deleteDepartmentApi } from '../../utils/departmentApi';
 import { listUsersApi } from '../../utils/userApi';
 import type { Department } from '../../types/department';
@@ -26,6 +34,8 @@ export default function DepartmentsPanel() {
   const [objForm, setObjForm] = useState<FormState>(EMPTY);
   const [bSaving, setBSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortColumn, setSortColumn] = useState<'department_id' | 'name' | 'owners' | 'status'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   const load = useCallback(async () => {
     setBLoading(true); 
@@ -114,6 +124,54 @@ export default function DepartmentsPanel() {
     }).join(', ');
   }
 
+  const toggleSort = (
+    column: 'department_id' | 'name' | 'owners' | 'status'
+  ) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedDepartments = useMemo(() => {
+  const data = [...lsFilteredDepts];
+
+  data.sort((a, b) => {
+    let aValue = '';
+    let bValue = '';
+
+    switch (sortColumn) {
+      case 'department_id':
+        aValue = a.department_id;
+        bValue = b.department_id;
+        break;
+
+      case 'name':
+        aValue = a.department_name;
+        bValue = b.department_name;
+        break;
+
+      case 'owners':
+        aValue = getOwnerNames(a.owner_ids);
+        bValue = getOwnerNames(b.owner_ids);
+        break;
+
+      case 'status':
+        aValue = a.is_active ? 'Active' : 'Inactive';
+        bValue = b.is_active ? 'Active' : 'Inactive';
+        break;
+    }
+
+    return sortOrder === 'asc'
+      ? aValue.localeCompare(bValue)
+      : bValue.localeCompare(aValue);
+  });
+
+  return data;
+}, [lsFilteredDepts, sortColumn, sortOrder, lsUsers]);
+
   const formOwners = useMemo(() => {
     if (!strEditId) return [];
     const dept = lsDepts.find((d) => d.department_id === strEditId);
@@ -122,15 +180,7 @@ export default function DepartmentsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Departments</h3>
-          <p className="text-sm text-gray-500">Manage departments and assign owners for organisation.</p>
-        </div>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 px-3 py-2 rounded bg-[#00703C] text-white text-sm hover:bg-[#005a30]">
-          <Plus className="w-4 h-4" /> New Department
-        </button>
-      </div>
+      
 
       {strError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-md px-3 py-2 text-sm">{strError}</div>}
       {strSuccess && <div className="bg-green-50 border border-green-200 text-green-700 rounded-md px-3 py-2 text-sm">✅ {strSuccess}</div>}
@@ -222,7 +272,7 @@ export default function DepartmentsPanel() {
       )}
 
       {/* Search Bar */}
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[1fr_auto] gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
@@ -235,6 +285,12 @@ export default function DepartmentsPanel() {
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm"
           />
         </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          
+            <button onClick={openCreate} className="inline-flex items-center gap-2 px-3 py-2 rounded bg-[#00703C] text-white text-sm hover:bg-[#005a30]">
+              <Plus className="w-4 h-4" /> New Department
+            </button>
+          </div>
       </div>
 
       {/* Table */}
@@ -246,39 +302,150 @@ export default function DepartmentsPanel() {
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
-                <tr>
-                  <th className="px-4 py-3 border-b border-gray-200">Department ID</th>
-                  <th className="px-4 py-3 border-b border-gray-200">Name</th>
-                  <th className="px-4 py-3 border-b border-gray-200">Owners</th>
-                  <th className="px-4 py-3 border-b border-gray-200">Status</th>
-                  <th className="px-4 py-3 border-b border-gray-200 w-20">Action</th>
-                </tr>
-              </thead>
+              <thead className="bg-gray-100 text-gray-700 uppercase text-xs tracking-wider sticky top-0 z-10">
+                  <tr>
+                    <th
+                      className="px-3 py-3 border-b border-gray-200 cursor-pointer"
+                      onClick={() => toggleSort('department_id')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Department ID
+                        <span className="inline-flex flex-col -space-y-1">
+                          <ChevronUp
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'department_id' &&
+                              sortOrder === 'asc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'department_id' &&
+                              sortOrder === 'desc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                        </span>
+                      </div>
+                    </th>
+
+                    <th
+                      className="px-3 py-3 border-b border-gray-200 cursor-pointer"
+                      onClick={() => toggleSort('name')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Name
+                        <span className="inline-flex flex-col -space-y-1">
+                          <ChevronUp
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'name' &&
+                              sortOrder === 'asc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'name' &&
+                              sortOrder === 'desc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                        </span>
+                      </div>
+                    </th>
+
+                    <th
+                      className="px-3 py-3 border-b border-gray-200 cursor-pointer"
+                      onClick={() => toggleSort('owners')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Owners
+                        <span className="inline-flex flex-col -space-y-1">
+                          <ChevronUp
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'owners' &&
+                              sortOrder === 'asc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'owners' &&
+                              sortOrder === 'desc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                        </span>
+                      </div>
+                    </th>
+
+                    <th
+                      className="px-3 py-3 border-b border-gray-200 cursor-pointer"
+                      onClick={() => toggleSort('status')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Status
+                        <span className="inline-flex flex-col -space-y-1">
+                          <ChevronUp
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'status' &&
+                              sortOrder === 'asc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 ${
+                              sortColumn === 'status' &&
+                              sortOrder === 'desc'
+                                ? 'text-black'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                        </span>
+                      </div>
+                    </th>
+
+                    <th className="px-3 py-3 border-b border-gray-200 text-center">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-gray-200">
-                {lsFilteredDepts.map((dept) => (
+                {sortedDepartments.map((dept, idx) => (
                   <tr
-                    key={dept.department_id}
-                    onClick={() => openEdit(dept)}
-                    className="hover:bg-gray-50 cursor-pointer"
-                  >
-                    <td className="px-4 py-3 text-left">
+                      key={dept.department_id}
+                      onClick={() => openEdit(dept)}
+                      className={`
+                        border-b border-gray-200
+                        cursor-pointer
+                        hover:bg-blue-50
+                        ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                      `}
+                    >
+                    <td className="px-3 py-3 border-r border-gray-200 text-left">
                       <span className="font-medium text-gray-900">{dept.department_id}</span>
                     </td>
-                    <td className="px-4 py-3 text-left">
+                    <td className="px-3 py-3 border-r border-gray-200 text-left">
                       <span className="text-gray-900">{dept.department_name}</span>
                     </td>
-                    <td className="px-4 py-3 text-left text-sm text-gray-600">
+                    <td className="px-3 py-3 border-r border-gray-200 text-left text-sm text-gray-600">
                       {getOwnerNames(dept.owner_ids)}
                     </td>
-                    <td className="px-4 py-3 text-left">
+                    <td className="px-3 py-3 border-r border-gray-200 text-left">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                         dept.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                       }`}>
                         {dept.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-3 border-r border-gray-200 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleDelete(dept)}
                         title="Delete"

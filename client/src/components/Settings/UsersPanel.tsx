@@ -534,15 +534,12 @@ export default function UsersPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Users & Permissions</h3>
-          <p className="text-sm text-gray-500">View, filter, and edit user assignments, managers, and departments.</p>
-        </div>
+      {/* <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        
         <button onClick={openCreate} className="inline-flex items-center gap-2 px-3 py-2 rounded bg-[#00703C] text-white text-sm hover:bg-[#005a30]">
           <Plus className="w-4 h-4" /> New User
         </button>
-      </div>
+      </div> */}
 
       {bFormOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
@@ -612,31 +609,7 @@ export default function UsersPanel() {
                     )}
                   </div>
                 </div>
-                {/* <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">Department</label>
-                  <select
-                    className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                    value={objForm.departments[0]?.department_id || ''}
-                    onChange={(e) => updateForm('departments', [{ department_id: e.target.value, role: 'employee', is_primary: true }])}
-                  >
-                    <option value="">Select department</option>
-                    {lsDepts.map((d) => (
-                      <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
-                    ))}
-                  </select>
-                </div> */}
-                {/* <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">Role</label>
-                  <select
-                    value={objForm.departments[0]?.role || 'employee'}
-                    onChange={(e) => updateForm('departments', [{ department_id: objForm.departments[0]?.department_id || '', role: e.target.value as UserRole, is_primary: true }])}
-                    className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  >
-                    {ALL_ROLES.map((role) => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
-                  </select>
-                </div> */}
+                
               </div>
 
               <div className="space-y-4">
@@ -883,117 +856,115 @@ export default function UsersPanel() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div className="md:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">Search</label>
-            <div className="relative mt-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                name="userSearch"
-                autoComplete="off"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                placeholder="Search name, email, department, role"
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm"
-              />
-            </div>
-          </div>
-          <div className="relative">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">Department</label>
-            <button
-              type="button"
-              onClick={() => setBDepartmentFilterOpen((prev) => !prev)}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-left text-sm flex items-center justify-between"
-            >
-              <span>{filterDepartments.size > 0 ? `${filterDepartments.size} selected` : 'All departments'}</span>
-              <Filter className="w-4 h-4 text-gray-500" />
-            </button>
-            {bDepartmentFilterOpen && (
-              <div className="absolute z-20 mt-2 w-full max-h-56 overflow-auto border border-gray-200 rounded bg-white shadow-lg p-3">
-                {lsDepts.map((dept) => (
-                  <label key={dept.department_id} className="flex items-center gap-2 text-sm text-gray-700 mb-2 last:mb-0">
-                    <input
-                      type="checkbox"
-                      checked={filterDepartments.has(dept.department_id)}
-                      onChange={(e) => {
-                        const next = new Set(filterDepartments);
-                        if (e.target.checked) next.add(dept.department_id);
-                        else next.delete(dept.department_id);
-                        setFilterDepartments(next);
-                        setPage(1);
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    {dept.department_name}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="relative">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">Role</label>
-            <button
-              type="button"
-              onClick={() => setBRoleFilterOpen((prev) => !prev)}
-              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-left text-sm flex items-center justify-between"
-            >
-              <span>{filterRoles.size > 0 ? `${filterRoles.size} selected` : 'All roles'}</span>
-              <Filter className="w-4 h-4 text-gray-500" />
-            </button>
-            {bRoleFilterOpen && (
-              <div className="absolute z-20 mt-2 w-full max-h-56 overflow-auto border border-gray-200 rounded bg-white shadow-lg p-3">
-                {ALL_ROLES.map((role) => (
-                  <label key={role} className="flex items-center gap-2 text-sm text-gray-700 mb-2 last:mb-0">
-                    <input
-                      type="checkbox"
-                      checked={filterRoles.has(role)}
-                      onChange={(e) => {
-                        const next = new Set(filterRoles);
-                        if (e.target.checked) next.add(role);
-                        else next.delete(role);
-                        setFilterRoles(next);
-                        setPage(1);
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    {role}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2 md:col-span-1 mt-5 md:mt-0">
-            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="rounded border-gray-300" />
-            <label className="text-sm text-gray-700">Show inactive</label>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-40"
-          >
-            <ChevronLeft className="w-4 h-4" /> Prev
-          </button>
-          <button
-            type="button"
-            disabled={page >= pageCount}
-            onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-40"
-          >
-            Next <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+    
+    <div className="flex flex-wrap items-center gap-3 mb-4">
+      {/* Search */}
+      <div className="relative flex-1 min-w-[180px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <input
+          type="text"
+          name="userSearch"
+          autoComplete="off"
+          value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+          placeholder="Search name, email, department, role"
+          className="w-full h-10 pl-9 pr-3 border border-gray-300 rounded-lg text-sm"
+        />
       </div>
+
+      {/* Department filter */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setBDepartmentFilterOpen((prev) => !prev)}
+          className="h-10 px-3 border border-gray-300 rounded-lg text-sm flex items-center gap-2 bg-white hover:bg-gray-50 whitespace-nowrap"
+        >
+          <Filter className="w-4 h-4 text-gray-500" />
+          <span>{filterDepartments.size > 0 ? `Dept: ${filterDepartments.size}` : 'All Departments'}</span>
+        </button>
+        {bDepartmentFilterOpen && (
+          <div className="absolute z-20 mt-2 w-52 max-h-56 overflow-auto border border-gray-200 rounded-lg bg-white shadow-lg p-3">
+            {lsDepts.map((dept) => (
+              <label key={dept.department_id} className="flex items-center gap-2 text-sm text-gray-700 mb-2 last:mb-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filterDepartments.has(dept.department_id)}
+                  onChange={(e) => {
+                    const next = new Set(filterDepartments);
+                    if (e.target.checked) next.add(dept.department_id);
+                    else next.delete(dept.department_id);
+                    setFilterDepartments(next);
+                    setPage(1);
+                  }}
+                  className="rounded border-gray-300"
+                />
+                {dept.department_name}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Role filter */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setBRoleFilterOpen((prev) => !prev)}
+          className="h-10 px-3 border border-gray-300 rounded-lg text-sm flex items-center gap-2 bg-white hover:bg-gray-50 whitespace-nowrap"
+        >
+          <Filter className="w-4 h-4 text-gray-500" />
+          <span>{filterRoles.size > 0 ? `Role: ${filterRoles.size}` : 'All Roles'}</span>
+        </button>
+        {bRoleFilterOpen && (
+          <div className="absolute z-20 mt-2 w-44 max-h-56 overflow-auto border border-gray-200 rounded-lg bg-white shadow-lg p-3">
+            {ALL_ROLES.map((role) => (
+              <label key={role} className="flex items-center gap-2 text-sm text-gray-700 mb-2 last:mb-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filterRoles.has(role)}
+                  onChange={(e) => {
+                    const next = new Set(filterRoles);
+                    if (e.target.checked) next.add(role);
+                    else next.delete(role);
+                    setFilterRoles(next);
+                    setPage(1);
+                  }}
+                  className="rounded border-gray-300"
+                />
+                {role}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Show inactive */}
+      <label className="h-10 px-3 border border-gray-300 rounded-lg text-sm flex items-center gap-2 bg-white cursor-pointer whitespace-nowrap">
+        <input
+          type="checkbox"
+          checked={showInactive}
+          onChange={(e) => setShowInactive(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        Show inactive
+      </label>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* New User button */}
+      <button
+        onClick={openCreate}
+        className="h-10 px-4 inline-flex items-center gap-2 rounded-lg bg-[#00703C] text-white text-sm font-semibold hover:bg-[#005a30] whitespace-nowrap"
+      >
+        <Plus className="w-4 h-4" /> New User
+      </button>
+    </div>
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-600 uppercase text-xs tracking-wider">
+            <thead className="bg-gray-100 text-gray-700 uppercase text-xs tracking-wider sticky top-0 z-10">
               <tr>
                 <th className="px-3 py-3 border-b border-gray-200 w-12 text-center">
                   <input
@@ -1004,32 +975,51 @@ export default function UsersPanel() {
                   />
                 </th>
                 <th className="px-3 py-3 border-b border-gray-200 cursor-pointer" onClick={() => toggleSort('name')}>
-                  <div className="flex items-center gap-1">Name / Email {sortColumn === 'name' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <div className="flex items-center gap-1">
+                    Name / Email
+                    <span className="inline-flex flex-col -space-y-1">
+                      <ChevronUp className={`w-3.5 h-3.5 ${sortColumn === 'name' && sortOrder === 'asc' ? 'text-black' : 'text-gray-400'}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 ${sortColumn === 'name' && sortOrder === 'desc' ? 'text-black' : 'text-gray-400'}`} />
+                    </span>
+                  </div>
                 </th>
                 <th className="px-3 py-3 border-b border-gray-200 cursor-pointer" onClick={() => toggleSort('role')}>
-                  <div className="flex items-center gap-1">Role {sortColumn === 'role' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <div className="flex items-center gap-1">
+                    Role
+                    <span className="inline-flex flex-col -space-y-1">
+                      <ChevronUp className={`w-3.5 h-3.5 ${sortColumn === 'role' && sortOrder === 'asc' ? 'text-black' : 'text-gray-400'}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 ${sortColumn === 'role' && sortOrder === 'desc' ? 'text-black' : 'text-gray-400'}`} />
+                    </span>
+                  </div>
                 </th>
                 <th className="px-3 py-3 border-b border-gray-200 cursor-pointer" onClick={() => toggleSort('department')}>
-                  <div className="flex items-center gap-1">Department {sortColumn === 'department' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <div className="flex items-center gap-1">
+                    Department
+                    <span className="inline-flex flex-col -space-y-1">
+                      <ChevronUp className={`w-3.5 h-3.5 ${sortColumn === 'department' && sortOrder === 'asc' ? 'text-black' : 'text-gray-400'}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 ${sortColumn === 'department' && sortOrder === 'desc' ? 'text-black' : 'text-gray-400'}`} />
+                    </span>
+                  </div>
                 </th>
                 <th className="px-3 py-3 border-b border-gray-200 cursor-pointer" onClick={() => toggleSort('status')}>
-                  <div className="flex items-center gap-1">Status {sortColumn === 'status' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</div>
+                  <div className="flex items-center gap-1">
+                    Status
+                    <span className="inline-flex flex-col -space-y-1">
+                      <ChevronUp className={`w-3.5 h-3.5 ${sortColumn === 'status' && sortOrder === 'asc' ? 'text-black' : 'text-gray-400'}`} />
+                      <ChevronDown className={`w-3.5 h-3.5 ${sortColumn === 'status' && sortOrder === 'desc' ? 'text-black' : 'text-gray-400'}`} />
+                    </span>
+                  </div>
                 </th>
               </tr>
             </thead>
-          </table>
-        </div>
-
-        <div className="max-h-[560px] overflow-y-auto">
-          <table className="min-w-full text-left text-sm">
             <tbody>
-              {lsPageUsers.map((user) => {
+              {lsPageUsers.map((user, idx) => {
                 const role = getPrimaryRole(user);
                 const deptLabel = user.departments.map((d) => d.department_name || d.department_id).join(', ') || '—';
                 return (
                   <tr
                     key={user.user_id}
-                    className={`border-b border-gray-200 ${!user.is_active ? 'bg-gray-50 text-gray-500' : 'hover:bg-gray-50 cursor-pointer'}`}
+                    className={`border-b border-gray-200 ${!user.is_active ? 'text-gray-400' : 'cursor-pointer hover:bg-blue-50'} ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
                     onClick={() => openEdit(user)}
                   >
                     <td className="px-3 py-3 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
@@ -1066,6 +1056,29 @@ export default function UsersPanel() {
             </tbody>
           </table>
         </div>
+      </div>
+      
+
+      <div className="flex items-center justify-end gap-2 px-3 py-3 border-t border-gray-200 bg-white">
+        <span className="text-sm text-gray-500 mr-2">
+          Page {page} of {pageCount} &nbsp;·&nbsp; {lsFilteredUsers.length} users
+        </span>
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-40"
+        >
+          <ChevronLeft className="w-4 h-4" /> Prev
+        </button>
+        <button
+          type="button"
+          disabled={page >= pageCount}
+          onClick={() => setPage((prev) => Math.min(pageCount, prev + 1))}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-40"
+        >
+          Next <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
       {bConfirmOpen && (

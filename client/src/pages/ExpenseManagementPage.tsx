@@ -193,7 +193,7 @@ export default function ExpenseManagementPage() {
       strDisplay = s.replace(/_/g, ' ');
     }
     return (
-      <span className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${STATUS_COLORS[s] ?? 'bg-gray-100 text-gray-700'}`}>
+      <span className={`px-2 py-0.5 rounded text-sm font-semibold whitespace-nowrap ${STATUS_COLORS[s] ?? 'bg-gray-100 text-gray-700'}`}>
         {strDisplay}
       </span>
     );
@@ -216,250 +216,545 @@ export default function ExpenseManagementPage() {
    * @param bShowStatus    — show Status column (false for Drafts)
    * @param bIsHistory     — show Date of Payment column (History only)
    */
-  function renderReimbTable(
-    lsItems: ReimbursementListItem[],
-    strKey: string,
-    bShowInitiator: boolean,
-    bShowStatus: boolean,
-    bIsHistory: boolean,
-  ) {
-    if (lsItems.length === 0) return null;
+  // function renderReimbTable(
+  //   lsItems: ReimbursementListItem[],
+  //   strKey: string,
+  //   bShowInitiator: boolean,
+  //   bShowStatus: boolean,
+  //   bIsHistory: boolean,
+  // ) {
+  //   if (lsItems.length === 0) return null;
 
-    const { col: strSortCol, dir: strSortDir } = getSortState(strKey);
+  //   const { col: strSortCol, dir: strSortDir } = getSortState(strKey);
 
-    // Sort reimbursements
-    const lsSorted = [...lsItems].sort((a, b) => {
-      let nCmp = 0;
-      switch (strSortCol) {
-        case 'applicant': nCmp = (a.initiator_name ?? '').localeCompare(b.initiator_name ?? ''); break;
-        case 'category':  nCmp = (a.items[0]?.category_name ?? '').localeCompare(b.items[0]?.category_name ?? ''); break;
-        case 'sub':       nCmp = (a.items[0]?.sub_category ?? '').localeCompare(b.items[0]?.sub_category ?? ''); break;
-        case 'desc':      nCmp = (a.description ?? '').localeCompare(b.description ?? ''); break;
-        case 'status':    nCmp = (a.status ?? '').localeCompare(b.status ?? ''); break;
-        case 'date':      nCmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break;
-        case 'payment':   nCmp = (a.updated_at ?? '').localeCompare(b.updated_at ?? ''); break;
-        case 'amount':    nCmp = a.total_amount - b.total_amount; break;
-      }
-      return strSortDir === 'asc' ? nCmp : -nCmp;
-    });
+  //   // Sort reimbursements
+  //   const lsSorted = [...lsItems].sort((a, b) => {
+  //     let nCmp = 0;
+  //     switch (strSortCol) {
+  //       case 'applicant': nCmp = (a.initiator_name ?? '').localeCompare(b.initiator_name ?? ''); break;
+  //       case 'category':  nCmp = (a.items[0]?.category_name ?? '').localeCompare(b.items[0]?.category_name ?? ''); break;
+  //       case 'sub':       nCmp = (a.items[0]?.sub_category ?? '').localeCompare(b.items[0]?.sub_category ?? ''); break;
+  //       case 'desc':      nCmp = (a.description ?? '').localeCompare(b.description ?? ''); break;
+  //       case 'status':    nCmp = (a.status ?? '').localeCompare(b.status ?? ''); break;
+  //       case 'date':      nCmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break;
+  //       case 'payment':   nCmp = (a.updated_at ?? '').localeCompare(b.updated_at ?? ''); break;
+  //       case 'amount':    nCmp = a.total_amount - b.total_amount; break;
+  //     }
+  //     return strSortDir === 'asc' ? nCmp : -nCmp;
+  //   });
 
-    /** Sortable column header */
-    function thSort(strLabel: string, strCol: string, strAlign: 'center' | 'right' = 'center') {
-      const bActive = strSortCol === strCol;
-      return (
-        <th
-          key={strCol}
-          onClick={() => toggleSort(strKey, strCol)}
-          className={`px-4 py-3 text-${strAlign} whitespace-nowrap border-r border-gray-200
-            cursor-pointer select-none hover:bg-gray-200/70 transition-colors group`}
-        >
-          <span className="inline-flex items-center justify-center gap-1">
-            {strLabel}
-            <span className={`inline-flex flex-col -space-y-1.5 transition-opacity ${bActive ? 'opacity-100' : 'opacity-20 group-hover:opacity-50'}`}>
-              <ChevronUp className={`w-2.5 h-2.5 ${bActive && strSortDir === 'asc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
-              <ChevronDown className={`w-2.5 h-2.5 ${bActive && strSortDir === 'desc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
-            </span>
-          </span>
-        </th>
-      );
-    }
+  //   /** Sortable column header */
+  //   function thSort(strLabel: string, strCol: string, strAlign: 'center' | 'right' = 'center') {
+  //     const bActive = strSortCol === strCol;
+  //     return (
+  //       <th
+  //         key={strCol}
+  //         onClick={() => toggleSort(strKey, strCol)}
+  //         className={`px-4 py-3 text-${strAlign} whitespace-nowrap border-r border-gray-200
+  //           cursor-pointer select-none hover:bg-gray-200/70 transition-colors group`}
+  //       >
+  //         <span className="inline-flex items-center justify-center gap-1">
+  //           {strLabel}
+  //           <span className={`inline-flex flex-col -space-y-1.5 transition-opacity ${bActive ? 'opacity-100' : 'opacity-20 group-hover:opacity-50'}`}>
+  //             <ChevronUp className={`w-2.5 h-2.5 ${bActive && strSortDir === 'asc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
+  //             <ChevronDown className={`w-2.5 h-2.5 ${bActive && strSortDir === 'desc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
+  //           </span>
+  //         </span>
+  //       </th>
+  //     );
+  //   }
 
-    return (
-      <div className="space-y-0">
-        {lsSorted.map((reimb, iIdx) => {
-          const bPaid = PAID_STATUSES.has(reimb.status);
-          const bExpanded = dictExpandedReimbursements[reimb.reimbursement_id] ?? false;
+  //   return (
+  //     <div className="space-y-0">
+  //       {lsSorted.map((reimb, iIdx) => {
+  //         const bPaid = PAID_STATUSES.has(reimb.status);
+  //         const bExpanded = dictExpandedReimbursements[reimb.reimbursement_id] ?? false;
           
-          // Consolidate categories, sub-categories, descriptions from all items
-          const lsCategories = (reimb.items ?? []).map(it => it.category_name || it.category_id || '—');
-          const lsSubCategories = (reimb.items ?? []).map(it => it.sub_category || '—');
-          const strCombinedCategories = [...new Set(lsCategories)].join(', ');
-          const strCombinedSubCategories = [...new Set(lsSubCategories)].join(', ');
-          const strFirstDesc = (reimb.items?.[0]?.description) || '';
-          const strFirstDate = reimb.created_at; // Use first item's date or reimbursement date
+  //         // Consolidate categories, sub-categories, descriptions from all items
+  //         const lsCategories = (reimb.items ?? []).map(it => it.category_name || it.category_id || '—');
+  //         const lsSubCategories = (reimb.items ?? []).map(it => it.sub_category || '—');
+  //         const strCombinedCategories = [...new Set(lsCategories)].join(', ');
+  //         const strCombinedSubCategories = [...new Set(lsSubCategories)].join(', ');
+  //         const strFirstDesc = (reimb.items?.[0]?.description) || '';
+  //         const strFirstDate = reimb.created_at; // Use first item's date or reimbursement date
 
-          return (
-            <div key={reimb.reimbursement_id} className="border border-gray-200 rounded-lg overflow-hidden mb-3">
-              {/* Main Row - Summary */}
-              <div
-                onClick={() => setDictExpandedReimbursements(prev => ({ ...prev, [reimb.reimbursement_id]: !bExpanded }))}
-                className="bg-white hover:bg-blue-50/50 transition-colors cursor-pointer"
-              >
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    {iIdx === 0 && (
-                      <tr className="bg-gray-100/80 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200 w-14">Sr No</th>
-                        {bShowInitiator && (
-                          <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Applicant</th>
-                        )}
-                        <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Categories</th>
-                        <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Sub Categories</th>
-                        <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Description</th>
-                        {bShowStatus && (
-                          <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Status</th>
-                        )}
-                        <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Date Applied</th>
-                        {bIsHistory && (
-                          <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Date of Payment</th>
-                        )}
-                        <th className="px-4 py-3 text-right whitespace-nowrap border-r border-gray-200">Amount</th>
-                        <th className="px-4 py-3 text-center whitespace-nowrap w-12">Expand</th>
-                      </tr>
-                    )}
-                  </thead>
-                  <tbody>
-                    <tr className={`border-t border-gray-200 ${iIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                      {/* Sr No */}
-                      <td className="px-4 py-3 text-center text-gray-700 font-semibold whitespace-nowrap border-r border-gray-200">
-                        {iIdx + 1}
-                      </td>
+  //         return (
+  //           <div key={reimb.reimbursement_id} className="border border-gray-200 rounded-lg overflow-hidden mb-3">
+  //             {/* Main Row - Summary */}
+  //             <div
+  //               onClick={() => setDictExpandedReimbursements(prev => ({ ...prev, [reimb.reimbursement_id]: !bExpanded }))}
+  //               className="bg-white hover:bg-blue-50/50 transition-colors cursor-pointer"
+  //             >
+  //               <table className="w-full text-sm border-collapse">
+  //                 <thead>
+  //                   {iIdx === 0 && (
+  //                     <tr className="bg-gray-100/80 text-xs font-bold text-gray-500 uppercase tracking-wider">
+  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200 w-14">Sr No</th>
+  //                       {bShowInitiator && (
+  //                         <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Applicant</th>
+  //                       )}
+  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Categories</th>
+  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Sub Categories</th>
+  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Description</th>
+  //                       {bShowStatus && (
+  //                         <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Status</th>
+  //                       )}
+  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Date Applied</th>
+  //                       {bIsHistory && (
+  //                         <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Date of Payment</th>
+  //                       )}
+  //                       <th className="px-4 py-3 text-right whitespace-nowrap border-r border-gray-200">Amount</th>
+  //                       <th className="px-4 py-3 text-center whitespace-nowrap w-12">Expand</th>
+  //                     </tr>
+  //                   )}
+  //                 </thead>
+  //                 <tbody>
+  //                   <tr className={`border-t border-gray-200 ${iIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+  //                     {/* Sr No */}
+  //                     <td className="px-4 py-3 text-center text-gray-700 font-semibold whitespace-nowrap border-r border-gray-200">
+  //                       {iIdx + 1}
+  //                     </td>
                       
-                      {/* Applicant (for team views) */}
-                      {bShowInitiator && (
-                        <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-                          <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
-                            {reimb.initiator_name}
+  //                     {/* Applicant (for team views) */}
+  //                     {bShowInitiator && (
+  //                       <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
+  //                         <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+  //                           {reimb.initiator_name}
+  //                         </span>
+  //                       </td>
+  //                     )}
+                      
+  //                     {/* Combined Categories */}
+  //                     <td className="px-4 py-3 text-center text-gray-800 font-medium whitespace-nowrap border-r border-gray-200 max-w-xs">
+  //                       <span className="text-xs">{strCombinedCategories}</span>
+  //                     </td>
+                      
+  //                     {/* Combined Sub Categories */}
+  //                     <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200 max-w-xs">
+  //                       <span className="text-xs">{strCombinedSubCategories}</span>
+  //                     </td>
+                      
+  //                     {/* Description of First Item */}
+  //                     <td className="px-4 py-3 text-center text-gray-600 border-r border-gray-200 max-w-xs" title={strFirstDesc || undefined}>
+  //                       <span className="block truncate text-xs">
+  //                         {strFirstDesc || <span className="text-gray-300 italic">—</span>}
+  //                       </span>
+  //                     </td>
+                      
+  //                     {/* Status */}
+  //                     {bShowStatus && (
+  //                       <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
+  //                         {statusBadge(reimb.status)}
+  //                       </td>
+  //                     )}
+                      
+  //                     {/* Date Applied */}
+  //                     <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200">
+  //                       {fmtDate(strFirstDate)}
+  //                     </td>
+                      
+  //                     {/* Date of Payment (History only) */}
+  //                     {bIsHistory && (
+  //                       <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
+  //                         {bPaid
+  //                           ? <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-xs">
+  //                               <CheckCircle2 className="w-3.5 h-3.5" /> {fmtDate(reimb.updated_at)}
+  //                             </span>
+  //                           : <span className="text-gray-400 italic text-xs">Pending</span>
+  //                         }
+  //                       </td>
+  //                     )}
+                      
+  //                     {/* Total Amount */}
+  //                     <td className="px-4 py-3 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap border-r border-gray-200">
+  //                       {fmtAmt(reimb.total_amount)}
+  //                     </td>
+                      
+  //                     {/* Expand Button */}
+  //                     <td className="px-4 py-3 text-center whitespace-nowrap">
+  //                       <button
+  //                         onClick={(e) => {
+  //                           e.stopPropagation();
+  //                           setDictExpandedReimbursements(prev => ({ ...prev, [reimb.reimbursement_id]: !bExpanded }));
+  //                         }}
+  //                         className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 transition-colors"
+  //                         title={bExpanded ? 'Collapse' : 'Expand'}
+  //                       >
+  //                         {bExpanded ? <ChevronUp className="w-4 h-4 text-gray-600" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
+  //                       </button>
+  //                     </td>
+  //                   </tr>
+  //                 </tbody>
+  //               </table>
+  //             </div>
+
+  //             {/* Expanded Details - Show all individual items */}
+  //             {bExpanded && (reimb.items ?? []).length > 0 && (
+  //               <div className="border-t border-gray-200 bg-gray-50 p-4">
+  //                 <div className="mb-3">
+  //                   <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+  //                     <ChevronLeft className="w-4 h-4" /> Individual Items ({(reimb.items ?? []).length})
+  //                   </h5>
+  //                 </div>
+  //                 <div className="overflow-x-auto">
+  //                   <table className="w-full text-xs border-collapse">
+  //                     <thead>
+  //                       <tr className="bg-gray-200 text-gray-700 font-semibold">
+  //                         <th className="px-3 py-2 text-center border border-gray-300">Item #</th>
+  //                         <th className="px-3 py-2 text-center border border-gray-300">Category</th>
+  //                         <th className="px-3 py-2 text-center border border-gray-300">Sub Category</th>
+  //                         <th className="px-3 py-2 text-center border border-gray-300">Description</th>
+  //                         <th className="px-3 py-2 text-center border border-gray-300">Date</th>
+  //                         <th className="px-3 py-2 text-right border border-gray-300">Amount</th>
+  //                       </tr>
+  //                     </thead>
+  //                     <tbody>
+  //                       {(reimb.items ?? []).map((item, itemIdx) => (
+  //                         <tr key={itemIdx} className={itemIdx % 2 === 0 ? 'bg-white' : 'bg-gray-100'}>
+  //                           <td className="px-3 py-2 text-center border border-gray-300 font-medium text-gray-600">
+  //                             {itemIdx + 1}
+  //                           </td>
+  //                           <td className="px-3 py-2 text-center border border-gray-300">
+  //                             {item.category_name || item.category_id || '—'}
+  //                           </td>
+  //                           <td className="px-3 py-2 text-center border border-gray-300">
+  //                             {item.sub_category || '—'}
+  //                           </td>
+  //                           <td className="px-3 py-2 text-center border border-gray-300 max-w-xs" title={item.description || undefined}>
+  //                             <span className="block truncate">{item.description || '—'}</span>
+  //                           </td>
+  //                           <td className="px-3 py-2 text-center border border-gray-300">
+  //                             {fmtDate(item.expense_date)}
+  //                           </td>
+  //                           <td className="px-3 py-2 text-right border border-gray-300 font-semibold tabular-nums">
+  //                             {fmtAmt(item.amount)}
+  //                           </td>
+  //                         </tr>
+  //                       ))}
+  //                     </tbody>
+  //                     <tfoot>
+  //                       <tr className="bg-emerald-100 font-semibold text-emerald-900">
+  //                         <td colSpan={5} className="px-3 py-2 text-right border border-gray-300">
+  //                           Total:
+  //                         </td>
+  //                         <td className="px-3 py-2 text-right border border-gray-300 tabular-nums">
+  //                           {fmtAmt(reimb.total_amount)}
+  //                         </td>
+  //                       </tr>
+  //                     </tfoot>
+  //                   </table>
+  //                 </div>
+  //                 <div className="mt-3 flex justify-center">
+  //                   <button
+  //                     onClick={() => navigate(`/expense/detail/${reimb.reimbursement_id}`)}
+  //                     className="px-4 py-2 bg-[#00703C] text-white text-xs font-semibold rounded-lg hover:bg-[#005a30] transition-colors"
+  //                   >
+  //                     Open Full Details
+  //                   </button>
+  //                 </div>
+  //               </div>
+  //             )}
+  //           </div>
+  //         );
+  //       })}
+  //     </div>
+  //   );
+  // }
+
+function renderReimbTable(
+      lsItems: ReimbursementListItem[],
+      strKey: string,
+      bShowInitiator: boolean,
+      bShowStatus: boolean,
+      bIsHistory: boolean,
+    ) {
+      if (lsItems.length === 0) return null;
+
+      const { col: strSortCol, dir: strSortDir } = getSortState(strKey);
+
+      const lsSorted = [...lsItems].sort((a, b) => {
+        let nCmp = 0;
+        switch (strSortCol) {
+          
+          case 'code':      nCmp = (a.reimbursement_code ?? '').localeCompare(b.reimbursement_code ?? ''); break;
+          case 'applicant': nCmp = (a.initiator_name ?? '').localeCompare(b.initiator_name ?? ''); break;
+          case 'category':  nCmp = (a.items[0]?.category_name ?? '').localeCompare(b.items[0]?.category_name ?? ''); break;
+          case 'sub':       nCmp = (a.items[0]?.sub_category ?? '').localeCompare(b.items[0]?.sub_category ?? ''); break;
+          case 'desc':      nCmp = (a.items?.[0]?.description ?? '').localeCompare(b.items?.[0]?.description ?? ''); break;
+          case 'status':    nCmp = (a.status ?? '').localeCompare(b.status ?? ''); break;
+          case 'date':      nCmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break;
+          case 'payment':   nCmp = (a.updated_at ?? '').localeCompare(b.updated_at ?? ''); break;
+          case 'amount':    nCmp = a.total_amount - b.total_amount; break;
+        }
+        return strSortDir === 'asc' ? nCmp : -nCmp;
+      });
+
+      // Helper: truncate to N words
+      function truncateWords(str: string, n: number): { short: string; truncated: boolean } {
+        if (!str) return { short: '', truncated: false };
+        const trimmed = str.trim();
+
+        // If string has spaces, truncate by word count
+        const words = trimmed.split(/\s+/);
+        if (words.length > n) {
+          return { short: words.slice(0, n).join(' ') + '…', truncated: true };
+        }
+
+        // Fallback: if single long word/no-space string, truncate by character (30 chars)
+        if (trimmed.length > 30) {
+          return { short: trimmed.slice(0, 30) + '…', truncated: true };
+        }
+
+        return { short: trimmed, truncated: false };
+      }
+
+      function thSort(strLabel: string, strCol: string, strAlign: 'center' | 'right' = 'center') {
+        const bActive = strSortCol === strCol;
+        return (
+          <th
+            key={strCol}
+            onClick={() => toggleSort(strKey, strCol)}
+            className={`px-4 py-3 text-${strAlign} whitespace-nowrap border-r border-gray-300
+              cursor-pointer select-none hover:bg-gray-200 transition-colors group bg-gray-100 text-sm font-bold text-gray-700 uppercase tracking-wider`}
+          >
+            <span className="inline-flex items-center justify-center gap-1.5">
+              {strLabel}
+              <span className={`inline-flex flex-col -space-y-1 transition-opacity ${bActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
+                <ChevronUp className={`w-3.5 h-3.5 ${bActive && strSortDir === 'asc' ? 'text-black' : 'text-gray-500'}`} />
+                <ChevronDown className={`w-3.5 h-3.5 ${bActive && strSortDir === 'desc' ? 'text-black' : 'text-gray-500'}`} />
+              </span>
+            </span>
+          </th>
+        );
+      }
+
+      // Alternating row colors for parent rows
+      const ROW_COLORS = ['bg-white', 'bg-slate-50'];
+
+      return (
+        <div className="px-4 py-4">
+          <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
+            <table className="w-full text-sm border-collapse">
+              {/* Single thead */}
+              <thead>
+                <tr className="border-b-2 border-gray-300">
+                  <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-300 bg-gray-100 text-sm font-bold text-gray-700 uppercase tracking-wider w-14">
+                    Sr No
+                  </th>
+                  {thSort('Code', 'code')}
+                  {bShowInitiator && thSort('Applicant', 'applicant')}
+                  {thSort('Categories', 'category')}
+                  {thSort('Sub Categories', 'sub')}
+                  {thSort('Description', 'desc')}
+                  {bShowStatus && thSort('Status', 'status')}
+                  {thSort('Date Applied', 'date')}
+                  {bIsHistory && thSort('Date of Payment', 'payment')}
+                  {thSort('Amount', 'amount', 'right')}
+                  <th className="px-4 py-3 text-center whitespace-nowrap bg-gray-100 text-sm font-bold text-gray-700 uppercase tracking-wider w-14">
+                    Expand
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {lsSorted.map((reimb, iIdx) => {
+                  const bPaid = PAID_STATUSES.has(reimb.status);
+                  const bExpanded = dictExpandedReimbursements[reimb.reimbursement_id] ?? false;
+
+                  const lsCategories = (reimb.items ?? []).map(it => it.category_name || it.category_id || '—');
+                  const lsSubCategories = (reimb.items ?? []).map(it => it.sub_category || '—');
+                  const strCombinedCategories = [...new Set(lsCategories)].join(', ');
+                  const strCombinedSubCategories = [...new Set(lsSubCategories)].join(', ');
+
+                  const strFullDesc = (reimb.items?.[0]?.description) || '';
+                  const { short: strShortDesc, truncated: bDescTruncated } = truncateWords(strFullDesc, 15);
+
+                  const strRowBg = ROW_COLORS[iIdx % 2];
+
+                  return (
+                    <>
+                      {/* ── Main summary row ── */}
+                      <tr
+                        key={reimb.reimbursement_id}
+                        className={`${strRowBg} border-b border-gray-200 hover:bg-blue-50 transition-colors cursor-pointer`}
+                        onClick={() => navigate(`/expense/detail/${reimb.reimbursement_id}`)}
+                      >
+                        {/* Sr No */}
+                        <td className="px-4 py-3.5 text-center text-gray-700 font-semibold whitespace-nowrap border-r border-gray-200 text-sm">
+                          {iIdx + 1}
+                        </td>
+
+                        {/* Code */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap border-r border-gray-200">
+                          <span className="text-sm font-mono font-semibold text-[#00703C]">
+                            {(reimb as any).reimbursement_code ?? '—'}
                           </span>
                         </td>
-                      )}
-                      
-                      {/* Combined Categories */}
-                      <td className="px-4 py-3 text-center text-gray-800 font-medium whitespace-nowrap border-r border-gray-200 max-w-xs">
-                        <span className="text-xs">{strCombinedCategories}</span>
-                      </td>
-                      
-                      {/* Combined Sub Categories */}
-                      <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200 max-w-xs">
-                        <span className="text-xs">{strCombinedSubCategories}</span>
-                      </td>
-                      
-                      {/* Description of First Item */}
-                      <td className="px-4 py-3 text-center text-gray-600 border-r border-gray-200 max-w-xs" title={strFirstDesc || undefined}>
-                        <span className="block truncate text-xs">
-                          {strFirstDesc || <span className="text-gray-300 italic">—</span>}
-                        </span>
-                      </td>
-                      
-                      {/* Status */}
-                      {bShowStatus && (
-                        <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-                          {statusBadge(reimb.status)}
-                        </td>
-                      )}
-                      
-                      {/* Date Applied */}
-                      <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200">
-                        {fmtDate(strFirstDate)}
-                      </td>
-                      
-                      {/* Date of Payment (History only) */}
-                      {bIsHistory && (
-                        <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-                          {bPaid
-                            ? <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-xs">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> {fmtDate(reimb.updated_at)}
-                              </span>
-                            : <span className="text-gray-400 italic text-xs">Pending</span>
-                          }
-                        </td>
-                      )}
-                      
-                      {/* Total Amount */}
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap border-r border-gray-200">
-                        {fmtAmt(reimb.total_amount)}
-                      </td>
-                      
-                      {/* Expand Button */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDictExpandedReimbursements(prev => ({ ...prev, [reimb.reimbursement_id]: !bExpanded }));
-                          }}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 transition-colors"
-                          title={bExpanded ? 'Collapse' : 'Expand'}
-                        >
-                          {bExpanded ? <ChevronUp className="w-4 h-4 text-gray-600" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
 
-              {/* Expanded Details - Show all individual items */}
-              {bExpanded && (reimb.items ?? []).length > 0 && (
-                <div className="border-t border-gray-200 bg-gray-50 p-4">
-                  <div className="mb-3">
-                    <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      <ChevronLeft className="w-4 h-4" /> Individual Items ({(reimb.items ?? []).length})
-                    </h5>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-gray-200 text-gray-700 font-semibold">
-                          <th className="px-3 py-2 text-center border border-gray-300">Item #</th>
-                          <th className="px-3 py-2 text-center border border-gray-300">Category</th>
-                          <th className="px-3 py-2 text-center border border-gray-300">Sub Category</th>
-                          <th className="px-3 py-2 text-center border border-gray-300">Description</th>
-                          <th className="px-3 py-2 text-center border border-gray-300">Date</th>
-                          <th className="px-3 py-2 text-right border border-gray-300">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(reimb.items ?? []).map((item, itemIdx) => (
-                          <tr key={itemIdx} className={itemIdx % 2 === 0 ? 'bg-white' : 'bg-gray-100'}>
-                            <td className="px-3 py-2 text-center border border-gray-300 font-medium text-gray-600">
-                              {itemIdx + 1}
+                        {/* Applicant */}
+                        {bShowInitiator && (
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap border-r border-gray-200">
+                            <span className="text-sm font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                              {reimb.initiator_name}
+                            </span>
+                          </td>
+                        )}
+
+                        {/* Categories */}
+                        <td className="px-4 py-3.5 text-center border-r border-gray-200 max-w-[180px]">
+                          <span className="text-sm text-gray-800 font-medium">{strCombinedCategories}</span>
+                        </td>
+
+                        {/* Sub Categories */}
+                        <td className="px-4 py-3.5 text-center border-r border-gray-200 max-w-[160px]">
+                          <span className="text-sm text-gray-600">{strCombinedSubCategories}</span>
+                        </td>
+
+                       
+                        {/* Description */}
+                            <td className="px-4 py-3.5 text-center border-r border-gray-200 max-w-[200px]">
+                              {strFullDesc
+                                ? (
+                                  <span
+                                    className="text-sm text-gray-600 cursor-default block truncate"
+                                    title={strFullDesc}  
+                                  >
+                                    {strShortDesc}
+                                  </span>
+                                )
+                                : <span className="text-gray-300 italic text-sm">—</span>
+                              }
                             </td>
-                            <td className="px-3 py-2 text-center border border-gray-300">
+
+                        {/* Status */}
+                        {bShowStatus && (
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap border-r border-gray-200">
+                            {statusBadge(reimb.status)}
+                          </td>
+                        )}
+
+                        {/* Date Applied */}
+                        <td className="px-4 py-3.5 text-center text-gray-600 whitespace-nowrap border-r border-gray-200 text-sm">
+                          {fmtDate(reimb.created_at)}
+                        </td>
+
+                        {/* Date of Payment */}
+                        {bIsHistory && (
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap border-r border-gray-200">
+                            {bPaid
+                              ? <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-sm">
+                                  <CheckCircle2 className="w-4 h-4" /> {fmtDate(reimb.updated_at)}
+                                </span>
+                              : <span className="text-gray-400 italic text-sm">Pending</span>
+                            }
+                          </td>
+                        )}
+
+                        {/* Amount */}
+                        <td className="px-4 py-3.5 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap border-r border-gray-200 text-sm">
+                          {fmtAmt(reimb.total_amount)}
+                        </td>
+
+                        {/* Expand button */}
+                        <td
+                          className="px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDictExpandedReimbursements(prev => ({
+                                ...prev,
+                                [reimb.reimbursement_id]: !bExpanded,
+                              }));
+                            }}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 transition-colors"
+                            title={bExpanded ? 'Collapse items' : 'Expand items'}
+                          >
+                            {bExpanded
+                              ? <ChevronUp className="w-4 h-4 text-gray-600" />
+                              : <ChevronDown className="w-4 h-4 text-gray-600" />}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* ── Expanded child item rows ── */}
+                      {bExpanded && (reimb.items ?? []).map((item, itemIdx) => {
+                        const { short: strItemShort, truncated: bItemTrunc } = truncateWords(item.description || '', 15);
+                        return (
+                          <tr
+                            key={`${reimb.reimbursement_id}-item-${itemIdx}`}
+                            className="bg-blue-50/70 border-b border-blue-100 hover:bg-blue-100/60 transition-colors"
+                          >
+                            {/* WITH these two separate cells: */}
+                              <td className="bg-white border-none" />
+                              <td className="px-4 py-2.5 text-center border-r border-l-0 border-blue-200">
+                                <span className="text-sm text-blue-600 font-semibold">↳ {itemIdx + 1}</span>
+                              </td>
+
+                            {/* Applicant — empty */}
+                            {bShowInitiator && (
+                              <td className="px-4 py-2.5 border-r border-blue-200" />
+                            )}
+
+                            {/* Category */}
+                            <td className="px-4 py-2.5 text-center border-r border-blue-200 text-sm text-gray-700">
                               {item.category_name || item.category_id || '—'}
                             </td>
-                            <td className="px-3 py-2 text-center border border-gray-300">
+
+                            {/* Sub Category */}
+                            <td className="px-4 py-2.5 text-center border-r border-blue-200 text-sm text-gray-600">
                               {item.sub_category || '—'}
                             </td>
-                            <td className="px-3 py-2 text-center border border-gray-300 max-w-xs" title={item.description || undefined}>
-                              <span className="block truncate">{item.description || '—'}</span>
-                            </td>
-                            <td className="px-3 py-2 text-center border border-gray-300">
+
+                            {/* Item Description */}
+                          <td className="px-4 py-2.5 text-center border-r border-blue-200 max-w-[200px]">
+                            {item.description
+                              ? <span
+                                  className="text-sm text-gray-600 cursor-default block truncate"
+                                  title={item.description} 
+                                >
+                                  {strItemShort}
+                                </span>
+                              : <span className="text-gray-300 italic text-sm">—</span>
+                            }
+                          </td>
+
+                            {/* Status — empty */}
+                            {bShowStatus && (
+                              <td className="px-4 py-2.5 border-r border-blue-200" />
+                            )}
+
+                            {/* Item Date */}
+                            <td className="px-4 py-2.5 text-center text-sm text-gray-600 whitespace-nowrap border-r border-blue-200">
                               {fmtDate(item.expense_date)}
                             </td>
-                            <td className="px-3 py-2 text-right border border-gray-300 font-semibold tabular-nums">
+
+                            {/* Date of Payment — empty */}
+                            {bIsHistory && (
+                              <td className="px-4 py-2.5 border-r border-blue-200" />
+                            )}
+
+                            {/* Item Amount */}
+                            <td className="px-4 py-2.5 text-right text-sm font-semibold tabular-nums text-gray-800 border-r border-blue-200">
                               {fmtAmt(item.amount)}
                             </td>
+
+                            {/* Empty expand cell */}
+                            <td className="px-4 py-2.5" />
                           </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-emerald-100 font-semibold text-emerald-900">
-                          <td colSpan={5} className="px-3 py-2 text-right border border-gray-300">
-                            Total:
-                          </td>
-                          <td className="px-3 py-2 text-right border border-gray-300 tabular-nums">
-                            {fmtAmt(reimb.total_amount)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                  <div className="mt-3 flex justify-center">
-                    <button
-                      onClick={() => navigate(`/expense/detail/${reimb.reimbursement_id}`)}
-                      className="px-4 py-2 bg-[#00703C] text-white text-xs font-semibold rounded-lg hover:bg-[#005a30] transition-colors"
-                    >
-                      Open Full Details
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
+                        );
+                      })}
+
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
 
   function renderCollapsibleSection(
     objMeta: SectionMeta,
