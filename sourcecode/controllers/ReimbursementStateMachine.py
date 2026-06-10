@@ -208,10 +208,23 @@ async def transition(strReimbursementId: str, strActorId: str, strAction: str, d
             dictUpdates["status"] = "CLOSED"
             dictUpdates["current_reviewer_id"] = ""
 
-        # REJECT: record rejection metadata
+        # REJECT: record rejection metadata and update approval_chain
         if strAction == "REJECT":
             dictUpdates["rejected_at"] = datetime.now(timezone.utc).isoformat()
             dictUpdates["rejected_by"] = strActorId
+
+            # Update approval_chain to mark current step as REJECTED
+            lsChain = dictOld.get("approval_chain", [])
+            iCurrentStep = dictOld.get("current_step", 0)
+            strNow = datetime.now(timezone.utc).isoformat()
+
+            if iCurrentStep < len(lsChain):
+                lsChain[iCurrentStep]["action_date"] = strNow
+                lsChain[iCurrentStep]["action"] = "REJECT"
+                lsChain[iCurrentStep]["status"] = "REJECTED"
+                lsChain[iCurrentStep]["rejected_at"] = strNow
+                lsChain[iCurrentStep]["rejected_by"] = strActorId
+                dictUpdates["approval_chain"] = lsChain
 
         # Atomic update with filter on current_reviewer_id to prevent double action
         if strAction in ("APPROVE", "PAY", "CA_QUERY", "REJECT"):

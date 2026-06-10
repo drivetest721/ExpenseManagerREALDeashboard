@@ -102,6 +102,7 @@ export interface ChainStep {
   action?: string;
   received_date?: string;
   response_date?: string;
+  action_date?: string;
   remaining_days?: number;
   approved_at?: string;
   approved_by?: string;

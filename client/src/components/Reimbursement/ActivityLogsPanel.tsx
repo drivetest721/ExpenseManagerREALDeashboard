@@ -748,11 +748,12 @@ export default function ActivityLogsPanel({
                                   <span className="text-gray-700">{fmtDateTime(objStep.received_date)}</span>
                                 </div>
                               )}
-                              {objStep.response_date && (
+                              {/* Show action_date for QUERY/ASK actions */}
+                              {(objStep.action_date || objStep.response_date) && (
                                 <div className="flex items-center gap-1.5 text-orange-700 font-bold">
                                   <AlertCircle className="w-3 h-3" />
-                                  <span>{strUpperAction}:</span>
-                                  <span className="text-gray-700">{fmtDateTime(objStep.response_date)}</span>
+                                  <span>{strUpperAction} at:</span>
+                                  <span className="text-gray-700">{fmtDateTime((objStep.action_date || objStep.response_date)!)}</span>
                                 </div>
                               )}
                               {/* Show Manager as Completed with their action */}

@@ -55,6 +55,7 @@ export default function ReimbursementFooter({
           </div>
           {/* Action buttons */}
           <div className="flex gap-3 flex-shrink-0">
+            {/* 
             <button
               onClick={onSaveDraft}
               disabled={bIsSaving}
@@ -64,12 +65,13 @@ export default function ReimbursementFooter({
               <Save className="w-4 h-4" />
               {bIsSaving ? 'Saving…' : 'Save Changes'}
             </button>
+            */}
             <button
               onClick={onReApply}
               disabled={bIsSaving || !strReApplyMessage.trim()}
               className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 transition-all shadow-md hover:shadow-lg hover:scale-105 cursor-pointer"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-6" />
               {bIsSaving ? strBusy : strBtnLabel}
             </button>
           </div>

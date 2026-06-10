@@ -194,6 +194,7 @@ def logView(
     """
     Purpose : Log when a user views the reimbursement detail page.
               Rate-limited: Max 1 view log per user per reimbursement per 5 minutes.
+              ALSO updates approval_chain[current_step].received_date if this is the first view.
 
     Inputs  : (1) strReimbursementId - Reimbursement ID (str)
               (2) strActorId - User who viewed the page (str)
@@ -203,7 +204,9 @@ def logView(
     Example : logView("reimb_123", "manager_456")
     """
     try:
+        from bson import ObjectId
         objLogs = get_collection("reimbursement_logs")
+        objReimbs = get_collection("reimbursements")
 
         # Rate limiting: Check for recent view logs from this user
         dtThreshold = datetime.now(timezone.utc) - timedelta(minutes=5)
@@ -219,6 +222,7 @@ def logView(
             return ""
 
         dictUser = _getUserDetails(strActorId)
+        strNow = datetime.now(timezone.utc).isoformat()
 
         dictLog = {
             "reimbursement_id": strReimbursementId,
@@ -230,13 +234,35 @@ def logView(
             "action_by_role": dictUser["role"],
             "action_by_department": dictUser["department"],
             "visibility": "public",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": strNow,
         }
 
         objResult = objLogs.insert_one(dictLog)
         strLogId = str(objResult.inserted_id)
 
         objLogger.info(f"✅ View logged | reimb={strReimbursementId} | actor={strActorId}")
+
+        # UPDATE APPROVAL CHAIN: Set received_date for current reviewer if not already set
+        try:
+            dictReimb = objReimbs.find_one({"_id": ObjectId(strReimbursementId)})
+            if dictReimb:
+                strCurrentReviewerId = str(dictReimb.get("current_reviewer_id", ""))
+                iCurrentStep = dictReimb.get("current_step", 0)
+                lsChain = dictReimb.get("approval_chain", [])
+
+                # If this user is the current reviewer and viewing for the first time
+                if strActorId == strCurrentReviewerId and iCurrentStep < len(lsChain):
+                    # Check if received_date is not already set
+                    if not lsChain[iCurrentStep].get("received_date"):
+                        # Update the approval_chain array with received_date
+                        objReimbs.update_one(
+                            {"_id": ObjectId(strReimbursementId)},
+                            {"$set": {f"approval_chain.{iCurrentStep}.received_date": strNow}}
+                        )
+                        objLogger.info(f"📬 Set received_date for step {iCurrentStep} | reimb={strReimbursementId}")
+        except Exception as updateErr:
+            objLogger.warning(f"⚠️ Failed to update approval_chain received_date: {updateErr}")
+
         return strLogId
 
     except Exception as objErr:

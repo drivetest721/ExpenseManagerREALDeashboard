@@ -114,6 +114,7 @@ async def reapplyReimbursement(
     try:
         strUserId = dictCurrentUser["user_id"]
         dictPayload = {"message": objRequest.message, "visibility": "public"}
+        print(dictPayload)
         dictNew = await transition(reimbursement_id, strUserId, "REAPPLY", dictPayload)
 
         return {"success": True, "status": dictNew.get("status")}
