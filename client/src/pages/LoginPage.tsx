@@ -71,7 +71,7 @@ export default function LoginPage() {
           {/* Brand mark with favicon logo */}
           <div className="flex flex-col items-center gap-3 cursor-default">
             <img src="/favicon.png" alt="Logo" className="h-16" />
-            <h1 className="text-2xl font-bold text-gray-900">Real Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Expense Manager</h1>
             <p className="text-sm text-gray-500">Expense Management · Sign in to continue</p>
           </div>
 

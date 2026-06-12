@@ -508,20 +508,91 @@ function renderReimbTable(
         return { short: trimmed, truncated: false };
       }
 
-      function thSort(strLabel: string, strCol: string, strAlign: 'center' | 'right' = 'center') {
+      const COL_TOOLTIPS: Record<string, string> = {
+        code:       'Unique reference code for this reimbursement',
+        applicant:  'Employee who submitted this reimbursement',
+        category:   'Expense category (e.g. Travel, Medical)',
+        sub:        'Sub-category under the main expense category',
+        desc:       'Brief description of the first expense item',
+        status:     'Current stage in the approval workflow',
+        date:       'Date this reimbursement was submitted',
+        payment:    'Date the payment was processed and received',
+        amount:     'Total reimbursement amount (all items combined)',
+      };
+
+      function thSort(
+        strLabel: string,
+        strCol: string,
+        strAlign: 'center' | 'right' = 'center'
+      ) {
         const bActive = strSortCol === strCol;
+
         return (
           <th
             key={strCol}
             onClick={() => toggleSort(strKey, strCol)}
-            className={`px-4 py-3 text-${strAlign} whitespace-nowrap border-r border-gray-300
-              cursor-pointer select-none hover:bg-gray-200 transition-colors group bg-gray-100 text-sm font-bold text-gray-700 uppercase tracking-wider`}
+            className={`relative px-4 py-3 text-${strAlign} whitespace-nowrap border-r border-gray-300
+              cursor-pointer select-none hover:bg-gray-200 transition-colors group
+              bg-gray-100 text-sm font-bold text-gray-700 uppercase tracking-wider`}
           >
             <span className="inline-flex items-center justify-center gap-1.5">
               {strLabel}
-              <span className={`inline-flex flex-col -space-y-1 transition-opacity ${bActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
-                <ChevronUp className={`w-3.5 h-3.5 ${bActive && strSortDir === 'asc' ? 'text-black' : 'text-gray-500'}`} />
-                <ChevronDown className={`w-3.5 h-3.5 ${bActive && strSortDir === 'desc' ? 'text-black' : 'text-gray-500'}`} />
+
+              {/* Custom Tooltip */}
+              {COL_TOOLTIPS[strCol] && (
+                <div
+                  className="
+                    absolute
+                    left-1/2
+                    top-full
+                    z-50
+                    mb-2
+                    -translate-x-1/2
+                    rounded-md
+                    bg-gray-900
+                    px-3
+                    py-2
+                    text-base
+                    font-normal
+                    normal-case
+                    tracking-normal
+                    text-white
+                    shadow-lg
+                    whitespace-nowrap
+                    opacity-0
+                    invisible
+                    group-hover:opacity-100
+                    group-hover:visible
+                    transition-all
+                    duration-200
+                    pointer-events-none
+                  "
+                >
+                  {COL_TOOLTIPS[strCol]}
+                </div>
+              )}
+
+              <span
+                className={`inline-flex flex-col -space-y-1 transition-opacity ${
+                  bActive
+                    ? 'opacity-100'
+                    : 'opacity-60 group-hover:opacity-100'
+                }`}
+              >
+                <ChevronUp
+                  className={`w-3.5 h-3.5 ${
+                    bActive && strSortDir === 'asc'
+                      ? 'text-black'
+                      : 'text-gray-500'
+                  }`}
+                />
+                <ChevronDown
+                  className={`w-3.5 h-3.5 ${
+                    bActive && strSortDir === 'desc'
+                      ? 'text-black'
+                      : 'text-gray-500'
+                  }`}
+                />
               </span>
             </span>
           </th>
@@ -656,27 +727,32 @@ function renderReimbTable(
                         </td>
 
                         {/* Expand button */}
-                        <td
-                          className="px-4 py-3.5 text-center whitespace-nowrap"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDictExpandedReimbursements(prev => ({
-                                ...prev,
-                                [reimb.reimbursement_id]: !bExpanded,
-                              }));
-                            }}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 transition-colors"
-                            title={bExpanded ? 'Collapse items' : 'Expand items'}
-                          >
-                            {bExpanded
-                              ? <ChevronUp className="w-4 h-4 text-gray-600" />
-                              : <ChevronDown className="w-4 h-4 text-gray-600" />}
-                          </button>
-                        </td>
-                      </tr>
+                        {/* Expand button — only if more than 1 item */}
+                              <td
+                                className="px-4 py-3.5 text-center whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {(reimb.items ?? []).length > 1 ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDictExpandedReimbursements(prev => ({
+                                        ...prev,
+                                        [reimb.reimbursement_id]: !bExpanded,
+                                      }));
+                                    }}
+                                    className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 transition-colors"
+                                    title={bExpanded ? 'Collapse items' : 'Expand items'}
+                                  >
+                                    {bExpanded
+                                      ? <ChevronUp className="w-4 h-4 text-gray-600" />
+                                      : <ChevronDown className="w-4 h-4 text-gray-600" />}
+                                  </button>
+                                ) : (
+                                  <span className="text-gray-300 text-sm">—</span>
+                                )}
+                              </td>
+                                                    </tr>
 
                       {/* ── Expanded child item rows ── */}
                       {bExpanded && (reimb.items ?? []).map((item, itemIdx) => {

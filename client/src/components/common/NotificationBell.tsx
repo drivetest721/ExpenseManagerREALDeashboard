@@ -160,7 +160,7 @@ export function NotificationBell() {
         className="relative p-2 rounded-full hover:bg-gray-100 text-gray-700 cursor-pointer transition-colors"
         aria-label="Notifications"
       >
-        <Bell className="w-5 h-5" />
+        <Bell className="w-7 h-7" />
         {iUnread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-[20px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
             {iUnread > 99 ? '99+' : iUnread}

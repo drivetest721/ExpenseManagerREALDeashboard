@@ -1,35 +1,46 @@
 /**
- * AppHeader — top navigation bar.
- * Desktop: inline nav links. Mobile: hamburger drawer.
- * Links: Expense Management, Allowance Details, Profile, Analytics & Settings (owner/ca only).
- * Logout button: removes token and clears localStorage.
+ * AppHeader — Drake-style top navigation bar.
  */
+
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, LogOut } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { NotificationBell } from './common/NotificationBell';
 
-const strNavBase =
-  'px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer';
-const strNavInactive = 'text-gray-700 hover:bg-gray-100';
-const strNavActive = 'bg-[#00703C] text-white hover:bg-[#005a30]';
 
-type NavItem = { to: string; label: string; admin?: boolean };
+
+type NavItem = {
+  to: string;
+  label: string;
+  admin?: boolean;
+};
+
+const strNavBase =
+  'px-4 py-2 rounded-md text-lg font-semibold transition-all duration-200 cursor-pointer';
+
+const strNavInactive =
+  'text-[#1F2A44] hover:text-[#00703C] hover:bg-gray-50';
+
+const strNavActive =
+  'text-[#00703C] bg-green-50';
 
 export function AppHeader() {
   const { objUser, logout } = useAuth();
   const navigate = useNavigate();
-  const [bMenuOpen, setBMenuOpen] = useState<boolean>(false);
-  const [bIsLoggingOut, setBIsLoggingOut] = useState<boolean>(false);
-  
-  // Allow Which role can see the Analytics page and the settings page
-  const bIsAdmin = !!objUser && (objUser.departments || []).some(
-    (d) => d.role === 'owner'
-  );
+
+  const [bMenuOpen, setBMenuOpen] = useState(false);
+  const [bIsLoggingOut, setBIsLoggingOut] = useState(false);
+
+  const bIsAdmin =
+    !!objUser &&
+    (objUser.departments || []).some(
+      (objDepartment) => objDepartment.role === 'owner'
+    );
 
   const handleLogout = async () => {
     setBIsLoggingOut(true);
+
     try {
       await logout();
       navigate('/login');
@@ -39,7 +50,7 @@ export function AppHeader() {
       setBIsLoggingOut(false);
     }
   };
-
+  console.log('User in AppHeader:', objUser);
   const lsNav: NavItem[] = [
     { to: '/expense', label: 'Expense Management' },
     { to: '/allowance', label: 'Allowance Details' },
@@ -47,91 +58,189 @@ export function AppHeader() {
     { to: '/analytics', label: 'Analytics', admin: true },
     { to: '/settings', label: 'Settings', admin: true },
   ];
-  const lsVisible = lsNav.filter((n) => !n.admin || bIsAdmin);
+
+  const lsVisible = lsNav.filter(
+    (objNav) => !objNav.admin || bIsAdmin
+  );
+
+  const strInitials =
+    objUser?.name
+      ?.split(' ')
+      .map((strPart:String) => strPart[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase() || 'AN';
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 cursor-default min-w-0">
-          <div className="w-2 h-8 rounded-full bg-[#00703C] shrink-0" />
-          <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">Real Dashboard</h1>
+      <div className="max-w-[1600px] mx-auto px-8 lg:px-12 h-[100px] flex items-center justify-between">
+
+        {/* Left Section */}
+        <div className="flex items-center gap-5">
+
+          <img
+            src='/favicon.png'
+            alt="Logo"
+            className="h-14 lg:h-16 w-auto object-contain"
+          />
+
+          <h1 className="text-2xl lg:text-3xl font-semibold text-gray-900 whitespace-nowrap">
+            Expense Manager
+          </h1>
         </div>
 
-        {/* Desktop nav */}
-        <nav className="hidden lg:flex items-center gap-2">
-          {lsVisible.map((n) => (
+        {/* Desktop Navigation */}
+        <nav className="hidden lg:flex items-center gap-6">
+          {lsVisible.map((objNav) => (
             <NavLink
-              key={n.to}
-              to={n.to}
+              key={objNav.to}
+              to={objNav.to}
               className={({ isActive }) =>
-                `${strNavBase} ${isActive ? strNavActive : strNavInactive}`
+                `${strNavBase} ${
+                  isActive ? strNavActive : strNavInactive
+                }`
               }
             >
-              {n.label}
+              {objNav.label}
             </NavLink>
           ))}
-          <NotificationBell />
-          <button
-            onClick={handleLogout}
-            disabled={bIsLoggingOut}
-            title="Logout"
-            className="px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer text-gray-700 hover:bg-red-100 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
         </nav>
 
-        {/* Mobile controls */}
-        <div className="flex items-center gap-1 lg:hidden">
+        {/* Desktop Right Section */}
+        <div className="hidden lg:flex items-center gap-5">
+
           <NotificationBell />
+
+          {/* User Avatar with Hover Name */}
+          <div className="relative group">
+            <div
+              className="
+                w-12 h-12
+                rounded-full
+                bg-gray-600
+                text-white
+                flex
+                items-center
+                justify-center
+                text-sm
+                font-bold
+                cursor-pointer
+              "
+            >
+              {strInitials}
+            </div>
+
+            <div
+              className="
+                absolute
+                top-full
+                left-1/2
+                -translate-x-1/2
+                mt-2
+                px-3
+                py-1.5
+                rounded-md
+                bg-black
+                text-white
+                text-sm
+                whitespace-nowrap
+                opacity-0
+                invisible
+                group-hover:opacity-100
+                group-hover:visible
+                transition-all
+                duration-200
+                z-50
+              "
+            >
+              {objUser?.name || 'User'}
+            </div>
+          </div>
+
           <button
             onClick={handleLogout}
             disabled={bIsLoggingOut}
-            title="Logout"
-            className="p-2 rounded-md text-gray-700 hover:bg-red-100 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="
+              px-5
+              py-2.5
+              border
+              border-gray-300
+              rounded-lg
+              bg-white
+              text-gray-700
+              font-medium
+              hover:bg-red-50
+              hover:text-red-700
+              hover:border-red-300
+              transition-all
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+            "
           >
-            <LogOut className="w-5 h-5" />
+            {bIsLoggingOut ? 'Logging Out...' : 'Logout'}
           </button>
+        </div>
+
+        {/* Mobile Controls */}
+        <div className="flex items-center gap-2 lg:hidden">
+
+          <NotificationBell />
+
           <button
-            onClick={() => setBMenuOpen((b) => !b)}
-            aria-label={bMenuOpen ? 'Close menu' : 'Open menu'}
-            className="p-2 rounded-md text-gray-700 hover:bg-gray-100 cursor-pointer"
+            onClick={() => setBMenuOpen((bPrev) => !bPrev)}
+            className="p-2 rounded-md hover:bg-gray-100"
           >
-            {bMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {bMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile Drawer */}
       {bMenuOpen && (
-        <nav className="lg:hidden border-t border-gray-200 bg-white">
-          <div className="max-w-7xl mx-auto px-4 py-2 flex flex-col gap-1">
-            {lsVisible.map((n) => (
+        <div className="lg:hidden border-t border-gray-200 bg-white">
+          <div className="px-4 py-4 flex flex-col gap-2">
+
+            {lsVisible.map((objNav) => (
               <NavLink
-                key={n.to}
-                to={n.to}
+                key={objNav.to}
+                to={objNav.to}
                 onClick={() => setBMenuOpen(false)}
                 className={({ isActive }) =>
-                  `${strNavBase} ${isActive ? strNavActive : strNavInactive} w-full`
+                  `${strNavBase} ${
+                    isActive ? strNavActive : strNavInactive
+                  }`
                 }
               >
-                {n.label}
+                {objNav.label}
               </NavLink>
             ))}
+
             <button
               onClick={() => {
                 setBMenuOpen(false);
                 handleLogout();
               }}
               disabled={bIsLoggingOut}
-              className="w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer text-gray-700 hover:bg-red-100 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              className="
+                flex
+                items-center
+                gap-2
+                px-4
+                py-3
+                text-red-600
+                hover:bg-red-50
+                rounded-md
+              "
             >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
+              <LogOut className="w-5 h-5" />
+              Logout
             </button>
           </div>
-        </nav>
+        </div>
       )}
     </header>
   );
