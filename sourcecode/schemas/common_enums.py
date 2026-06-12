@@ -37,20 +37,38 @@ class ApprovalTypeEnum(str, Enum):
 # ---------------------------------------------------------------------------
 
 class ReimbursementStatusEnum(str, Enum):
-    """Full state-machine statuses for a reimbursement record."""
+    """
+    Simplified state-machine statuses for a reimbursement record.
+
+    States:
+    - DRAFT: Initial draft, not yet submitted
+    - SUBMITTED: First submission by initiator
+    - IN_REVIEW: Being reviewed by current reviewer
+    - QUERY: Reviewer raised a query (public)
+    - ASK: Reviewer raised an ask (private communication)
+    - REAPPLIED: Initiator responded to query/ask
+    - REJECTED: CA rejected the reimbursement (terminal state)
+    - PAID: CA marked as paid
+    - ACKNOWLEDGED: Initiator acknowledged payment (terminal state)
+    """
     DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
     IN_REVIEW = "IN_REVIEW"
+    QUERY = "QUERY"
+    ASK = "ASK"
+    REAPPLIED = "REAPPLIED"
+    REJECTED = "REJECTED"
+    PAID = "PAID"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+
+    # DEPRECATED: Keep for backward compatibility with old data
     QUERY_RAISED = "QUERY_RAISED"
     PRIVATE_ASK = "PRIVATE_ASK"
-    REAPPLIED = "REAPPLIED"
     OWNER_APPROVED = "OWNER_APPROVED"
     CA_PENDING = "CA_PENDING"
     CA_QUERY = "CA_QUERY"
     CA_REAPPLIED = "CA_REAPPLIED"
-    PAID = "PAID"
     PAYMENT_ACKNOWLEDGED = "PAYMENT_ACKNOWLEDGED"
-    REJECTED = "REJECTED"
     AUTO_REJECTED = "AUTO_REJECTED"
     CLOSED = "CLOSED"
 
@@ -74,27 +92,35 @@ class LogTypeEnum(str, Enum):
 
 class ActionTypeEnum(str, Enum):
     """Actions recorded in the reimbursement_logs collection."""
-    # Activity actions
+    # Activity actions (NEW simplified)
     DRAFT_SAVED = "DRAFT_SAVED"
     SUBMITTED = "SUBMITTED"
     APPROVED = "APPROVED"
+    QUERY = "QUERY"
+    ASK = "ASK"
+    REAPPLIED = "REAPPLIED"
+    PAID = "PAID"
+    REJECTED = "REJECTED"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    VIEWED = "VIEWED"  # When reviewer opens reimbursement
+
+    # DEPRECATED: Keep for backward compatibility
     QUERY_RAISED = "QUERY_RAISED"
     PRIVATE_ASK = "PRIVATE_ASK"
-    REAPPLIED = "REAPPLIED"
     OWNER_APPROVED = "OWNER_APPROVED"
     SENT_TO_CA = "SENT_TO_CA"
     CA_QUERY = "CA_QUERY"
     CA_REAPPLIED = "CA_REAPPLIED"
-    PAID = "PAID"
     PAYMENT_ACKNOWLEDGED = "PAYMENT_ACKNOWLEDGED"
-    REJECTED = "REJECTED"
     AUTO_REJECTED = "AUTO_REJECTED"
     CLOSED = "CLOSED"
+
     # Edit actions
     FIELD_CHANGED = "FIELD_CHANGED"
     ATTACHMENT_UPLOADED = "ATTACHMENT_UPLOADED"
     ATTACHMENT_REMOVED = "ATTACHMENT_REMOVED"
     BUTTON_CLICKED = "BUTTON_CLICKED"
+
     # View actions
     PAGE_VIEWED = "PAGE_VIEWED"
 

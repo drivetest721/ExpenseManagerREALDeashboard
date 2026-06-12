@@ -242,26 +242,29 @@ def logView(
 
         objLogger.info(f"✅ View logged | reimb={strReimbursementId} | actor={strActorId}")
 
-        # UPDATE APPROVAL CHAIN: Set received_date for current reviewer if not already set
+        # UPDATE APPROVAL CHAIN: Set receivedAt and change status from PENDING to IN_REVIEW
         try:
+            from controllers.ApprovalChainService import markStepAsViewed
+
             dictReimb = objReimbs.find_one({"_id": ObjectId(strReimbursementId)})
             if dictReimb:
                 strCurrentReviewerId = str(dictReimb.get("current_reviewer_id", ""))
+                strInitiatorId = str(dictReimb.get("initiator_id", ""))
                 iCurrentStep = dictReimb.get("current_step", 0)
-                lsChain = dictReimb.get("approval_chain", [])
+                strStatus = dictReimb.get("status", "")
 
-                # If this user is the current reviewer and viewing for the first time
-                if strActorId == strCurrentReviewerId and iCurrentStep < len(lsChain):
-                    # Check if received_date is not already set
-                    if not lsChain[iCurrentStep].get("received_date"):
-                        # Update the approval_chain array with received_date
-                        objReimbs.update_one(
-                            {"_id": ObjectId(strReimbursementId)},
-                            {"$set": {f"approval_chain.{iCurrentStep}.received_date": strNow}}
-                        )
-                        objLogger.info(f"📬 Set received_date for step {iCurrentStep} | reimb={strReimbursementId}")
+                # If this user is the current reviewer (manager or initiator in QUERY/ASK state)
+                if strActorId == strCurrentReviewerId:
+                    # For initiator viewing after QUERY/ASK, mark step 0
+                    if strActorId == strInitiatorId and strStatus in ["QUERY", "ASK"]:
+                        markStepAsViewed(strReimbursementId, 0)
+                        objLogger.info(f"📬 Marked initiator (step 0) as viewed | reimb={strReimbursementId}")
+                    # For manager viewing
+                    else:
+                        markStepAsViewed(strReimbursementId, iCurrentStep)
+                        objLogger.info(f"📬 Marked step {iCurrentStep} as viewed | reimb={strReimbursementId}")
         except Exception as updateErr:
-            objLogger.warning(f"⚠️ Failed to update approval_chain received_date: {updateErr}")
+            objLogger.warning(f"⚠️ Failed to mark step as viewed: {updateErr}")
 
         return strLogId
 

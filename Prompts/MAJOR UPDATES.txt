@@ -1,0 +1,127 @@
+MAJOR UPDATES:
+ - Currently The Databases uses old Schemas and Structures which is Not Trackable For Reimbursements.
+
+Database Schema Changes
+
+1) "reimbursements" collection:
+ - This is the Main Schema Which Consist The Information Regarding the "reimbursement".
+ - For Each reimbursement generate the ID using Todays yyyy-mm-dd-username-count
+    > If user name "Aryan Nayak" is generate the '5' reimbursement on 10th June 2026 then reimbursement id's are: RB2026-06-10-aryan-1, RB10062026-aryan-2, RB10062026-aryan-3, RB10062026-aryan-4, RB10062026-aryan-5,
+    > For Each Day track the Details of User applied reimbursement in "reimbursement-lookup" collection. From there we can find the user's applied reimbursement daily, monthly and daily. so we can find the next reimbursement id.
+   > from new Day Generate reimbursement id from 1; Example if Same user "Aryan nayak" Generate the '2' reimbursement ton 12th June 2026 then  reimbursement id's are: RB12062026-aryan-1, RB12062026-aryan-2,
+ - created At: timestamp when user Actually Submitted the reimbursement first time.
+ - updated At: timestamp when user Edited the the reimbursement After Submitted.
+ - approval_chain_id:
+   > This is the Approval Chain which stores the Data on reimbursement Creation.
+   > It Stores the id of approval chain for reimbursement. each reimbursement has it's own approval chain and it is only created once when user submits the reimbursement.
+   > The Approval Chain should be in the approvals collection where it has the data regarding the approval chain id, which is same as defined in the reimbursement document.
+ - status: current status of reimbursement.
+
+ Example:
+ {
+  reimbursement_id: "RB10062026-aryan-1",
+  username: "Aryan Nayak",
+  user_id: "aryan@123",
+  createdAt: datetime local timestamp,
+  updatedAt: datetime local timestamp,
+  approval_chain: [],
+  status: "DRAFT"
+ }
+
+2) reimbursement-lookup:
+ - this collection is used to store the data regarding user created reimbursement todays.
+ - user_id: the id of the user which has the counts regarding how many reimbursement apply today and id's of that reimbursement.
+ - username: name of the user
+ - date: dd-mm-yy
+ - reimbursement_ids: array of strings id generated at given date.
+ For Example:
+ {
+  user_id: aryan@123,
+  username: "Aryan Nayak"
+  date: 10-06-2026
+  reimbursement_ids: ["RB10062026-aryan-1", "RB10062026-aryan-2", "RB10062026-aryan-3", "RB10062026-aryan-4", "RB10062026-aryan-5"]
+ }
+
+"approval_chain" Field in Reimbursement Document:
+  - It is Generated after user submits the reimbursement,
+  - It Stores the Auto Generated UUID of 6 digit + Characters. 
+  - It Stores the reimbursemnt_id,
+  - Approval Chain has the User's associated it For Example Initiator, Manager, sr. Manager, Owner and Accountant.
+  - For Each Approval Chain Initiator is the First user or first step, Manager, Sr. Manager, ... nth manager are middle Step, Owner and accountant are last Steps.
+  - This collection stores the Information of Each Step(Node), Each Node Status, etc.
+  - Approval Chain has two field current_reviewer_id and current_reviwer_step.
+  - Step 0 means Initiator, step 1 means Manager of Initiator, Step 2 means Manger of Manager of Initiator.
+  - Store Details of Each Step Info:
+    {
+      Step: 0,
+      username: name of the 0th step user (initiator),
+      user_id: id of the 0th step User,
+      current_status: status of the 0th user, "APPLY", "SUBMITTED", "REAAPLY", etc...
+      recievedAt: This field is used when manager send QUERY or ASK to the Initiator then fill the date when user open's the Reimbursement after QUERY or ASK else this is empty,
+      submittedAt: This field is used when user Submit the Reimbursement, Submit the Draft, Re Apply the Reimbursement.
+      bIsReApply: by default false but if user Reapply then set it true.
+    }
+  - Step 1 menas the manager of Initiator
+    {
+      Step: 1,
+      username: name of the manager of initiator,
+      user_id: id of the manager of Initiator,
+      current_status: status of the 1th user, "PENDING", "QUERY", "ASK", "APPROVED", etc... (PENDING Status means Initiator Send Reimbursement but Manager not Opened the Reimbursement), if manager Opened the Reimbursement then Change this Field to "IN_REVIEW".
+      recievedAt: This field is used when Initiator Submit the reimbursement or reapply then fill the date when manager open's the Reimbursement after Initiator Submit or REapply else this is empty,
+      submittedAt: This field is used when user do any action like "ASK", "QUERY", "APPROVED" , etc. on the Reimbursement, stores the status time.
+    }
+
+Example:
+ {
+   approval_chain_id: id of approval chain for reimbursement,
+   reimbursemnt_id: id of reimbursement of this approval chain associated with it.
+   chain; [
+      { 
+        step: 0,
+        username: "Aryan Nayak",
+        user_id: user id of "Aryan Nayak",
+        current_status: "APPLY"
+        recievedAt: -
+        submittedAt: timestamp when user submit the reimbursement.
+        bIsReApply: false
+      },
+      { 
+         step: 1,
+         username:"manager 1"
+         user_id:  User id of manager 1
+         current_status: PENDING
+         recievedAt: - 
+         submittedAt: -
+      },
+      { 
+         step: n-1,
+         username:"Accountant"
+         user_id:  User id of accountant
+         current_status: PENDING
+         recievedAt: - 
+         submittedAt: -
+      },
+      { 
+         step: n,
+         username:"Owner"
+         user_id:  User id of Owner
+         current_status: PENDING
+         recievedAt: - 
+         submittedAt: -
+      },
+   ]
+ }
+
+
+Transition Rules:
+> I wnat new Transition Rules and Simple
+> ASK, QUERY, REAPPLY, REJECTED, MARK_AS_PAID, ACKNOWLEDGEMENT, PENDING and IN_REVIEW, SUBMITTED
+> Do not Include extra rules like CA_PENDING, CA_QUERY or CA_ASK.
+> For Every Manager IF Initiator Submited Reimbursement or Reapplied then Manager can ASK, QUERY or APPROVED.
+> CA/Accountant can reject the reimbursement or pay the reimbursement.
+
+Status Change Scenario:
+> IF Initiator send the Reimbursement then reimbursement status is SUBMITTED
+> IF Initiator Reapply after Manager's Query or Ask then Reimbursement then reimbursement status will be REAPPLIED
+> IF manager or sr. manager or nth manager or owner or ca/accountant ASK then reimbursement status will be ASK
+> IF manager or sr. manager or nth manager or owner or ca/accountant QUERY then reimbursement status will be QUERY

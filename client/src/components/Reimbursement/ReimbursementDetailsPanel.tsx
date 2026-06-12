@@ -2,8 +2,9 @@
  * ReimbursementDetailsPanel — Left panel for detail view showing reimbursement
  * items as a perfectly aligned table with lines between columns and rows.
  * Includes action dropdown at bottom for reviewers.
+ * UPDATED: Removed CA-specific actions, updated for 9-state workflow, added mark-viewed call.
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Reimbursement } from '../../types/reimbursement';
 import {
@@ -11,11 +12,10 @@ import {
   queryReimbursementApi,
   askReimbursementApi,
   reapplyReimbursementApi,
-  caQueryReimbursementApi,
-  caReapplyReimbursementApi,
   acknowledgePaymentApi,
   rejectReimbursementApi,
   payReimbursementApi,
+  markReimbursementViewedApi,
 } from '../../utils/approvalApi';
 import { submitReimbursementApi, deleteReimbursementApi } from '../../utils/reimbursementApi';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,6 +27,7 @@ interface Props {
   onActionSuccess?: () => void;
 }
 
+// UPDATED: Removed ca_query and ca_reapply action types
 type ActionType =
   | 'submit'
   | 'delete'
@@ -34,12 +35,11 @@ type ActionType =
   | 'query'
   | 'ask'
   | 'reapply'
-  | 'ca_query'
-  | 'ca_reapply'
   | 'acknowledge'
   | 'reject'
   | 'pay';
 
+// UPDATED: Removed CA-specific actions (unified workflow)
 const ACTION_META: Record<ActionType, { label: string; needsMessage: boolean; needsPayment?: boolean }> = {
   submit:      { label: 'Submit for Approval', needsMessage: false },
   delete:      { label: 'Delete Draft', needsMessage: false },
@@ -47,8 +47,6 @@ const ACTION_META: Record<ActionType, { label: string; needsMessage: boolean; ne
   query:       { label: 'Query (Public)', needsMessage: true },
   ask:         { label: 'Ask (Private)', needsMessage: true },
   reapply:     { label: 'Reapply', needsMessage: true },
-  ca_query:    { label: 'CA Query', needsMessage: true },
-  ca_reapply:  { label: 'Respond to CA', needsMessage: true },
   acknowledge: { label: 'Acknowledge Payment', needsMessage: false },
   reject:      { label: 'Reject', needsMessage: true },
   pay:         { label: 'Mark as Paid', needsMessage: false, needsPayment: true },
@@ -72,34 +70,57 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
   const bIsCA = (objUser?.departments || []).some((d) => d.role === 'ca');
   const bIsCurrentReviewer = objUser?.user_id === strCurrentReviewerId;
 
-  // Check if reimbursement can be edited (initiator only, specific statuses)
-  const bCanEdit = bIsInitiator && ['DRAFT', 'QUERY_RAISED', 'PRIVATE_ASK', 'CA_QUERY'].includes(objReimbursement.status);
+  // NEW: Mark reimbursement as viewed when opened by current reviewer
+  useEffect(() => {
+    console.log(objReimbursement);
+    if (bIsCurrentReviewer && objReimbursement.reimbursement_id) {
+      markReimbursementViewedApi(objReimbursement.reimbursement_id)
+        .then(() => console.log('✅ Marked as viewed'))
+        .catch((err) => console.warn('⚠️ Failed to mark as viewed:', err));
+    }
+  }, [bIsCurrentReviewer, objReimbursement.reimbursement_id]);
 
-  // Determine available actions
+  // UPDATED: Check if reimbursement can be edited (support new and deprecated statuses)
+  const bCanEdit = bIsInitiator && ['DRAFT', 'QUERY', 'ASK', 'QUERY_RAISED', 'PRIVATE_ASK', 'CA_QUERY'].includes(objReimbursement.status);
+
+  // UPDATED: Determine available actions for new 9-state workflow
   const lsAvailableActions = useMemo<ActionType[]>(() => {
     const lsActions: ActionType[] = [];
     const strStatus = objReimbursement.status;
+    console.log('Determining actions for status:', strStatus);
 
+    // Initiator actions
     if (bIsInitiator && strStatus === 'DRAFT') {
       lsActions.push('submit', 'delete');
     }
-    if (bIsCurrentReviewer && !bIsCA && ['SUBMITTED', 'IN_REVIEW', 'REAPPLIED'].includes(strStatus)) {
-      lsActions.push('approve', 'query', 'ask');
+
+    // Current reviewer actions (works for all types: manager, owner, CA)
+    if (bIsCurrentReviewer && ['SUBMITTED', 'IN_REVIEW', 'REAPPLIED', 'OWNER_APPROVED', 'CA_PENDING', 'CA_REAPPLIED'].includes(strStatus)) {
+      
+      lsActions.push('query', 'ask',);
+      if (bIsCA) {
+        // CA can also pay
+        lsActions.push('pay', 'reject');
+
+      } else if (!bIsInitiator){ 
+        //Not Ca and Not Initiator
+        lsActions.push('approve')
+        
+      }
     }
-    if (bIsCurrentReviewer && bIsCA && ['OWNER_APPROVED', 'CA_PENDING', 'CA_REAPPLIED'].includes(strStatus)) {
-      lsActions.push('pay', 'ca_query', 'ask', 'reject');
-    }
-    if (bIsInitiator && ['QUERY_RAISED', 'PRIVATE_ASK'].includes(strStatus)) {
+
+    // Initiator reapply (unified for all query/ask types)
+    if (bIsInitiator && ['QUERY', 'ASK', 'QUERY_RAISED', 'PRIVATE_ASK', 'CA_QUERY'].includes(strStatus)) {
       lsActions.push('reapply');
     }
-    if (bIsInitiator && strStatus === 'CA_QUERY') {
-      lsActions.push('ca_reapply');
-    }
+
+    // Initiator acknowledge payment
     if (bIsInitiator && strStatus === 'PAID') {
       lsActions.push('acknowledge');
     }
+
+    console.log('Available actions:', lsActions, { bIsInitiator, strStatus, bIsCA, bIsCurrentReviewer });
     return lsActions;
-    console.log(lsActions);
   }, [objReimbursement.status, bIsInitiator, bIsCurrentReviewer, bIsCA]);
 
   const fmtDate = (str: string) => {
@@ -110,20 +131,27 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
 
   const fmtAmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
+  // UPDATED: STATUS_COLORS for new 9-state workflow with backward compatibility
   const STATUS_COLORS: Record<string, string> = {
+    // New 9 core states
     DRAFT: 'bg-gray-100 text-gray-700',
     SUBMITTED: 'bg-blue-100 text-blue-700',
     IN_REVIEW: 'bg-yellow-100 text-yellow-700',
-    QUERY_RAISED: 'bg-orange-100 text-orange-700',
-    PRIVATE_ASK: 'bg-orange-100 text-orange-700',
+    QUERY: 'bg-orange-100 text-orange-700',
+    ASK: 'bg-purple-100 text-purple-700',
     REAPPLIED: 'bg-blue-100 text-blue-700',
+    REJECTED: 'bg-red-100 text-red-700',
+    PAID: 'bg-emerald-100 text-emerald-700',
+    ACKNOWLEDGED: 'bg-green-100 text-green-700',
+
+    // Deprecated states (backward compatibility)
+    QUERY_RAISED: 'bg-orange-100 text-orange-700',
+    PRIVATE_ASK: 'bg-purple-100 text-purple-700',
     OWNER_APPROVED: 'bg-green-100 text-green-700',
     CA_PENDING: 'bg-purple-100 text-purple-700',
     CA_QUERY: 'bg-orange-100 text-orange-700',
     CA_REAPPLIED: 'bg-blue-100 text-blue-700',
-    PAID: 'bg-emerald-100 text-emerald-700',
-    PAYMENT_ACKNOWLEDGED: 'bg-teal-100 text-teal-700',
-    REJECTED: 'bg-red-100 text-red-700',
+    PAYMENT_ACKNOWLEDGED: 'bg-green-100 text-green-700',
     AUTO_REJECTED: 'bg-red-200 text-red-800',
     CLOSED: 'bg-gray-200 text-gray-600',
   };
@@ -153,6 +181,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
     setStrError('');
     
     try {
+      // UPDATED: Removed ca_query and ca_reapply (now unified)
       const objMap: Record<ActionType, () => Promise<any>> = {
         submit:      () => submitReimbursementApi(objReimbursement.reimbursement_id),
         delete:      () => deleteReimbursementApi(objReimbursement.reimbursement_id),
@@ -160,8 +189,6 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
         query:       () => queryReimbursementApi(objReimbursement.reimbursement_id, strMessage),
         ask:         () => askReimbursementApi(objReimbursement.reimbursement_id, strMessage),
         reapply:     () => reapplyReimbursementApi(objReimbursement.reimbursement_id, strMessage),
-        ca_query:    () => caQueryReimbursementApi(objReimbursement.reimbursement_id, strMessage),
-        ca_reapply:  () => caReapplyReimbursementApi(objReimbursement.reimbursement_id, strMessage),
         acknowledge: () => acknowledgePaymentApi(objReimbursement.reimbursement_id, strMessage || undefined),
         reject:      () => rejectReimbursementApi(objReimbursement.reimbursement_id, strMessage),
         pay:         () => payReimbursementApi(objReimbursement.reimbursement_id, {
@@ -188,7 +215,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
       setBIsSubmitting(false);
     }
   }
-
+  console.log({ bIsInitiator, bIsCurrentReviewer, bIsCA, lsAvailableActions });
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
@@ -303,7 +330,6 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
           </tbody>
         </table>
       </div>
-
       {/* Action Section - Bottom of left panel */}
       {lsAvailableActions.length > 0 && (
         <div className="border-t-2 border-gray-200 bg-gray-50 p-4">
@@ -433,7 +459,6 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
               {strError}
             </div>
           )}
-
           {/* Submit Button */}
           {strSelectedAction && (
             <button

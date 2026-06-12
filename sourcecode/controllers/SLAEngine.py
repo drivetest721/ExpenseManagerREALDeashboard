@@ -19,6 +19,8 @@ from bson import ObjectId
 from config.mongodb_config import get_collection
 from env_config import objSettings
 from utils.business_day_utils import getBusinessDayDelta
+# from services.notificationLibService import objNotifService
+from utils.email_service import sendEmail
 
 objLogger = logging.getLogger(__name__)
 
@@ -97,8 +99,7 @@ def resolveSLAEvents(strReimbursementId: str, strReason: str = "completed") -> N
 
 
 # ── Scheduler job ──────────────────────────────────────────────────────────────
-
-def runSLACheck() -> dict:
+async def runSLACheck() -> dict:
     """
     Purpose : Hourly scheduler job. Scans unresolved SLA events and:
               1. Sends a 1-day-remaining reminder notification (once).
@@ -156,27 +157,41 @@ def runSLACheck() -> dict:
 
                 # ── Overdue: auto-reject ───────────────────────────────────────
                 if dtDiff <= 0:
-                    objReimbs.update_one(
-                        {"_id": ObjectId(strReimbId)},
-                        {"$set": {"status": "AUTO_REJECTED", "updated_at": dtNowIso,
-                                  "auto_rejected_at": dtNowIso, "auto_reject_reason": f"SLA breach: {strEventType}"}},
-                    )
-                    objLogs.insert_one({
-                        "reimbursement_id": strReimbId, "action": "AUTO_REJECTED",
-                        "action_by": "system", "message": f"SLA breach: {strEventType} deadline passed.",
-                        "visibility": "public", "created_at": dtNowIso,
-                    })
+                    # objReimbs.update_one(
+                    #     {"_id": ObjectId(strReimbId)},
+                    #     {"$set": {"status": "AUTO_REJECTED", "updated_at": dtNowIso,
+                    #               "auto_rejected_at": dtNowIso, "auto_reject_reason": f"SLA breach: {strEventType}"}},
+                    # )
+                    # objLogs.insert_one({
+                    #     "reimbursement_id": strReimbId, "action": "AUTO_REJECTED",
+                    #     "action_by": "system", "message": f"SLA breach: {strEventType} deadline passed.",
+                    #     "visibility": "public", "created_at": dtNowIso,
+                    # })
+                    
                     # Notify initiator
+                    objUsers = get_collection("users")
+                    dictInitiator = objUsers.find_one({"_id": ObjectId(strInitiatorId)}, {"email": 1})
+                    dictReviewer = objUsers.find_one({"_id": ObjectId(strCurrentReviewerId)}, {"email": 1, "name": 1}) if strCurrentReviewerId else None
+                    await sendEmail(
+                        strToEmail=dictInitiator.get("email", ""),
+                        strSubject="Your reimbursement is due to SLA breach",
+                        strBody=f"Dear {strInitiatorName},\n\nYour reimbursement (ref: {strReimbId[:8]}) was due to SLA breach because the {strEventType} SLA deadline was missed.\n\nPlease contact your administrator for details.\n\nBest,\nExpense Management System"
+                    )
                     _insertOne(strInitiatorId, "AUTO_REJECTED", "Reimbursement auto-rejected",
                                f"Your reimbursement was auto-rejected because the {strEventType} SLA deadline was missed.",
                                strReimbId)
+                    
                     # Notify reviewer if applicable
                     if strCurrentReviewerId and strCurrentReviewerId != strInitiatorId:
-                        _insertOne(strCurrentReviewerId, "AUTO_REJECTED", "SLA breach — reimbursement auto-rejected",
-                                   f"{strInitiatorName}'s reimbursement was auto-rejected due to SLA timeout.",
+                        await sendEmail(
+                            strToEmail=dictReviewer.get("email", ""),
+                            strSubject="SLA breach — reimbursement auto-rejected",
+                            strBody=f"Dear {dictReviewer.get('name', 'User')},\n\n{strInitiatorName}'s reimbursement was auto-rejected due to SLA timeout.\n\nBest,\nExpense Management System"
+                        )
+                        _insertOne(strCurrentReviewerId, "INFO", "SLA breach — reimbursement auto-rejected",
+                                   f"{strInitiatorName}'s reimbursement was auto-rejected because the {strEventType} SLA deadline was missed.",
                                    strReimbId)
-                    objSLA.update_one({"_id": dictEvent["_id"]},
-                                      {"$set": {"is_resolved": True, "resolved_at": dtNowIso, "resolve_reason": "auto_rejected"}})
+                    objSLA.update_one({"_id": dictEvent["_id"]}, {"$set": {"reminder_sent": True}})
                     iRejected += 1
                     objLogger.warning(f"🚨 AUTO-REJECTED {strReimbId} (SLA breach: {strEventType})")
 

@@ -65,8 +65,8 @@ class EnvSettings(BaseSettings):
 
     ATTACHMENT_MAX_BYTES: int = Field(default=10 * 1024 * 1024, description="Max upload size (10 MB)")
 
-    SLA_APPROVAL_DAYS: int = Field(default=3, description="Default business-day SLA for approvals")
-    SLA_QUERY_RESPONSE_DAYS: int = Field(default=2, description="Default business-day SLA for query response")
+    SLA_APPROVAL_DAYS: int = Field(default=0, description="Default business-day SLA for approvals")
+    SLA_QUERY_RESPONSE_DAYS: int = Field(default=0, description="Default business-day SLA for query response")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

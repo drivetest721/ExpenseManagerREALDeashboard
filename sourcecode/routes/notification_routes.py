@@ -11,6 +11,7 @@ import logging
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 
+
 from config.mongodb_config import get_collection
 from middleware.jwt_middleware import getCurrentUserDependency
 from schemas.notification_schemas import (
@@ -19,7 +20,9 @@ from schemas.notification_schemas import (
     MarkReadRequest,
 )
 
+
 objLogger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 

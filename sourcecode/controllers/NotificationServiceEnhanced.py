@@ -18,7 +18,7 @@ from bson import ObjectId
 from config.mongodb_config import get_collection
 from controllers.NotificationTemplates import NotificationTemplates
 from env_config import objSettings
-from services.notificationLibService import objNotifService  # Assuming this is the async notification sender
+# from services.notificationLibService import objNotifService  # Assuming this is the async notification sender
 objLogger = logging.getLogger(__name__)
 
 
@@ -34,9 +34,20 @@ def _build_categories_list(dictReimbursement: dict) -> List[str]:
     """
     lsCategories = []
     lsItems = dictReimbursement.get("items", [])
+    objCategories = get_collection("reimbursement_categories")
 
     for dictItem in lsItems:
         strCategoryName = dictItem.get("category_name", "")
+        strcategoryId = dictItem.get("category_id", "")
+        if strcategoryId:
+            # Fallback: fetch category name from DB if not present in item
+            try:
+                dictCategory = objCategories.find_one({"_id": ObjectId(strcategoryId)})
+                if dictCategory:
+                    strCategoryName = dictCategory.get("name", "")
+            except Exception as objErr:
+                objLogger.warning(f"⚠️  Failed to fetch category name for ID {strcategoryId}: {objErr}")
+        
         if strCategoryName and strCategoryName not in lsCategories:
             lsCategories.append(strCategoryName)
 
@@ -114,13 +125,14 @@ def _get_approval_history(dictReimbursement: dict) -> List[Dict]:
     return lsHistory
 
 
-def _insert_notification(
+async def _insert_notification(
     strUserId: str,
     strType: str,
     strTitle: str,
     strHtmlContent: str,
     dictMetadata: Dict,
     strReimbursementId: Optional[str] = None,
+    bUseLibrary = True
 ) -> None:
     """
     Purpose : Insert a single notification document with HTML content.
@@ -136,6 +148,23 @@ def _insert_notification(
 
     Example : _insert_notification("user123", "SUBMITTED", "Application Submitted", "<div>...</div>", {...}, "reimb456")
     """
+    # if bUseLibrary:
+    #     # Use the async notification service from the library
+    #     try:
+            
+    #         await objNotifService.send(
+    #             strUserId=strUserId,
+    #             strType=strType,
+    #             strTitle=strTitle,
+    #             strHtmlContent=strHtmlContent,
+    #             dictMetadata=dictMetadata,
+    #             strReimbursementId=strReimbursementId
+    #         )
+    #         objLogger.info(f"✅ Notification sent via library | user_id={strUserId} | type={strType} | reimb_id={strReimbursementId}")
+    #     except Exception as objErr:
+    #         objLogger.error(f"❌ Error sending notification via library: {objErr}")
+    #     return
+    
     if not strUserId:
         return
 
@@ -163,7 +192,6 @@ def _insert_notification(
     except Exception as objErr:
         objLogger.error(f"❌ Error inserting notification: {objErr}")
 
-
 async def notifyActionEnhanced(
     dictReimbursement: dict,
     strAction: str,
@@ -173,9 +201,11 @@ async def notifyActionEnhanced(
 ) -> None:
     """
     Purpose : Emit enhanced notifications with HTML templates based on reimbursement action.
+              UPDATED: Uses new 9-state system (DRAFT, SUBMITTED, IN_REVIEW, QUERY, ASK,
+              REAPPLIED, REJECTED, PAID, ACKNOWLEDGED).
 
     Inputs  :   (1) dictReimbursement : Updated reimbursement document (dict)
-                (2) strAction         : Action just executed (str) - APPROVE, QUERY, ASK, etc.
+                (2) strAction         : Action just executed (str) - SUBMIT, APPROVE, QUERY, ASK, REAPPLY, PAY, REJECT, ACKNOWLEDGE
                 (3) strActorId        : User ID who took the action (str)
                 (4) strMessage        : Optional human message attached to action (str)
                 (5) strVisibility     : "public" or "private" (str)
@@ -202,11 +232,9 @@ async def notifyActionEnhanced(
         dictActor = objUsers.find_one({"_id": ObjectId(strActorId)}) if strActorId else None
         strActorName = dictActor.get("name", "Manager") if dictActor else "Manager"
 
-        # Handle SUBMITTED action
-        if strAction == "APPROVE" and strStatus == "SUBMITTED":
-            # First submission - notify initiator and first manager
-
-            # 1. Notify initiator
+        # Handle SUBMIT action (DRAFT → SUBMITTED)
+        if strAction == "SUBMIT" or strAction == "SUBMITTED":
+            # 1. Notify initiator of successful submission
             dictInitiatorMeta = {
                 "reimbursement_id": strReimbCode or strReimbId,
                 "initiator_name": strInitiatorName,
@@ -216,24 +244,17 @@ async def notifyActionEnhanced(
                 "message": "Your reimbursement has been submitted successfully."
             }
             strInitiatorHtml = NotificationTemplates.submitted_to_initiator(dictInitiatorMeta)
-            # _insert_notification(
-            #     strInitiatorId,
-            #     "SUBMITTED",
-            #     "Application Submitted",
-            #     strInitiatorHtml,
-            #     dictInitiatorMeta,
-            #     strReimbId
-            # )
-            await objNotifService.send(
-                strUserId=strInitiatorId,
-                strType="SUBMITTED",
-                strTitle="Application Submitted",
-                strHtmlContent=strInitiatorHtml,
-                dictMetadata=dictInitiatorMeta,
-                strReimbursementId=strReimbId
+
+            await _insert_notification(
+                strInitiatorId,
+                "SUBMITTED",
+                "Application Submitted",
+                strInitiatorHtml,
+                dictInitiatorMeta,
+                strReimbId
             )
 
-            # 2. Notify first manager
+            # 2. Notify first manager (approval_chain[1])
             if strCurrentReviewerId:
                 iReviewDays = objSettings.SLA_APPROVAL_DAYS
                 strDueDate = _calculate_due_date(iReviewDays)
@@ -248,26 +269,18 @@ async def notifyActionEnhanced(
                     "message": f"{strInitiatorName}'s reimbursement requires your approval."
                 }
                 strManagerHtml = NotificationTemplates.approval_required(dictManagerMeta)
-                # _insert_notification(
-                #     strCurrentReviewerId,
-                #     "APPROVAL_PENDING",
-                #     "Approval Required",
-                #     strManagerHtml,
-                #     dictManagerMeta,
-                #     strReimbId
-                # )
-                await objNotifService.send(
-                    strUserId=strCurrentReviewerId,
-                    strType="APPROVAL_PENDING",
-                    strTitle="Approval Required",
-                    strHtmlContent=strManagerHtml,
-                    dictMetadata=dictManagerMeta,
-                    strReimbursementId=strReimbId
+                await _insert_notification(
+                    strCurrentReviewerId,
+                    "APPROVAL_PENDING",
+                    "Approval Required",
+                    strManagerHtml,
+                    dictManagerMeta,
+                    strReimbId
                 )
 
-        # Handle APPROVE action (escalation to next reviewer)
-        elif strAction == "APPROVE" and strStatus in ["IN_REVIEW", "REAPPLIED"]:
-            # Notify initiator of progress
+        # Handle APPROVE action (manager approves and escalates to next reviewer or auto-pays)
+        elif strAction == "APPROVE":
+            # 1. Notify initiator of approval progress
             dictProgressMeta = {
                 "reimbursement_id": strReimbCode or strReimbId,
                 "manager_name": strActorName,
@@ -277,25 +290,19 @@ async def notifyActionEnhanced(
                 "message": f"Your reimbursement was approved by {strActorName}."
             }
             strProgressHtml = NotificationTemplates.approved(dictProgressMeta)
-            # _insert_notification(
-            #     strInitiatorId,
-            #     "APPROVAL_PROGRESS",
-            #     f"Approved by {strActorName}",
-            #     strProgressHtml,
-            #     dictProgressMeta,
-            #     strReimbId
-            # )
-            await objNotifService.send(
-                strUserId=strInitiatorId,
-                strType="APPROVAL_PROGRESS",
-                strTitle=f"Approved by {strActorName}",
-                strHtmlContent=strProgressHtml,
-                dictMetadata=dictProgressMeta,
-                strReimbursementId=strReimbId
+            await _insert_notification(
+                strInitiatorId,
+                "APPROVAL_PROGRESS",
+                f"Approved by {strActorName}",
+                strProgressHtml,
+                dictProgressMeta,
+                strReimbId
             )
 
-            # Notify next reviewer with history
-            if strCurrentReviewerId and strCurrentReviewerId != strActorId:
+            # 2. Check if there's a next reviewer (status will be IN_REVIEW if there is)
+            # If last reviewer approved, status will be PAID (auto-transition)
+            if strStatus == "IN_REVIEW" and strCurrentReviewerId and strCurrentReviewerId != strActorId:
+                # Notify next reviewer with approval history
                 iReviewDays = objSettings.SLA_APPROVAL_DAYS
                 strDueDate = _calculate_due_date(iReviewDays)
                 lsHistory = _get_approval_history(dictReimbursement)
@@ -311,24 +318,19 @@ async def notifyActionEnhanced(
                     "message": f"{strInitiatorName}'s reimbursement requires your approval."
                 }
                 strNextHtml = NotificationTemplates.approval_required_with_history(dictNextManagerMeta)
-                # _insert_notification(
-                #     strCurrentReviewerId,
-                #     "APPROVAL_PENDING",
-                #     "Approval Required",
-                #     strNextHtml,
-                #     dictNextManagerMeta,
-                #     strReimbId
-                # )
-                await objNotifService.send(
-                    strUserId=strCurrentReviewerId,
-                    strType="APPROVAL_PENDING",
-                    strTitle="Approval Required",
-                    strHtmlContent=strNextHtml,
-                    dictMetadata=dictNextManagerMeta,
-                    strReimbursementId=strReimbId
+                await _insert_notification(
+                    strCurrentReviewerId,
+                    "APPROVAL_PENDING",
+                    "Approval Required",
+                    strNextHtml,
+                    dictNextManagerMeta,
+                    strReimbId
                 )
+            elif strStatus == "PAID":
+                # Last reviewer approved, auto-transitioned to PAID - notification will be sent by PAY handler
+                objLogger.info(f"✅ Last reviewer approved | Auto-transitioned to PAID | reimb_id={strReimbId}")
 
-        # Handle QUERY action
+        # Handle QUERY action (any reviewer → initiator)
         elif strAction == "QUERY":
             iResponseDays = objSettings.SLA_QUERY_RESPONSE_DAYS
             strDueDate = _calculate_due_date(iResponseDays)
@@ -348,24 +350,16 @@ async def notifyActionEnhanced(
                 "message": strMessage
             }
             strQueryHtml = NotificationTemplates.query_raised(dictQueryMeta)
-            # _insert_notification(
-            #     strInitiatorId,
-            #     "QUERY_RAISED",
-            #     f"Query Raised by {strActorName}",
-            #     strQueryHtml,
-            #     dictQueryMeta,
-            #     strReimbId
-            # )
-            await objNotifService.send(
-                strUserId=strInitiatorId,
-                strType="QUERY_RAISED",
-                strTitle=f"Query Raised by {strActorName}",
-                strHtmlContent=strQueryHtml,
-                dictMetadata=dictQueryMeta,
-                strReimbursementId=strReimbId
+            await _insert_notification(
+                strInitiatorId,
+                "QUERY_RAISED",
+                f"Query Raised by {strActorName}",
+                strQueryHtml,
+                dictQueryMeta,
+                strReimbId
             )
 
-        # Handle ASK action (private)
+        # Handle ASK action (any reviewer → initiator, private)
         elif strAction == "ASK":
             iResponseDays = objSettings.SLA_QUERY_RESPONSE_DAYS
             strDueDate = _calculate_due_date(iResponseDays)
@@ -386,27 +380,19 @@ async def notifyActionEnhanced(
                 "message": strMessage
             }
             strAskHtml = NotificationTemplates.private_ask(dictAskMeta)
-            # _insert_notification(
-            #     strInitiatorId,
-            #     "PRIVATE_ASK",
-            #     f"Private Message from {strActorName}",
-            #     strAskHtml,
-            #     dictAskMeta,
-            #     strReimbId
-            # )
-            await objNotifService.send(
-                strUserId=strInitiatorId,
-                strType="PRIVATE_ASK",
-                strTitle=f"Private Message from {strActorName}",
-                strHtmlContent=strAskHtml,
-                dictMetadata=dictAskMeta,
-                strReimbursementId=strReimbId
+            await _insert_notification(
+                strInitiatorId,
+                "PRIVATE_ASK",
+                f"Private Message from {strActorName}",
+                strAskHtml,
+                dictAskMeta,
+                strReimbId
             )
 
-        # Handle REAPPLY action
-        elif strAction == "REAPPLY":
+        # Handle REAPPLY action (initiator → current reviewer)
+        elif strAction == "REAPPLY" or strAction == "REAPPLIED":
             if strCurrentReviewerId:
-                # Capture reapply message and persist a log so client can show details
+                # Capture reapply message and persist a log
                 try:
                     tz = ZoneInfo(getattr(objSettings, 'TIMEZONE', 'Asia/Kolkata'))
                     strNowLocal = datetime.now(tz).isoformat()
@@ -420,6 +406,7 @@ async def notifyActionEnhanced(
                     "reapplied_at": strNowLocal,
                     "message": strMessage or f"{strInitiatorName} responded to your query.",
                 }
+
                 # Persist a log entry for the reapply
                 try:
                     objLogs = get_collection('reimbursement_logs')
@@ -434,26 +421,19 @@ async def notifyActionEnhanced(
                 except Exception:
                     pass
 
-                # Simple notification for reapply
-                # _insert_notification(
-                #     strCurrentReviewerId,
-                #     "REAPPLIED",
-                #     "Reimbursement Re-submitted",
-                #     f"<p>{dictReapplyMeta.get('message')}</p>",
-                #     dictReapplyMeta,
-                #     strReimbId
-                # )
-                await objNotifService.send(
-                    strUserId=strCurrentReviewerId,
-                    strType="REAPPLIED",
-                    strTitle="Reimbursement Re-submitted",
-                    strHtmlContent=f"<p>{dictReapplyMeta.get('message')}</p>",
-                    dictMetadata=dictReapplyMeta,
-                    strReimbursementId=strReimbId
+                # Notify current reviewer of reapplication
+                await _insert_notification(
+                    strCurrentReviewerId,
+                    "REAPPLIED",
+                    "Reimbursement Re-submitted",
+                    f"<p>{dictReapplyMeta.get('message')}</p>",
+                    dictReapplyMeta,
+                    strReimbId
                 )
 
-        # Handle PAY action
-        elif strAction == "PAY":
+        # Handle PAY action (notify initiator only)
+        elif strAction == "PAY" or strAction == "PAID":
+            # Notify initiator that payment has been disbursed
             dictPayMeta = {
                 "reimbursement_id": strReimbCode or strReimbId,
                 "total_amount": fTotalAmount,
@@ -462,25 +442,18 @@ async def notifyActionEnhanced(
                 "message": "Your reimbursement has been paid. Please acknowledge receipt."
             }
             strPayHtml = NotificationTemplates.payment_disbursed(dictPayMeta)
-            # _insert_notification(
-            #     strInitiatorId,
-            #     "PAID",
-            #     "Payment Disbursed",
-            #     strPayHtml,
-            #     dictPayMeta,
-            #     strReimbId
-            # )
-            await objNotifService.send(
-                strUserId=strInitiatorId,
-                strType="PAID",
-                strTitle="Payment Disbursed",
-                strHtmlContent=strPayHtml,
-                dictMetadata=dictPayMeta,
-                strReimbursementId=strReimbId
+            await _insert_notification(
+                strInitiatorId,
+                "PAID",
+                "Payment Disbursed",
+                strPayHtml,
+                dictPayMeta,
+                strReimbId
             )
 
-        # Handle REJECT action
-        elif strAction == "REJECT":
+        # Handle REJECT action (notify initiator)
+        elif strAction == "REJECT" or strAction == "REJECTED":
+            # Notify initiator of rejection
             dictRejectMeta = {
                 "reimbursement_id": strReimbCode or strReimbId,
                 "rejection_reason": strMessage or "Your reimbursement was rejected.",
@@ -490,47 +463,33 @@ async def notifyActionEnhanced(
                 "message": strMessage or "Your reimbursement was rejected."
             }
             strRejectHtml = NotificationTemplates.rejected(dictRejectMeta)
-            # _insert_notification(
-            #     strInitiatorId,
-            #     "REJECTED",
-            #     "Reimbursement Rejected",
-            #     strRejectHtml,
-            #     dictRejectMeta,
-            #     strReimbId
-            # )
-            await objNotifService.send(
-                strUserId=strInitiatorId,
-                strType="REJECTED",
-                strTitle="Reimbursement Rejected",
-                strHtmlContent=strRejectHtml,
-                dictMetadata=dictRejectMeta,
-                strReimbursementId=strReimbId
+            await _insert_notification(
+                strInitiatorId,
+                "REJECTED",
+                "Reimbursement Rejected",
+                strRejectHtml,
+                dictRejectMeta,
+                strReimbId
             )
 
-        # Handle ACKNOWLEDGE action
-        elif strAction == "ACKNOWLEDGE":
+        # Handle ACKNOWLEDGE action (notify CA/paid_by only)
+        elif strAction == "ACKNOWLEDGE" or strAction == "ACKNOWLEDGED":
+            # Notify the CA who marked it as paid
             strCaId = str(dictReimbursement.get("paid_by", ""))
             if strCaId and strCaId != strActorId:
                 dictAckMeta = {
                     "reimbursement_id": strReimbCode or strReimbId,
                     "initiator_name": strInitiatorName,
-                    "message": f"{strInitiatorName} acknowledged the payment."
+                    "message": f"{strInitiatorName} acknowledged the payment.",
+                    "acknowledged_at": datetime.now(timezone.utc).isoformat()
                 }
-                # _insert_notification(
-                #     strCaId,
-                #     "ACKNOWLEDGED",
-                #     "Payment Acknowledged",
-                #     f"<p>{dictAckMeta['message']}</p>",
-                #     dictAckMeta,
-                #     strReimbId
-                # )
-                await objNotifService.send(
-                    strUserId=strCaId,
-                    strType="ACKNOWLEDGED",
-                    strTitle="Payment Acknowledged",
-                    strHtmlContent=f"<p>{dictAckMeta['message']}</p>",
-                    dictMetadata=dictAckMeta,
-                    strReimbursementId=strReimbId
+                await _insert_notification(
+                    strCaId,
+                    "ACKNOWLEDGED",
+                    "Payment Acknowledged",
+                    f"<p>{dictAckMeta['message']}</p>",
+                    dictAckMeta,
+                    strReimbId
                 )
 
     except Exception as objErr:

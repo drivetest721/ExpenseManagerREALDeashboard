@@ -34,7 +34,14 @@ router = APIRouter(prefix="/api/allowance", tags=["Allowance"])
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 def _docToCategory(dictDoc: dict) -> dict:
-    """Return a plain dict ready for CategoryResponseSchema."""
+    """
+    purpose : Convert a raw reimbursement_categories doc to a JSON-safe dict.
+    Also ensures certain fields are always present for the response schema.
+
+    Inputs  : dictDoc from MongoDB.
+
+    Output  : dict with stringified category_id and defaulted fields.
+    """
     dictDoc = dict(dictDoc)
     dictDoc["category_id"] = str(dictDoc.pop("_id"))
     dictDoc.setdefault("department_ids", [])
@@ -45,9 +52,20 @@ def _docToCategory(dictDoc: dict) -> dict:
 
 def _userMatchesCategory(dictUser: dict, dictCat: dict) -> bool:
     """
-    Return True if the user qualifies for this category based on
-    allowed_roles and department_ids.
+    Purpose : Determine if a user matches the eligibility criteria of a category.
+    This is used to determine if a category should be included in the "my allowance" view for a user.
+
+    Inputs  :   (1) dictUser : User document from MongoDB.
+                (2) dictCat  : Category document from MongoDB.
+
+    Output  : True if user matches category criteria, False otherwise.
+
+    Matching rules:
+        - If category.allowed_roles is non-empty, user must have at least one matching role in their departments.
+        - If category.department_ids is non-empty, user must belong to at least one of those departments.
+        - If both criteria are present, user must satisfy both to be eligible.
     """
+
     lsAllowedRoles = dictCat.get("allowed_roles", [])
     lsDeptIds = dictCat.get("department_ids", [])
 
@@ -67,6 +85,11 @@ def _userMatchesCategory(dictUser: dict, dictCat: dict) -> bool:
 async def getMyAllowance(dictCurrentUser: dict = Depends(getCurrentUserDependency)):
     """
     Purpose : Return categories the current user is eligible for.
+
+    Inputs  : JWT token (current user context).
+    
+    Output  : List of category details (CategoryResponseSchema).
+    
     Access  : Any authenticated user.
     """
     try:
@@ -95,6 +118,11 @@ async def getMyAllowance(dictCurrentUser: dict = Depends(getCurrentUserDependenc
 async def getAllAllowance(dictCurrentUser: dict = Depends(getAdminUserDependency)):
     """
     Purpose : Return all active categories with their matched assignees.
+
+    Inputs  : JWT token (current user context).
+    
+    Output  : List of category details with assignees (AllowanceWithAssigneesSchema).
+
     Access  : Admin (Owner / CA) only.
     """
     try:

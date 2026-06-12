@@ -13,6 +13,7 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 from schemas.common_enums import FormTypeEnum, ReimbursementStatusEnum, LogTypeEnum
+from schemas.approval_chain_schemas import ApprovalChainNodeSchema
 
 
 class ReimbursementItemSchema(BaseModel):
@@ -57,9 +58,17 @@ class PaymentProofSchema(BaseModel):
 
 
 class ReimbursementResponseSchema(BaseModel):
-    """Schema for returning a reimbursement."""
+    """
+    Schema for returning a reimbursement.
+
+    Enhanced with:
+    - approval_chain: Embedded approval chain with detailed step tracking
+    - current_reviewer_id: Current reviewer user ID
+    - current_step: Current step in approval chain
+    - submitted_at: First submission timestamp
+    """
     reimbursement_id: str
-    reimbursement_code: Optional[str] = None     # e.g. RB-2026-000001
+    reimbursement_code: Optional[str] = None     # DEPRECATED: e.g. RB-2026-000001 (keep for backward compat)
     initiator_id: str
     initiator_name: str
     form_type: FormTypeEnum
@@ -68,6 +77,13 @@ class ReimbursementResponseSchema(BaseModel):
     items: List[ReimbursementItemSchema]
     business_trip_meta: Optional[BusinessTripMetaSchema] = None
     payment_proof: Optional[PaymentProofSchema] = None  # Payment proof when status is PAID or later
+
+    # NEW: Enhanced approval chain tracking
+    approval_chain: Optional[List[ApprovalChainNodeSchema]] = Field(default_factory=list, description="Embedded approval chain with step tracking")
+    current_reviewer_id: Optional[str] = Field(None, description="Current reviewer user ID")
+    current_step: Optional[int] = Field(None, description="Current step index in approval chain")
+    submitted_at: Optional[str] = Field(None, description="First submission timestamp")
+
     created_at: str
     updated_at: str
 
@@ -92,6 +108,9 @@ class ReimbursementListItemSchema(BaseModel):
     status: ReimbursementStatusEnum
     description: Optional[str] = None
     total_amount: float
+    current_reviewer_id: Optional[str] = None
+    current_step: Optional[int] = None
+    submitted_at: Optional[str] = None
     created_at: str
     updated_at: Optional[str] = None
     items: List[ReimbursementItemSummarySchema] = Field(default_factory=list)

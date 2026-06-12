@@ -88,26 +88,25 @@ export const deleteReimbursementApi = async (strId: string): Promise<void> => {
 /**
  * GET /api/reimbursements/:id/chain
  * Get approval chain and visible logs.
+ * UPDATED: Uses new embedded approval chain fields
  */
 export interface ChainStep {
   level: number;
   user_id: string;
-  name: string;
+  username: string;
   email: string;
   role: string;
   department?: string;
   priority: number;
   approval_type: string;
-  status: string;
-  action?: string;
-  received_date?: string;
-  response_date?: string;
-  action_date?: string;
-  remaining_days?: number;
-  approved_at?: string;
-  approved_by?: string;
-  submitted_at?: string;
+
+  // ✅ NEW STATUS TRACKING FIELDS
+  current_status: 'PENDING' | 'IN_REVIEW' | 'SUBMITTED' | 'APPROVED' | 'QUERY' | 'ASK' | 'REAPPLIED' | 'PAID' | 'REJECTED';
+  receivedAt?: string;          // When user first viewed (after becoming current_reviewer)
+  submittedAt?: string;         // When user took action (APPROVE, QUERY, ASK, REAPPLY)
+  bIsReApply?: boolean;         // Only for initiator, true if resubmitted after QUERY/ASK
   is_initiator?: boolean;
+  remaining_days?: number;      // Calculated from receivedAt
 }
 
 export interface ChainLog {

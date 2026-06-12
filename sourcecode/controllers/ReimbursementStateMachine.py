@@ -1,16 +1,17 @@
 '''
-Purpose : State machine for reimbursement status transitions.
-          Enforces allowed transitions and updates current_reviewer_id atomically.
+Purpose : Simplified state machine for reimbursement status transitions.
+          9-state model: DRAFT → SUBMITTED → IN_REVIEW → QUERY/ASK → REAPPLIED → PAID/REJECTED → ACKNOWLEDGED
+          Updates embedded approval chain with step tracking.
 
 Inputs  : Reimbursement ID, actor ID, action type, payload.
 
 Output  : Updated reimbursement document (dict) or raises exception.
 
-Dependencies: config.mongodb_config, controllers.AuditLogger
+Dependencies: config.mongodb_config, controllers.ApprovalChainService, utils.date_utils
 '''
 
 import logging
-from datetime import datetime, timezone
+import traceback
 from bson import ObjectId
 
 from config.mongodb_config import get_collection
@@ -18,63 +19,48 @@ from controllers.AuditLogger import logMutation
 from controllers.NotificationServiceEnhanced import notifyActionEnhanced
 from controllers.SLAEngine import createSLAEvent, resolveSLAEvents
 from controllers.ActivityLogService import logActivity
+from controllers.ApprovalChainService import updateApprovalChainStep, markInitiatorReapply
+from utils.date_utils import getCurrentIst
 
 objLogger = logging.getLogger(__name__)
 
 
-# Valid transitions: {current_status: {action: next_status}}
+# NEW: Simplified state transitions (9 states)
 TRANSITIONS = {
+    "DRAFT": {
+        "SUBMIT": "SUBMITTED"
+    },
     "SUBMITTED": {
         "APPROVE": "IN_REVIEW",
-        "QUERY": "QUERY_RAISED",
-        "ASK": "PRIVATE_ASK",
+        "QUERY": "QUERY",
+        "ASK": "ASK",
+        "REJECT": "REJECTED"
     },
     "IN_REVIEW": {
-        "APPROVE": "IN_REVIEW",  # Moves to next reviewer or OWNER_APPROVED
-        "QUERY": "QUERY_RAISED",
-        "ASK": "PRIVATE_ASK",
+        "APPROVE": "IN_REVIEW",     # Move to next reviewer or PAID
+        "QUERY": "QUERY",
+        "ASK": "ASK",
+        "REJECT": "REJECTED",
+        "PAY": "PAID"
     },
-    "QUERY_RAISED": {
-        "REAPPLY": "REAPPLIED",
+    "QUERY": {
+        "REAPPLY": "REAPPLIED"
     },
-    "PRIVATE_ASK": {
-        "REAPPLY": "REAPPLIED",
+    "ASK": {
+        "REAPPLY": "REAPPLIED"
     },
     "REAPPLIED": {
         "APPROVE": "IN_REVIEW",
-        "QUERY": "QUERY_RAISED",
-        "ASK": "PRIVATE_ASK",
-    },
-    "OWNER_APPROVED": {
-        "SEND_TO_CA": "CA_PENDING",
-        # CA actions allowed directly from OWNER_APPROVED when CA is already current_reviewer.
-        # (New submissions go straight to CA_PENDING; these cover backward-compat.)
-        "CA_QUERY": "CA_QUERY",
-        "ASK": "PRIVATE_ASK",
-        "PAY": "PAID",
+        "QUERY": "QUERY",
+        "ASK": "ASK",
         "REJECT": "REJECTED",
-    },
-    "CA_PENDING": {
-        "CA_QUERY": "CA_QUERY",
-        "ASK": "PRIVATE_ASK",
-        "PAY": "PAID",
-        "REJECT": "REJECTED",
-    },
-    "CA_QUERY": {
-        "CA_REAPPLY": "CA_REAPPLIED",
-    },
-    "CA_REAPPLIED": {
-        "CA_QUERY": "CA_QUERY",
-        "ASK": "PRIVATE_ASK",
-        "PAY": "PAID",
-        "REJECT": "REJECTED",
+        "PAY": "PAID"
     },
     "PAID": {
-        "ACKNOWLEDGE": "PAYMENT_ACKNOWLEDGED",
+        "ACKNOWLEDGE": "ACKNOWLEDGED"
     },
-    "PAYMENT_ACKNOWLEDGED": {
-        "CLOSE": "CLOSED",
-    },
+    "REJECTED": {},
+    "ACKNOWLEDGED": {}
 }
 
 
@@ -84,191 +70,220 @@ async def transition(strReimbursementId: str, strActorId: str, strAction: str, d
 
     Inputs  :   (1) strReimbursementId : Reimbursement ID (str)
                 (2) strActorId         : User ID performing the action (str)
-                (3) strAction          : Action type (str) — APPROVE, QUERY, ASK, REAPPLY, etc.
-                (4) dictPayload        : Optional payload (dict) — e.g., message for QUERY/ASK
+                (3) strAction          : Action (SUBMIT, APPROVE, QUERY, ASK, REAPPLY, REJECT, PAY, ACKNOWLEDGE)
+                (4) dictPayload        : Optional payload (dict)
 
     Output  : Updated reimbursement document (dict)
 
-    Example : transition("reimb123", "user456", "APPROVE") → {...}
+    Example : await transition("reimb123", "user456", "APPROVE", {})
     """
     try:
-        objReimbs = get_collection("reimbursements")
-        objLogs = get_collection("reimbursement_logs")
+        objLogger.info(f"📥 TRANSITION | reimb: {strReimbursementId} | action: {strAction} | actor: {strActorId}")
         
+        objReimbs = get_collection("reimbursements")
+        
+        # Fetch current reimbursement
         dictOld = objReimbs.find_one({"_id": ObjectId(strReimbursementId)})
         if not dictOld:
+            objLogger.error(f"❌ Reimbursement not found: {strReimbursementId}")
             raise ValueError("Reimbursement not found")
         
         strCurrentStatus = dictOld.get("status", "")
         
         # Validate transition
         if strCurrentStatus not in TRANSITIONS:
+            objLogger.error(f"❌ No transitions for status: {strCurrentStatus}")
             raise ValueError(f"No transitions defined for status {strCurrentStatus}")
         
+        
+        bIsOwner = (strCurrentStatus == "SUBMITTED" and strAction == "PAY") # NOTE
+
+        if bIsOwner:
+            strCurrentStatus = "IN_REVIEW"
         if strAction not in TRANSITIONS[strCurrentStatus]:
+            objLogger.error(f"❌ Action {strAction} not allowed from {strCurrentStatus}")
             raise ValueError(f"Action {strAction} not allowed from status {strCurrentStatus}")
         
         strNextStatus = TRANSITIONS[strCurrentStatus][strAction]
-
-        # Build update dict
+        dtNow = getCurrentIst()
+        
+        # Base update
         dictUpdates = {
             "status": strNextStatus,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": dtNow.isoformat()
         }
         
-        # Handle APPROVE logic (move to next reviewer or OWNER_APPROVED)
-        if strAction == "APPROVE":
-            lsChain = dictOld.get("approval_chain", [])
-            iCurrentStep = dictOld.get("current_step", 0)
-            
-            # Mark current step as APPROVED
+        objLogger.info(f"🔄 {strCurrentStatus} → {strNextStatus}")
+        
+        # Get current approval chain and step
+        lsChain = dictOld.get("approval_chain", [])
+        iCurrentStep = dictOld.get("current_step", 0)
+        
+        # Handle different actions
+        if strAction == "SUBMIT":
+            dictUpdates["submitted_at"] = dtNow.isoformat()
+
+            # Mark initiator (step 0) as submitted
+            updateApprovalChainStep(strReimbursementId, 0, {
+                "current_status": "SUBMITTED",
+                "submittedAt": dtNow.isoformat()
+            })
+
+            if len(lsChain) > 1:
+                dictUpdates["current_step"] = 1
+                dictUpdates["current_reviewer_id"] = lsChain[1]["user_id"]
+
+                # Set first manager status to PENDING (they haven't viewed yet)
+                updateApprovalChainStep(strReimbursementId, 1, {
+                    "current_status": "PENDING"
+                })
+
+                createSLAEvent(strReimbursementId, "REVIEW_PENDING", lsChain[1]["user_id"])
+        
+        elif strAction == "APPROVE":
+            # Mark current step as approved
             if iCurrentStep < len(lsChain):
-                lsChain[iCurrentStep]["status"] = "APPROVED"
-                lsChain[iCurrentStep]["approved_at"] = datetime.now(timezone.utc).isoformat()
-                lsChain[iCurrentStep]["approved_by"] = strActorId
-            
+                updateApprovalChainStep(strReimbursementId, iCurrentStep, {
+                    "current_status": "APPROVED",
+                    "submittedAt": dtNow.isoformat()
+                })
+
             # Move to next step
             iNextStep = iCurrentStep + 1
             if iNextStep < len(lsChain):
-                # Check if next reviewer is CA
-                dictNextReviewer = lsChain[iNextStep]
-                objUsers = get_collection("users")
-                dictNextUser = objUsers.find_one({"_id": ObjectId(dictNextReviewer["user_id"])})
-                bIsCA = any(d.get("role") == "ca" for d in dictNextUser.get("departments", []))
-                
-                if bIsCA:
-                    # CA is next — skip OWNER_APPROVED and go straight to CA_PENDING
-                    # so the CA immediately has actionable status without a SEND_TO_CA trigger.
-                    dictUpdates["status"] = "CA_PENDING"
-                    dictUpdates["current_step"] = iNextStep
-                    dictUpdates["current_reviewer_id"] = dictNextReviewer["user_id"]
-                else:
-                    dictUpdates["status"] = "IN_REVIEW"
-                    dictUpdates["current_step"] = iNextStep
-                    dictUpdates["current_reviewer_id"] = dictNextReviewer["user_id"]
+                dictUpdates["current_step"] = iNextStep
+                dictUpdates["current_reviewer_id"] = lsChain[iNextStep]["user_id"]
+
+                # Set next manager status to PENDING (they haven't viewed yet)
+                updateApprovalChainStep(strReimbursementId, iNextStep, {
+                    "current_status": "PENDING"
+                })
+
+                createSLAEvent(strReimbursementId, "REVIEW_PENDING", lsChain[iNextStep]["user_id"])
             else:
-                dictUpdates["status"] = "OWNER_APPROVED"
-            
-            dictUpdates["approval_chain"] = lsChain
+                # Last reviewer (CA) approved - auto PAY
+                dictUpdates["status"] = "PAID"
+                dictUpdates["current_step"] = len(lsChain)
+                dictUpdates["current_reviewer_id"] = ""
+                resolveSLAEvents(strReimbursementId, "approved")
 
-        # PAY: record payment metadata; mark CA chain step as APPROVED and clear reviewer
-        if strAction == "PAY":
-            dictUpdates["paid_at"] = datetime.now(timezone.utc).isoformat()
+        elif strAction == "QUERY":
+            # Reviewer raises query
+            if iCurrentStep < len(lsChain):
+                updateApprovalChainStep(strReimbursementId, iCurrentStep, {
+                    "current_status": "QUERY",
+                    "submittedAt": dtNow.isoformat()
+                })
+
+            # Set initiator (step 0) status to PENDING and clear receivedAt for fresh tracking
+            updateApprovalChainStep(strReimbursementId, 0, {
+                "current_status": "PENDING",
+                "receivedAt": None  # Clear to track when initiator first views after query
+            })
+
+            dictUpdates["current_reviewer_id"] = dictOld.get("initiator_id", "")
+            createSLAEvent(strReimbursementId, "QUERY_RESPONSE_PENDING", dictOld.get("initiator_id"))
+
+        elif strAction == "ASK":
+            # Reviewer raises private ask
+            if iCurrentStep < len(lsChain):
+                updateApprovalChainStep(strReimbursementId, iCurrentStep, {
+                    "current_status": "ASK",
+                    "submittedAt": dtNow.isoformat()
+                })
+
+            # Set initiator (step 0) status to PENDING and clear receivedAt for fresh tracking
+            updateApprovalChainStep(strReimbursementId, 0, {
+                "current_status": "PENDING",
+                "receivedAt": None  # Clear to track when initiator first views after ask
+            })
+
+            dictUpdates["current_reviewer_id"] = dictOld.get("initiator_id", "")
+            createSLAEvent(strReimbursementId, "QUERY_RESPONSE_PENDING", dictOld.get("initiator_id"))
+
+        elif strAction == "REAPPLY":
+            # Initiator responds to query/ask
+            markInitiatorReapply(strReimbursementId)
+
+            # Return to the reviewer who raised query/ask
+            if iCurrentStep < len(lsChain):
+                dictUpdates["current_reviewer_id"] = lsChain[iCurrentStep]["user_id"]
+
+                # Set reviewer status to PENDING and clear receivedAt for fresh tracking
+                updateApprovalChainStep(strReimbursementId, iCurrentStep, {
+                    "current_status": "PENDING",
+                    "receivedAt": None  # Clear to track when reviewer first views after reapply
+                })
+
+                createSLAEvent(strReimbursementId, "REVIEW_PENDING", lsChain[iCurrentStep]["user_id"])
+            resolveSLAEvents(strReimbursementId, "reapplied")
+
+        elif strAction == "PAY":
+            # CA marks as paid
+            if iCurrentStep < len(lsChain):
+                updateApprovalChainStep(strReimbursementId, iCurrentStep, {
+                    "current_status": "PAID",
+                    "submittedAt": dtNow.isoformat()
+                })
+
+            dictUpdates["paid_at"] = dtNow.isoformat()
             dictUpdates["paid_by"] = strActorId
-            if dictPayload:
-                if dictPayload.get("transaction_ref"):
-                    dictUpdates["transaction_ref"] = dictPayload["transaction_ref"]
-                if dictPayload.get("payment_method"):
-                    dictUpdates["payment_method"] = dictPayload["payment_method"]
+            dictUpdates["current_reviewer_id"] = ""
 
-            # Persist payment proof attachment if provided either as a simple id
-            # or as a full payment_proof object supplied by the route.
+            # Store payment proof if provided
             if dictPayload:
                 if dictPayload.get("payment_proof_attachment_id"):
                     dictUpdates["payment_proof"] = {
-                        "attachment_id": dictPayload.get("payment_proof_attachment_id"),
-                        "payment_date": dictUpdates.get("paid_at"),
+                        "attachment_id": dictPayload["payment_proof_attachment_id"],
+                        "payment_date": dtNow.isoformat(),
                         "paid_by": strActorId,
-                        "transaction_ref": dictPayload.get("transaction_ref"),
-                        "payment_method": dictPayload.get("payment_method"),
+                        "transaction_ref": dictPayload.get("transaction_ref", ""),
+                        "payment_method": dictPayload.get("payment_method", "")
                     }
-                elif dictPayload.get("payment_proof") and isinstance(dictPayload.get("payment_proof"), dict):
-                    # Accept the provided dict (trusting the route to populate sensible fields)
-                    dictProof = dict(dictPayload.get("payment_proof"))
-                    # Ensure payment_date / paid_by are present
-                    if not dictProof.get("payment_date"):
-                        dictProof["payment_date"] = dictUpdates.get("paid_at")
-                    if not dictProof.get("paid_by"):
-                        dictProof["paid_by"] = strActorId
-                    dictUpdates["payment_proof"] = dictProof
 
-            lsChain = dictOld.get("approval_chain", [])
-            iCurrentStep = dictOld.get("current_step", 0)
+            resolveSLAEvents(strReimbursementId, "paid")
+
+        elif strAction == "REJECT":
+            # CA rejects
             if iCurrentStep < len(lsChain):
-                lsChain[iCurrentStep]["status"] = "APPROVED"
-                lsChain[iCurrentStep]["approved_at"] = datetime.now(timezone.utc).isoformat()
-                lsChain[iCurrentStep]["approved_by"] = strActorId
-            dictUpdates["approval_chain"] = lsChain
-            dictUpdates["current_step"] = len(lsChain)
-            dictUpdates["current_reviewer_id"] = ""
+                updateApprovalChainStep(strReimbursementId, iCurrentStep, {
+                    "current_status": "REJECTED",
+                    "submittedAt": dtNow.isoformat()
+                })
 
-        # REAPPLY: Reset current_reviewer_id back to the manager who raised the query
-        if strAction in ("REAPPLY", "CA_REAPPLY"):
-            # Get the current_step and set current_reviewer back to that step's user
-            lsChain = dictOld.get("approval_chain", [])
-            iCurrentStep = dictOld.get("current_step", 0)
-            if iCurrentStep < len(lsChain):
-                dictUpdates["current_reviewer_id"] = lsChain[iCurrentStep]["user_id"]
-                objLogger.info(f"📧 REAPPLY: Returning to reviewer {lsChain[iCurrentStep]['user_id']} at step {iCurrentStep}")
-
-        # ACKNOWLEDGE: record acknowledgement metadata; also auto-close
-        if strAction == "ACKNOWLEDGE":
-            dictUpdates["acknowledged_at"] = datetime.now(timezone.utc).isoformat()
-            dictUpdates["acknowledged_by"] = strActorId
-            dictUpdates["status"] = "CLOSED"
-            dictUpdates["current_reviewer_id"] = ""
-
-        # REJECT: record rejection metadata and update approval_chain
-        if strAction == "REJECT":
-            dictUpdates["rejected_at"] = datetime.now(timezone.utc).isoformat()
+            dictUpdates["rejected_at"] = dtNow.isoformat()
             dictUpdates["rejected_by"] = strActorId
+            dictUpdates["current_reviewer_id"] = ""
 
-            # Update approval_chain to mark current step as REJECTED
-            lsChain = dictOld.get("approval_chain", [])
-            iCurrentStep = dictOld.get("current_step", 0)
-            strNow = datetime.now(timezone.utc).isoformat()
+            if dictPayload and dictPayload.get("rejection_reason"):
+                dictUpdates["rejection_reason"] = dictPayload["rejection_reason"]
 
-            if iCurrentStep < len(lsChain):
-                lsChain[iCurrentStep]["action_date"] = strNow
-                lsChain[iCurrentStep]["action"] = "REJECT"
-                lsChain[iCurrentStep]["status"] = "REJECTED"
-                lsChain[iCurrentStep]["rejected_at"] = strNow
-                lsChain[iCurrentStep]["rejected_by"] = strActorId
-                dictUpdates["approval_chain"] = lsChain
+            resolveSLAEvents(strReimbursementId, "rejected")
 
-        # Atomic update with filter on current_reviewer_id to prevent double action
-        if strAction in ("APPROVE", "PAY", "CA_QUERY", "REJECT"):
-            # Default: actor must be the current reviewer
-            filter_query = {"_id": ObjectId(strReimbursementId), "current_reviewer_id": strActorId}
+        elif strAction == "ACKNOWLEDGE":
+            # Initiator acknowledges payment
+            updateApprovalChainStep(strReimbursementId, 0, {
+                "current_status": "ACKNOWLEDGED",
+                "submittedAt": dtNow.isoformat()
+            })
 
-            # Special-case PAY: allow a CA user to mark as paid when status is OWNER_APPROVED/CA_PENDING/CA_REAPPLIED
-            if strAction == "PAY":
-                try:
-                    objUsers = get_collection("users")
-                    dictActor = objUsers.find_one({"_id": ObjectId(strActorId)})
-                    bActorIsCA = any(d.get("role") == "ca" for d in dictActor.get("departments", [])) if dictActor else False
-                except Exception:
-                    bActorIsCA = False
+            dictUpdates["acknowledged_at"] = dtNow.isoformat()
+            dictUpdates["acknowledged_by"] = strActorId
+            dictUpdates["current_reviewer_id"] = ""
 
-                if bActorIsCA:
-                    filter_query = {
-                        "_id": ObjectId(strReimbursementId),
-                        "$or": [
-                            {"current_reviewer_id": strActorId},
-                            {"status": {"$in": ["OWNER_APPROVED", "CA_PENDING", "CA_REAPPLIED"]}},
-                        ],
-                    }
+        # Perform atomic update
+        objResult = objReimbs.update_one(
+            {"_id": ObjectId(strReimbursementId)},
+            {"$set": dictUpdates}
+        )
 
-            objResult = objReimbs.update_one(filter_query, {"$set": dictUpdates})
-            if objResult.matched_count == 0:
-                raise ValueError("You are not the current reviewer or this has already been actioned")
-        elif strAction in ("ACKNOWLEDGE", "REAPPLY", "CA_REAPPLY"):
-            # Initiator-only actions: filter on initiator_id
-            objResult = objReimbs.update_one(
-                {"_id": ObjectId(strReimbursementId), "initiator_id": strActorId},
-                {"$set": dictUpdates}
-            )
-            if objResult.matched_count == 0:
-                raise ValueError("Only the initiator can perform this action")
-        else:
-            objReimbs.update_one(
-                {"_id": ObjectId(strReimbursementId)},
-                {"$set": dictUpdates}
-            )
-        
+        if objResult.modified_count == 0:
+            objLogger.warning(f"⚠️ No document modified")
+
+        # Fetch updated document
         dictNew = objReimbs.find_one({"_id": ObjectId(strReimbursementId)})
 
-        # Log activity using ActivityLogService
+        # Log activity
         logActivity(
             strReimbursementId,
             strActorId,
@@ -276,54 +291,24 @@ async def transition(strReimbursementId: str, strActorId: str, strAction: str, d
             strCurrentStatus,
             strNextStatus,
             dictPayload.get("message", "") if dictPayload else "",
+            "public")
+
+        # Log mutation for audit
+        logMutation("reimbursements", dictOld, dictNew, f"transition_{strAction}", strActorId, strReimbursementId)
+
+        # Send notifications
+        await notifyActionEnhanced(
+            dictNew,
+            strAction, 
+            strActorId, 
+            dictPayload.get("message", "") if dictPayload else "",
             dictPayload.get("visibility", "public") if dictPayload else "public",
         )
-        
-        logMutation("reimbursements", dictOld, dictNew, "UPDATE", strActorId, strReimbursementId)
-        objLogger.info(f"✅ STATE TRANSITION: {strReimbursementId} {strCurrentStatus} → {strNextStatus} by {strActorId}")
 
-        # Best-effort notification dispatch (never blocks the transition)
-        try:
-            await notifyActionEnhanced(
-                dictNew,
-                strAction,
-                strActorId,
-                dictPayload.get("message", "") if dictPayload else "",
-                dictPayload.get("visibility", "public") if dictPayload else "public",
-            )
-        except Exception as objNotifErr:
-            objLogger.error(f"⚠️  Notification dispatch failed: {objNotifErr}")
-
-        # Best-effort SLA event management
-        try:
-            strNewStatus = dictNew.get("status", "")
-            strNewReviewerId = str(dictNew.get("current_reviewer_id", ""))
-
-            if strAction in ("QUERY", "ASK"):
-                # Initiator must respond — start query-response SLA
-                createSLAEvent(strReimbursementId, "QUERY_RESPONSE_PENDING", strActorId)
-
-            elif strAction == "REAPPLY":
-                # Reviewer must re-approve — start review SLA
-                createSLAEvent(strReimbursementId, "REVIEW_PENDING", strNewReviewerId)
-
-            elif strAction == "APPROVE":
-                if strNewStatus == "IN_REVIEW":
-                    # Next reviewer in chain — new review SLA
-                    createSLAEvent(strReimbursementId, "REVIEW_PENDING", strNewReviewerId)
-                elif strNewStatus in ("OWNER_APPROVED", "CA_PENDING"):
-                    # CA step — resolve old SLA, start fresh for CA
-                    resolveSLAEvents(strReimbursementId, "owner_approved")
-                    createSLAEvent(strReimbursementId, "REVIEW_PENDING", strNewReviewerId)
-
-            elif strAction in ("REJECT", "AUTO_REJECTED", "ACKNOWLEDGE", "CLOSE", "PAY"):
-                resolveSLAEvents(strReimbursementId, strAction.lower())
-
-        except Exception as objSLAErr:
-            objLogger.error(f"⚠️  SLA hook failed: {objSLAErr}")
-
+        objLogger.info(f"✅ Transition successful | new status: {strNextStatus}")
         return dictNew
-    
+
     except Exception as objErr:
-        objLogger.error(f"❌ STATE TRANSITION ERROR: {objErr}")
-        raise
+        objLogger.error(f"❌ Transition failed: {str(objErr)}")
+        objLogger.error(traceback.format_exc())
+        raise Exception(f"State transition failed: {str(objErr)}")

@@ -1,6 +1,13 @@
 /**
  * ActivityLogsPanel — Right panel for detail view showing activity timeline with tabs.
  *
+ * UPDATED: Supports new 9-state workflow with backward compatibility for deprecated statuses.
+ * NOTE: Status mapping is handled automatically in existing logic:
+ *   - QUERY_RAISED, CA_QUERY → QUERY
+ *   - PRIVATE_ASK → ASK
+ *   - CA_REAPPLIED → REAPPLIED
+ *   - PAYMENT_ACKNOWLEDGED, CLOSED → ACKNOWLEDGED
+ *
  * Tabs:
  * - Activity Log: Shows workflow action history (LEGACY)
  * - Approval Chain: Shows approval chain timeline
@@ -203,7 +210,7 @@ export default function ActivityLogsPanel({
   const [strAllLogsSearch, setStrAllLogsSearch] = useState('');
   const [bShowPrivate, setBShowPrivate] = useState(true);
   const [setExpandedLogs, setSetExpandedLogs] = useState<Set<string>>(new Set());
-  const [strActiveTab, setStrActiveTab] = useState<'activity' | 'chain' | 'all'>('chain');
+  const [strActiveTab, setStrActiveTab] = useState<'activity' | 'chain' | 'all'>(lsChain.length>0 ? 'chain' : 'activity');
 
   // State for "All Logs" tab
   const [lsAllLogs, setLsAllLogs] = useState<ActivityLog[]>([]);
@@ -261,6 +268,7 @@ export default function ActivityLogsPanel({
   
 
   useEffect(() => {
+    
     if (!bDropdownOpen) return;
     const handleClickOutside = () => setBDropdownOpen(false);
     document.addEventListener('click', handleClickOutside);
@@ -272,8 +280,13 @@ export default function ActivityLogsPanel({
     if (strActiveTab === 'all' && lsAllLogs.length === 0 && !bLoadingAllLogs) {
       loadAllLogs();
     }
-  }, [strActiveTab]);
 
+    
+  }, [strActiveTab]);
+  console.log("Current Reviewer ID:", strCurrentReviewerId);
+  console.log("======================")
+  console.log(lsChain);
+  console.log("======================")
   async function loadAllLogs() {
     setBLoadingAllLogs(true);
     setStrAllLogsError('');
@@ -329,43 +342,50 @@ export default function ActivityLogsPanel({
     );
   }, [lsAllLogs, bShowEdits, bShowActivity, bShowView, strAllLogsSearch, strActiveTab]);
 
-  // Helper functions for Approval Chain
-  function getStepIcon(stepStatus: string, bIsCurrent: boolean, strAction?: string) {
-    // Manager action completed
-    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strAction.toUpperCase())) {
-      return <CheckCircle className="w-4 h-4 text-green-600" />;
-    }
-    // Query/Ask icons
-    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK'].includes(strAction.toUpperCase())) {
-      return <AlertCircle className="w-4 h-4 text-orange-600" />;
-    }
-    if (stepStatus === 'APPROVED' || stepStatus === 'COMPLETED') {
-      return <CheckCircle className="w-4 h-4 text-green-600" />;
-    } else if (stepStatus === 'INITIATED') {
-      return <Clock className="w-4 h-4 text-blue-600" />;
-    } else if (bIsCurrent) {
-      return <Clock className="w-4 h-4 text-yellow-600" />;
-    } else if (stepStatus === 'REJECTED') {
-      return <XCircle className="w-4 h-4 text-red-600" />;
-    } else {
-      return <User className="w-4 h-4 text-gray-400" />;
-    }
-  }
+  // ✅ UPDATED: Status color scheme matching backend 9-state system
+  const STATUS_COLORS: Record<string, string> = {
+    // Grey — not yet acted on
+    PENDING: 'bg-gray-100 text-gray-700',
+    // Blue — in motion through approval pipeline
+    SUBMITTED: 'bg-blue-100 text-blue-700',
+    IN_REVIEW: 'bg-blue-100 text-blue-700',
+    // Yellow — query/ask raised
+    QUERY: 'bg-yellow-100 text-yellow-700',
+    ASK: 'bg-yellow-100 text-yellow-700',
+    // Amber — reapplied
+    REAPPLIED: 'bg-amber-100 text-amber-700',
+    // Green — approved or paid
+    APPROVED: 'bg-green-100 text-green-700',
+    PAID: 'bg-emerald-100 text-emerald-700',
+    ACKNOWLEDGED: 'bg-emerald-100 text-emerald-700',
+    // Red — rejected
+    REJECTED: 'bg-red-100 text-red-700',
+  };
 
-  function getStepColor(stepStatus: string, bIsCurrent: boolean, strAction?: string) {
-    // Manager who took action (QUERY/ASK/PAID/REJECT) - completed state
-    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strAction.toUpperCase())) {
-      return 'border-l-4 border-green-600 bg-green-50';
+  // ✅ UPDATED: Get border color based on current_status
+  function getStepBorderColor(strStatus: string, bIsCurrent: boolean): string {
+    if (bIsCurrent) return 'border-l-4 border-yellow-600';
+
+    switch (strStatus) {
+      case 'APPROVED':
+      case 'PAID':
+      case 'ACKNOWLEDGED':
+        return 'border-l-4 border-green-600';
+      case 'QUERY':
+      case 'ASK':
+        return 'border-l-4 border-yellow-600';
+      case 'REAPPLIED':
+        return 'border-l-4 border-amber-600';
+      case 'IN_REVIEW':
+        return 'border-l-4 border-blue-600';
+      case 'SUBMITTED':
+        return 'border-l-4 border-blue-500';
+      case 'REJECTED':
+        return 'border-l-4 border-red-600';
+      case 'PENDING':
+      default:
+        return 'border-l-4 border-gray-300';
     }
-    // Query/Ask highlighting
-    if (strAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK'].includes(strAction.toUpperCase())) {
-      return 'border-l-4 border-orange-600 bg-orange-50';
-    }
-    if (stepStatus === 'APPROVED' || stepStatus === 'COMPLETED') return 'border-l-4 border-green-600 bg-green-50';
-    if (bIsCurrent) return 'border-l-4 border-yellow-600 bg-yellow-50';
-    if (stepStatus === 'REJECTED') return 'border-l-4 border-red-600 bg-red-50';
-    if (stepStatus === 'INITIATED') return 'border-l-4 border-blue-600 bg-blue-50';
-    return 'border-l-4 border-gray-300 bg-gray-50';
   }
 
   const getDisplayFieldName = (fieldName: string | null | undefined, action: string): string => {
@@ -402,7 +422,8 @@ export default function ActivityLogsPanel({
       {/* Tab Navigation - Hidden Activity, Only Chain and All Logs */}
       <div className="border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
         <div className="flex">
-          <button
+          {lsChain.length > 0 &&
+            <button
             onClick={() => setStrActiveTab('chain')}
             className={`flex-1 px-3 py-3 text-sm font-semibold transition-all border-b-2 ${
               strActiveTab === 'chain'
@@ -414,7 +435,7 @@ export default function ActivityLogsPanel({
               <User className="w-4 h-4" />
               Chain
             </div>
-          </button>
+          </button>}
           <button
             onClick={() => setStrActiveTab('all')}
             className={`flex-1 px-3 py-3 text-sm font-semibold transition-all border-b-2 ${
@@ -461,7 +482,7 @@ export default function ActivityLogsPanel({
                     ✕
                   </button>
                 )}
-</div>
+            </div>
           </div>
 
           {/* Activity Timeline */}
@@ -607,9 +628,8 @@ export default function ActivityLogsPanel({
               {lsChain.map((objStep, iIdx) => {
                 // Determine if this step is the current reviewer by matching user_id with current_reviewer_id
                 const bIsCurrent = !bIsTerminal && objStep.user_id === strCurrentReviewerId;
-                const strUpperAction = objStep.action?.toUpperCase() || '';
-                const bIsQuery = ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK'].includes(strUpperAction);
-                const bIsInitiator = objStep.is_initiator === true;
+                const strStatus = objStep.current_status || 'PENDING';
+                const bIsInitiator = objStep.role === 'initiator';
                 const bIsLast = iIdx === lsChain.length - 1;
 
                 return (
@@ -619,47 +639,41 @@ export default function ActivityLogsPanel({
                       <div className="absolute left-[17px] top-0 w-0.5 h-4 bg-gradient-to-b from-gray-300 to-gray-200 transform -translate-y-4"></div>
                     )}
 
-                    {/* Step Card - Simplified with Current Reviewer Highlighting */}
+                    {/* Step Card - Using color scheme instead of icons */}
                     <div
-                      className={`flex gap-2.5 p-3 rounded-lg transition-all duration-300 hover:shadow-md border-l-4 ${
+                      className={`flex gap-2.5 p-3 rounded-lg transition-all duration-300 hover:shadow-md ${
+                        getStepBorderColor(strStatus, bIsCurrent)
+                      } ${
                         bIsCurrent
-                          ? 'border-yellow-600 bg-yellow-50 shadow-lg ring-2 ring-yellow-400 ring-opacity-50'
-                          : getStepColor(objStep.status, bIsCurrent, objStep.action)
+                          ? 'bg-yellow-50 shadow-lg ring-2 ring-yellow-400 ring-opacity-50'
+                          : 'bg-white'
                       }`}
                     >
-                      {/* Icon Circle - Smaller */}
+                      {/* Status Badge - Color coded */}
                       <div className="flex-shrink-0 relative">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all ${
-                          // Manager action taken
-                          !bIsInitiator && strUpperAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strUpperAction)
-                            ? 'bg-green-50 border-green-400'
-                            : bIsQuery 
-                            ? 'bg-orange-50 border-orange-400' 
-                            : bIsInitiator
-                            ? 'bg-blue-50 border-blue-400'
-                            : objStep.status === 'APPROVED' || objStep.status === 'COMPLETED'
-                            ? 'bg-green-50 border-green-400'
-                            : bIsCurrent
-                            ? 'bg-yellow-50 border-yellow-400'
-                            : 'bg-gray-50 border-gray-300'
+                        <div className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
+                          STATUS_COLORS[strStatus] || STATUS_COLORS.PENDING
                         }`}>
-                          {getStepIcon(objStep.status, bIsCurrent, objStep.action)}
+                          {strStatus}
+
                         </div>
                       </div>
 
                       {/* Content - Simplified */}
                       <div className="flex-1 min-w-0">
+                        
                         {/* Header Row: Name, Role, Status */}
                         <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                          {/* User Name with Tooltip */}
+                          {/* User Name + EMAIL with Tooltip */}
                           <div className="relative group">
                             <p className="text-sm font-semibold text-gray-900 cursor-pointer hover:text-[#00703C] transition-colors">
-                              {objStep.name}
+                              {objStep.username}
                             </p>
-                            {/* Tooltip on Hover */}
-                            <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg shadow-lg py-2 px-3 min-w-max max-w-xs">
+
+                            {/* USER EMAIL on Hover */}
+                            <div className="absolute top-0 top-full mt-1 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg shadow-lg py-2 px-3 min-w-max max-w-xs">
                               <div className="space-y-1">
-                                {/* <div className="font-semibold">{objStep.name}</div> */}
+                                {/* <div className="font-semibold">{objStep.username}</div> */}
                                 <div className="text-gray-300">{objStep.email}</div>
                                 {/* {objStep.department && (
                                   <div className="text-gray-300">
@@ -671,59 +685,24 @@ export default function ActivityLogsPanel({
                               <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
                             </div>
                           </div>
-
+                          
+                          {/* USER ROLE */}
                           {objStep.role && (
                             <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-semibold uppercase">
                               {objStep.role}
                             </span>
                           )}
-                          {/* Show action badge for managers who've taken action */}
-                          {!bIsInitiator && strUpperAction && ['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strUpperAction) && (
-                            <span className="px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs font-bold">
-                              {strUpperAction}
-                            </span>
-                          )}
-                          {bIsQuery && !['QUERY', 'QUERY_RAISED', 'ASK', 'PRIVATE_ASK', 'REJECT', 'REJECTED', 'PAID', 'PAYMENT'].includes(strUpperAction) && (
-                            <span className="px-1.5 py-0.5 bg-orange-100 text-orange-800 rounded text-xs font-bold animate-pulse">
-                              {strUpperAction}
-                            </span>
-                          )}
                         </div>
-
-                        {/* Email - Keep visible for quick reference */}
-                        {/* <div className="text-xs text-gray-600 mb-1.5">{objStep.email}</div> */}
 
                         {/* Status/Timestamp Section - Compact */}
                         <div className="space-y-1 bg-white/50 rounded px-2 py-1.5 text-xs">
                           {bIsCurrent && (
                             <div className="flex items-center gap-1.5 bg-yellow-100 border border-yellow-400 rounded px-2 py-1.5 mb-2 animate-pulse">
                               <Clock className="w-4 h-4 text-yellow-700" />
-                              <span className="text-yellow-900 font-bold text-sm">⏳ CURRENTLY REVIEWING</span>
-                            </div>
-                          )}
-
-                          {/* Completed Status for Past Approvals and Initiator when Submitted */}
-                          {((objStep.status === 'APPROVED' && !bIsCurrent) || (bIsInitiator && objStep.status === 'COMPLETED')) && (
-                            <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                              <CheckCircle className="w-3 h-3" />
-                              <span>✓ Completed</span>
-                              {objStep.approved_at && <span className="text-gray-600 ml-auto">{fmtDateTime(objStep.approved_at)}</span>}
-                            </div>
-                          )}
-
-                          {/* Current Approval */}
-                          {objStep.status === 'APPROVED' && bIsCurrent && (
-                            <div className="flex items-center gap-1.5 text-green-700">
-                              <Check className="w-3 h-3" />
-                              <span className="font-medium">Approved</span>
-                              {objStep.approved_at && <span className="text-gray-600">{fmtDateTime(objStep.approved_at)}</span>}
-                            </div>
-                          )}
-
-                          {objStep.status === 'REJECTED' && (
-                            <div className="flex items-center gap-1.5 text-red-700">
-                              <XCircle className="w-3 h-3" />
-                              <span className="font-medium">Rejected</span>
+                              <span className="text-yellow-900 font-bold text-sm"> CURRENTLY REVIEWING</span>
+                              {/* {objStep.receivedAt && (
+                                <span className="text-gray-700">{fmtDateTime(objStep.receivedAt)}</span>
+                              )} */}
                             </div>
                           )}
 
@@ -731,34 +710,42 @@ export default function ActivityLogsPanel({
                           {bIsInitiator && (
                             <>
                               {/* Always show submission timestamp */}
-                              {objStep.submitted_at && (
+                              {objStep.submittedAt && strStatus!== 'REAPPLIED' && strStatus !== 'IN_REVIEW' && (
                                 <div className="flex items-center gap-1.5 text-blue-700 font-medium">
                                   <Send className="w-3 h-3" />
-                                  <span>Submitted at:</span>
-                                  <span className="text-gray-700">{fmtDateTime(objStep.submitted_at)}</span>
+                                  <span>Submitted:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.submittedAt)}</span>
+                                </div>
+                              )}
+                              
+                              {objStep.receivedAt && strStatus=== 'REAPPLIED' && (
+                                <div className="flex items-center gap-1.5 text-blue-700 font-medium">
+                                  <Send className="w-3 h-3" />
+                                  <span>Received At:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.receivedAt)}</span>
                                 </div>
                               )}
 
-                              {/* Show Received At only when initiator is current reviewer (returning from QUERY/ASK) */}
-                              {objStep.received_date && objStep.status !== 'COMPLETED' && (
+                              {/* Show Received At when initiator viewed after QUERY/ASK */}
+                              {objStep.receivedAt && strStatus === 'IN_REVIEW' && (
                                 <div className="flex items-center gap-1.5 text-orange-700 font-medium">
                                   <Clock className="w-3 h-3" />
-                                  <span>Received at:</span>
-                                  <span className="text-gray-700">{fmtDateTime(objStep.received_date)}</span>
+                                  <span>Received Query:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.receivedAt)}</span>
                                 </div>
                               )}
 
-                              {/* Show Response At when initiator has responded (REAPPLIED) */}
-                              {objStep.response_date && (
-                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                              {/* Show Reapplied timestamp */}
+                              {strStatus === 'REAPPLIED' && objStep.submittedAt && (
+                                <div className="flex items-center gap-1.5 text-amber-700 font-medium">
                                   <RotateCcw className="w-3 h-3" />
-                                  <span>Reapplied at:</span>
-                                  <span className="text-gray-700">{fmtDateTime(objStep.response_date)}</span>
+                                  <span>Reapplied:</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.submittedAt)}</span>
                                 </div>
                               )}
 
                               {/* Show remaining days when initiator is current reviewer */}
-                              {objStep.remaining_days !== undefined && objStep.remaining_days !== null && objStep.status !== 'COMPLETED' && (
+                              {objStep.remaining_days !== undefined && objStep.remaining_days !== null && strStatus === 'IN_REVIEW' && (
                                 <div className={`flex items-center gap-1.5 font-bold ${
                                   objStep.remaining_days < 0
                                     ? 'text-red-700'
@@ -782,45 +769,54 @@ export default function ActivityLogsPanel({
                             </>
                           )}
 
-                          {/* For Past Reviewers: Show Received At and Action Taken */}
-                          {!bIsInitiator && !bIsCurrent && objStep.received_date && (
-                            <div className="flex items-center gap-1.5 text-blue-600">
-                              <Clock className="w-3 h-3" />
-                              <span>Received:</span>
-                              <span className="text-gray-700">{fmtDateTime(objStep.received_date)}</span>
-                            </div>
-                          )}
-
-                          {/* For Query/Ask/Action States: Show Manager Action with Completion */}
-                          {bIsQuery && (
+                          {/* For Managers: Show Received At and Action Taken */}
+                          {!bIsInitiator && (
                             <>
-                              {objStep.received_date && (
+                              {/* Show Received timestamp */}
+                              {objStep.receivedAt && (
                                 <div className="flex items-center gap-1.5 text-blue-600">
                                   <Clock className="w-3 h-3" />
                                   <span>Received:</span>
-                                  <span className="text-gray-700">{fmtDateTime(objStep.received_date)}</span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.receivedAt)}</span>
                                 </div>
                               )}
-                              {/* Show action_date for QUERY/ASK actions */}
-                              {(objStep.action_date || objStep.response_date) && (
-                                <div className="flex items-center gap-1.5 text-orange-700 font-bold">
-                                  <AlertCircle className="w-3 h-3" />
-                                  <span>{strUpperAction} at:</span>
-                                  <span className="text-gray-700">{fmtDateTime((objStep.action_date || objStep.response_date)!)}</span>
+
+                              {/* Show Action timestamp when manager has acted */}
+                              {objStep.submittedAt && !bIsCurrent && (
+                                <div className={`flex items-center gap-1.5 font-medium ${
+                                  strStatus === 'REJECTED'
+                                    ? 'text-red-700'
+                                    : strStatus === 'QUERY' || strStatus === 'ASK'
+                                    ? 'text-yellow-700'
+                                    : strStatus === 'APPROVED' || strStatus === 'PAID'
+                                    ? 'text-green-700'
+                                    : 'text-gray-700'
+                                }`}>
+                                  {strStatus === 'REJECTED' && <Ban className="w-3 h-3" />}
+                                  {(strStatus === 'QUERY' || strStatus === 'ASK') && <AlertCircle className="w-3 h-3" />}
+                                  {(strStatus === 'APPROVED' || strStatus === 'PAID') && <ThumbsUp className="w-3 h-3" />}
+                                  <span>
+                                    {strStatus === 'REJECTED' ? 'Rejected:' :
+                                     strStatus === 'QUERY' ? 'Query Raised:' :
+                                     strStatus === 'ASK' ? 'Ask Raised:' :
+                                     strStatus === 'APPROVED' ? 'Approved:' :
+                                     strStatus === 'PAID' ? 'Paid:' :
+                                     'Action:'}
+                                  </span>
+                                  <span className="text-gray-700">{fmtDateTime(objStep.submittedAt)}</span>
                                 </div>
                               )}
-                              {/* Show Manager as Completed with their action */}
-                              <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                                <CheckCircle className="w-3 h-3" />
-                                <span>✓ Completed</span>
-                              </div>
-                              {objStep.remaining_days !== undefined && objStep.remaining_days !== null && (
+
+                              {/* Show remaining days for current reviewer */}
+                              {bIsCurrent && objStep.remaining_days !== undefined && objStep.remaining_days !== null && (
                                 <div className={`flex items-center gap-1.5 font-bold ${
                                   objStep.remaining_days < 0
                                     ? 'text-red-700'
                                     : objStep.remaining_days === 0
                                     ? 'text-orange-700'
-                                    : 'text-yellow-700'
+                                    : objStep.remaining_days <= 1
+                                    ? 'text-yellow-700'
+                                    : 'text-green-700'
                                 }`}>
                                   <AlertCircle className="w-3 h-3" />
                                   <span>
@@ -834,37 +830,6 @@ export default function ActivityLogsPanel({
                                 </div>
                               )}
                             </>
-                          )}
-
-                          {/* Remaining Days for Current Reviewer (non-query) */}
-                          {bIsCurrent && !bIsInitiator && !bIsQuery && objStep.remaining_days !== undefined && objStep.remaining_days !== null && (
-                            <div className={`flex items-center gap-1.5 font-bold ${
-                              objStep.remaining_days < 0
-                                ? 'text-red-700'
-                                : objStep.remaining_days === 0
-                                ? 'text-orange-700'
-                                : objStep.remaining_days <= 1
-                                ? 'text-yellow-700'
-                                : 'text-green-700'
-                            }`}>
-                              <AlertCircle className="w-3 h-3" />
-                              <span>
-                                {objStep.remaining_days < 0
-                                  ? `${Math.abs(objStep.remaining_days)} days OVERDUE`
-                                  : objStep.remaining_days === 0
-                                  ? 'Due TODAY'
-                                  : `Due in ${objStep.remaining_days} days`
-                                }
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Received at for past non-completed steps */}
-                          {!bIsInitiator && !bIsCurrent && !bIsQuery && objStep.received_date && objStep.status !== 'APPROVED' && (
-                            <div className="flex items-center gap-1.5 text-blue-600 text-xs">
-                              <Clock className="w-3 h-3" />
-                              <span>{fmtDateTime(objStep.received_date)}</span>
-                            </div>
                           )}
                         </div>
                       </div>
@@ -892,7 +857,7 @@ export default function ActivityLogsPanel({
                     : (() => {
                         const objCurrentReviewer = lsChain.find(step => step.user_id === strCurrentReviewerId);
                         return objCurrentReviewer
-                          ? `Currently with: ${objCurrentReviewer.name} (${objCurrentReviewer.role || 'Reviewer'})`
+                          ? `Currently with: ${objCurrentReviewer.username} (${objCurrentReviewer.role || 'Reviewer'})`
                           : `Step ${iCurrentStep + 1} of ${lsChain.length - 1}`;
                       })()
                   }

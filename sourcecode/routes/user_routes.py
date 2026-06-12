@@ -31,14 +31,29 @@ router = APIRouter(prefix="/api/users", tags=["Users"])
 
 
 def _hashPassword(strPlain: str) -> str:
-    """Truncate to 72 bytes (bcrypt's hard limit) and hash via bcrypt directly."""
+    """
+    purpose: Hash a plaintext password using bcrypt, ensuring it is truncated to 72 bytes to comply with bcrypt's limitations.
+    
+    Inputs: (1) strPlain: The plaintext password to be hashed (string).
+
+    Output: A bcrypt hash of the password (string).
+
+    Example: _hashPassword("mysecretpassword") → "$2b$12$KIXQ1e5u1Z8e5G9v1a8OeXyZ1j6h3s9f0g7h8i9j0k1l2m3n4o5p6q"
+    """
+    
     return bcrypt.hashpw(strPlain.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
 
 
 def _detectCircularHierarchy(user_id: str, new_manager_id: str, objUsers) -> bool:
     """
     Purpose : Check if assigning new_manager_id as a manager of user_id would create a circular hierarchy.
-    Returns : True if circular dependency detected, False otherwise.
+    
+    Inputs: (1) user_id: The ID of the user being assigned a new manager (string).
+            (2) new_manager_id: The ID of the new manager being assigned (string).
+            (3) objUsers: The MongoDB collection object for users.
+    
+    Output: True if circular dependency detected, False otherwise.
+
     Algorithm: Walk up the manager chain from new_manager_id. If we encounter user_id, it's circular.
     """
     visited = set()
@@ -76,6 +91,12 @@ async def createUser(
 ):
     """
     Purpose : Create a new user with hashed password.
+    
+    Inputs: (1) objRequest: UserCreateRequest schema containing user details and plaintext password.
+            (2) dictCurrentUser: The currently authenticated admin user performing the operation (injected by dependency).
+
+    Output: UserResponseSchema containing the created user's details (excluding password).
+
     Access  : Admin (Owner).
     """
     try:
@@ -119,6 +140,11 @@ async def listUsers(
 ):
     """
     Purpose : List users, optionally filtered by department or role.
+
+    Inputs  : (1) department_id: Optional query parameter to filter users by department ID.
+              (2) role: Optional query parameter to filter users by role within their department.
+              (3) dictCurrentUser: The currently authenticated user making the request (injected by dependency).
+
     Access  : Any authenticated user.
     """
     try:
@@ -150,6 +176,12 @@ async def getUser(
 ):
     """
     Purpose : Get detailed profile of a single user.
+
+    Inputs  : (1) user_id: The ID of the user to retrieve (path parameter).
+              (2) dictCurrentUser: The currently authenticated user making the request (injected by dependency).
+
+    Output  : UserResponseSchema containing the user's details.        
+
     Access  : Any authenticated user.
     """
     try:
@@ -175,6 +207,13 @@ async def updateUser(
 ):
     """
     Purpose : Update basic user info (name, email, activity).
+
+    Inputs  : (1) user_id: The ID of the user to update (path parameter).
+              (2) objRequest: UserUpdateRequest schema containing fields to update (name, email, is_active).
+              (3) dictCurrentUser: The currently authenticated admin user performing the operation (injected by dependency).                
+    
+    Output  : UserResponseSchema containing the updated user's details.
+
     Access  : Admin (Owner).
     """
     try:
@@ -218,7 +257,15 @@ async def updateManagers(
 ):
     """
     Purpose : Update user's manager hierarchy.
+
+    Inputs  : (1) user_id: The ID of the user to update (path parameter).
+              (2) objRequest: UserManagersUpdateRequest schema containing the new list of managers with their priorities and approval types.
+              (3) dictCurrentUser: The currently authenticated owner user performing the operation (injected by dependency).
+    
+    Output  : UserResponseSchema containing the updated user's details.
+
     Access  : Owner only.
+
     Validation: No self-management, unique priorities.
     """
     try:
@@ -286,7 +333,15 @@ async def updateCategories(
 ):
     """
     Purpose : Update user's default category allowances.
+
+    Inputs  : (1) user_id: The ID of the user to update (path parameter).
+              (2) objRequest: UserCategoriesUpdateRequest schema containing the new list of default allowances with category IDs, sub-categories, and limits.
+              (3) dictCurrentUser: The currently authenticated owner user performing the operation (injected by dependency).
+
+    Output  : UserResponseSchema containing the updated user's details.
+
     Access  : Owner only.
+    
     Validation: Duplicate category check, category existence verification.
     """
     try:
@@ -350,7 +405,13 @@ async def deleteUser(
     dictCurrentUser: dict = Depends(getOwnerUserDependency),
 ):
     """
-    Purpose : Soft-delete a user.
+    Purpose : Soft-delete a user by setting their "is_active" status to False.
+
+    Inputs  : (1) user_id: The ID of the user to delete (path parameter).
+              (2) dictCurrentUser: The currently authenticated owner user performing the operation (injected by dependency).
+    
+    Output  : None (204 No Content response).
+    
     Access  : Owner only.
     """
     try:

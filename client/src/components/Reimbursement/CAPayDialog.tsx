@@ -1,5 +1,6 @@
 /**
- * CAPayDialog — modal for CA to mark a reimbursement as PAID.
+ * CAPayDialog — modal for final reviewer (typically CA) to mark a reimbursement as PAID.
+ * UPDATED: Uses unified /api/approvals/{id}/pay route (removed /ca/ prefix).
  * Captures transaction_ref, payment_method, optional note, and proof of payment.
  */
 import { useState } from 'react';
@@ -71,6 +72,7 @@ export default function CAPayDialog({
     setBIsLoading(true);
     setStrError('');
     try {
+      // UPDATED: Uses unified /api/approvals/{id}/pay route (works for any final reviewer)
       await payReimbursementApi(strReimbursementId, {
         transaction_ref: strTxRef.trim(),
         payment_method: strMethod || undefined,

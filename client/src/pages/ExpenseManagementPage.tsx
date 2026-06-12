@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronDown, ChevronRight, ChevronUp, FileText, Clock, BookOpen,
-  UserCheck, RefreshCw, Users, Plus, CheckCircle2, BarChart2, Calendar, ChevronLeft,
+  UserCheck, RefreshCw, Users, Plus, CheckCircle2
 } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { Footer } from '../components/Footer';
@@ -71,9 +71,9 @@ export default function ExpenseManagementPage() {
   const [dictSort, setDictSort] = useState<Record<string, { col: string; dir: 'asc' | 'desc' }>>({});
 
   // Expense Report state
-  const [strReportFrom, setStrReportFrom] = useState<string>('');
-  const [strReportTo, setStrReportTo] = useState<string>('');
-  const [bShowReport, setBShowReport] = useState<boolean>(false);
+  // const [strReportFrom, setStrReportFrom] = useState<string>('');
+  // const [strReportTo, setStrReportTo] = useState<string>('');
+  // const [bShowReport, setBShowReport] = useState<boolean>(false);
 
   // Track expanded reimbursements for detail view: { reimbursement_id -> true/false }
   const [dictExpandedReimbursements, setDictExpandedReimbursements] = useState<Record<string, boolean>>({});
@@ -117,14 +117,25 @@ export default function ExpenseManagementPage() {
       }
       const lsResults = await Promise.all(lsPromises);
       setLsDrafts(lsResults[0]);
-      console.log('Fetched drafts:', lsResults[0]);
       setLsPending(lsResults[1]);
       setLsHistory(lsResults[2]);
+      
+      console.log('Fetched drafts:', lsResults[0]);
+      console.log('Fetched pending:', lsResults[1]);
+      console.log('Fetched history:', lsResults[2]);
+      
+
+
       if (bShowTeam) {
         setLsTeamPendingApprovals(lsResults[3]);
         setLsTeamPendingCompletion(lsResults[4]);
         setLsTeamHistory(lsResults[5]);
+
+        console.log('Fetched team pending approvals:', lsResults[3]);
+        console.log('Fetched team pending completion:', lsResults[4]);
+        console.log('Fetched team history:', lsResults[5]);
       }
+
     } catch (objErr: any) {
       setStrError(objErr.response?.data?.detail || 'Failed to load reimbursements');
     } finally {
@@ -148,22 +159,32 @@ export default function ExpenseManagementPage() {
   const STATUS_COLORS: Record<string, string> = {
     // Grey — saved but not yet acted on
     DRAFT: 'bg-gray-100 text-gray-600 border border-gray-300',
+    PENDING: 'bg-gray-100 text-gray-600',
+
     // Blue — in motion through the approval pipeline
     SUBMITTED: 'bg-blue-100 text-blue-700',
     IN_REVIEW: 'bg-blue-100 text-blue-700',
+
     // Yellow — query raised, awaiting applicant response
+    QUERY: 'bg-yellow-100 text-yellow-700',
+    ASK: 'bg-yellow-100 text-yellow-700',
     QUERY_RAISED: 'bg-yellow-100 text-yellow-700',
     PRIVATE_ASK: 'bg-yellow-100 text-yellow-700',
     CA_QUERY: 'bg-yellow-100 text-yellow-700',
+
     // Amber / yellowish — query answered, resubmitted
     REAPPLIED: 'bg-amber-100 text-amber-700',
     CA_REAPPLIED: 'bg-amber-100 text-amber-700',
+
     // Green — approved or paid
+    APPROVED: 'bg-green-100 text-green-700',
     OWNER_APPROVED: 'bg-green-100 text-green-700',
     CA_PENDING: 'bg-green-100 text-green-700',
     PAID: 'bg-emerald-100 text-emerald-700',
     PAYMENT_ACKNOWLEDGED: 'bg-emerald-100 text-emerald-700',
+    ACKNOWLEDGED: 'bg-emerald-100 text-emerald-700',
     CLOSED: 'bg-emerald-100 text-emerald-700',
+
     // Red — rejected
     REJECTED: 'bg-red-100 text-red-700',
     AUTO_REJECTED: 'bg-red-200 text-red-800',
@@ -198,268 +219,6 @@ export default function ExpenseManagementPage() {
       </span>
     );
   }
-
-  /**
-   * Unified table renderer used by all 6 sections - CONSOLIDATED VIEW
-   * Shows one row per reimbursement with:
-   * - Sr No
-   * - All items' categories separated by comma
-   * - All items' sub_categories separated by comma
-   * - Description of first item
-   * - Date (from first item)
-   * - Total Amount
-   * - Expand button to show individual items
-   *
-   * @param lsItems        — source data
-   * @param strKey         — unique key for per-section sort state
-   * @param bShowInitiator — show Applicant column (team views)
-   * @param bShowStatus    — show Status column (false for Drafts)
-   * @param bIsHistory     — show Date of Payment column (History only)
-   */
-  // function renderReimbTable(
-  //   lsItems: ReimbursementListItem[],
-  //   strKey: string,
-  //   bShowInitiator: boolean,
-  //   bShowStatus: boolean,
-  //   bIsHistory: boolean,
-  // ) {
-  //   if (lsItems.length === 0) return null;
-
-  //   const { col: strSortCol, dir: strSortDir } = getSortState(strKey);
-
-  //   // Sort reimbursements
-  //   const lsSorted = [...lsItems].sort((a, b) => {
-  //     let nCmp = 0;
-  //     switch (strSortCol) {
-  //       case 'applicant': nCmp = (a.initiator_name ?? '').localeCompare(b.initiator_name ?? ''); break;
-  //       case 'category':  nCmp = (a.items[0]?.category_name ?? '').localeCompare(b.items[0]?.category_name ?? ''); break;
-  //       case 'sub':       nCmp = (a.items[0]?.sub_category ?? '').localeCompare(b.items[0]?.sub_category ?? ''); break;
-  //       case 'desc':      nCmp = (a.description ?? '').localeCompare(b.description ?? ''); break;
-  //       case 'status':    nCmp = (a.status ?? '').localeCompare(b.status ?? ''); break;
-  //       case 'date':      nCmp = (a.created_at ?? '').localeCompare(b.created_at ?? ''); break;
-  //       case 'payment':   nCmp = (a.updated_at ?? '').localeCompare(b.updated_at ?? ''); break;
-  //       case 'amount':    nCmp = a.total_amount - b.total_amount; break;
-  //     }
-  //     return strSortDir === 'asc' ? nCmp : -nCmp;
-  //   });
-
-  //   /** Sortable column header */
-  //   function thSort(strLabel: string, strCol: string, strAlign: 'center' | 'right' = 'center') {
-  //     const bActive = strSortCol === strCol;
-  //     return (
-  //       <th
-  //         key={strCol}
-  //         onClick={() => toggleSort(strKey, strCol)}
-  //         className={`px-4 py-3 text-${strAlign} whitespace-nowrap border-r border-gray-200
-  //           cursor-pointer select-none hover:bg-gray-200/70 transition-colors group`}
-  //       >
-  //         <span className="inline-flex items-center justify-center gap-1">
-  //           {strLabel}
-  //           <span className={`inline-flex flex-col -space-y-1.5 transition-opacity ${bActive ? 'opacity-100' : 'opacity-20 group-hover:opacity-50'}`}>
-  //             <ChevronUp className={`w-2.5 h-2.5 ${bActive && strSortDir === 'asc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
-  //             <ChevronDown className={`w-2.5 h-2.5 ${bActive && strSortDir === 'desc' ? 'text-[#00703C]' : 'text-gray-500'}`} />
-  //           </span>
-  //         </span>
-  //       </th>
-  //     );
-  //   }
-
-  //   return (
-  //     <div className="space-y-0">
-  //       {lsSorted.map((reimb, iIdx) => {
-  //         const bPaid = PAID_STATUSES.has(reimb.status);
-  //         const bExpanded = dictExpandedReimbursements[reimb.reimbursement_id] ?? false;
-          
-  //         // Consolidate categories, sub-categories, descriptions from all items
-  //         const lsCategories = (reimb.items ?? []).map(it => it.category_name || it.category_id || '—');
-  //         const lsSubCategories = (reimb.items ?? []).map(it => it.sub_category || '—');
-  //         const strCombinedCategories = [...new Set(lsCategories)].join(', ');
-  //         const strCombinedSubCategories = [...new Set(lsSubCategories)].join(', ');
-  //         const strFirstDesc = (reimb.items?.[0]?.description) || '';
-  //         const strFirstDate = reimb.created_at; // Use first item's date or reimbursement date
-
-  //         return (
-  //           <div key={reimb.reimbursement_id} className="border border-gray-200 rounded-lg overflow-hidden mb-3">
-  //             {/* Main Row - Summary */}
-  //             <div
-  //               onClick={() => setDictExpandedReimbursements(prev => ({ ...prev, [reimb.reimbursement_id]: !bExpanded }))}
-  //               className="bg-white hover:bg-blue-50/50 transition-colors cursor-pointer"
-  //             >
-  //               <table className="w-full text-sm border-collapse">
-  //                 <thead>
-  //                   {iIdx === 0 && (
-  //                     <tr className="bg-gray-100/80 text-xs font-bold text-gray-500 uppercase tracking-wider">
-  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200 w-14">Sr No</th>
-  //                       {bShowInitiator && (
-  //                         <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Applicant</th>
-  //                       )}
-  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Categories</th>
-  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Sub Categories</th>
-  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Description</th>
-  //                       {bShowStatus && (
-  //                         <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Status</th>
-  //                       )}
-  //                       <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Date Applied</th>
-  //                       {bIsHistory && (
-  //                         <th className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">Date of Payment</th>
-  //                       )}
-  //                       <th className="px-4 py-3 text-right whitespace-nowrap border-r border-gray-200">Amount</th>
-  //                       <th className="px-4 py-3 text-center whitespace-nowrap w-12">Expand</th>
-  //                     </tr>
-  //                   )}
-  //                 </thead>
-  //                 <tbody>
-  //                   <tr className={`border-t border-gray-200 ${iIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-  //                     {/* Sr No */}
-  //                     <td className="px-4 py-3 text-center text-gray-700 font-semibold whitespace-nowrap border-r border-gray-200">
-  //                       {iIdx + 1}
-  //                     </td>
-                      
-  //                     {/* Applicant (for team views) */}
-  //                     {bShowInitiator && (
-  //                       <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-  //                         <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
-  //                           {reimb.initiator_name}
-  //                         </span>
-  //                       </td>
-  //                     )}
-                      
-  //                     {/* Combined Categories */}
-  //                     <td className="px-4 py-3 text-center text-gray-800 font-medium whitespace-nowrap border-r border-gray-200 max-w-xs">
-  //                       <span className="text-xs">{strCombinedCategories}</span>
-  //                     </td>
-                      
-  //                     {/* Combined Sub Categories */}
-  //                     <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200 max-w-xs">
-  //                       <span className="text-xs">{strCombinedSubCategories}</span>
-  //                     </td>
-                      
-  //                     {/* Description of First Item */}
-  //                     <td className="px-4 py-3 text-center text-gray-600 border-r border-gray-200 max-w-xs" title={strFirstDesc || undefined}>
-  //                       <span className="block truncate text-xs">
-  //                         {strFirstDesc || <span className="text-gray-300 italic">—</span>}
-  //                       </span>
-  //                     </td>
-                      
-  //                     {/* Status */}
-  //                     {bShowStatus && (
-  //                       <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-  //                         {statusBadge(reimb.status)}
-  //                       </td>
-  //                     )}
-                      
-  //                     {/* Date Applied */}
-  //                     <td className="px-4 py-3 text-center text-gray-600 whitespace-nowrap border-r border-gray-200">
-  //                       {fmtDate(strFirstDate)}
-  //                     </td>
-                      
-  //                     {/* Date of Payment (History only) */}
-  //                     {bIsHistory && (
-  //                       <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-200">
-  //                         {bPaid
-  //                           ? <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-xs">
-  //                               <CheckCircle2 className="w-3.5 h-3.5" /> {fmtDate(reimb.updated_at)}
-  //                             </span>
-  //                           : <span className="text-gray-400 italic text-xs">Pending</span>
-  //                         }
-  //                       </td>
-  //                     )}
-                      
-  //                     {/* Total Amount */}
-  //                     <td className="px-4 py-3 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap border-r border-gray-200">
-  //                       {fmtAmt(reimb.total_amount)}
-  //                     </td>
-                      
-  //                     {/* Expand Button */}
-  //                     <td className="px-4 py-3 text-center whitespace-nowrap">
-  //                       <button
-  //                         onClick={(e) => {
-  //                           e.stopPropagation();
-  //                           setDictExpandedReimbursements(prev => ({ ...prev, [reimb.reimbursement_id]: !bExpanded }));
-  //                         }}
-  //                         className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-200 transition-colors"
-  //                         title={bExpanded ? 'Collapse' : 'Expand'}
-  //                       >
-  //                         {bExpanded ? <ChevronUp className="w-4 h-4 text-gray-600" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
-  //                       </button>
-  //                     </td>
-  //                   </tr>
-  //                 </tbody>
-  //               </table>
-  //             </div>
-
-  //             {/* Expanded Details - Show all individual items */}
-  //             {bExpanded && (reimb.items ?? []).length > 0 && (
-  //               <div className="border-t border-gray-200 bg-gray-50 p-4">
-  //                 <div className="mb-3">
-  //                   <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-  //                     <ChevronLeft className="w-4 h-4" /> Individual Items ({(reimb.items ?? []).length})
-  //                   </h5>
-  //                 </div>
-  //                 <div className="overflow-x-auto">
-  //                   <table className="w-full text-xs border-collapse">
-  //                     <thead>
-  //                       <tr className="bg-gray-200 text-gray-700 font-semibold">
-  //                         <th className="px-3 py-2 text-center border border-gray-300">Item #</th>
-  //                         <th className="px-3 py-2 text-center border border-gray-300">Category</th>
-  //                         <th className="px-3 py-2 text-center border border-gray-300">Sub Category</th>
-  //                         <th className="px-3 py-2 text-center border border-gray-300">Description</th>
-  //                         <th className="px-3 py-2 text-center border border-gray-300">Date</th>
-  //                         <th className="px-3 py-2 text-right border border-gray-300">Amount</th>
-  //                       </tr>
-  //                     </thead>
-  //                     <tbody>
-  //                       {(reimb.items ?? []).map((item, itemIdx) => (
-  //                         <tr key={itemIdx} className={itemIdx % 2 === 0 ? 'bg-white' : 'bg-gray-100'}>
-  //                           <td className="px-3 py-2 text-center border border-gray-300 font-medium text-gray-600">
-  //                             {itemIdx + 1}
-  //                           </td>
-  //                           <td className="px-3 py-2 text-center border border-gray-300">
-  //                             {item.category_name || item.category_id || '—'}
-  //                           </td>
-  //                           <td className="px-3 py-2 text-center border border-gray-300">
-  //                             {item.sub_category || '—'}
-  //                           </td>
-  //                           <td className="px-3 py-2 text-center border border-gray-300 max-w-xs" title={item.description || undefined}>
-  //                             <span className="block truncate">{item.description || '—'}</span>
-  //                           </td>
-  //                           <td className="px-3 py-2 text-center border border-gray-300">
-  //                             {fmtDate(item.expense_date)}
-  //                           </td>
-  //                           <td className="px-3 py-2 text-right border border-gray-300 font-semibold tabular-nums">
-  //                             {fmtAmt(item.amount)}
-  //                           </td>
-  //                         </tr>
-  //                       ))}
-  //                     </tbody>
-  //                     <tfoot>
-  //                       <tr className="bg-emerald-100 font-semibold text-emerald-900">
-  //                         <td colSpan={5} className="px-3 py-2 text-right border border-gray-300">
-  //                           Total:
-  //                         </td>
-  //                         <td className="px-3 py-2 text-right border border-gray-300 tabular-nums">
-  //                           {fmtAmt(reimb.total_amount)}
-  //                         </td>
-  //                       </tr>
-  //                     </tfoot>
-  //                   </table>
-  //                 </div>
-  //                 <div className="mt-3 flex justify-center">
-  //                   <button
-  //                     onClick={() => navigate(`/expense/detail/${reimb.reimbursement_id}`)}
-  //                     className="px-4 py-2 bg-[#00703C] text-white text-xs font-semibold rounded-lg hover:bg-[#005a30] transition-colors"
-  //                   >
-  //                     Open Full Details
-  //                   </button>
-  //                 </div>
-  //               </div>
-  //             )}
-  //           </div>
-  //         );
-  //       })}
-  //     </div>
-  //   );
-  // }
 
 function renderReimbTable(
       lsItems: ReimbursementListItem[],
@@ -895,121 +654,121 @@ function renderReimbTable(
   }
 
   /** Build expense report: category × date matrix with row/column totals. */
-  function renderExpenseReport() {
-    // Combine all buckets, dedup by id
-    const dictSeen: Record<string, boolean> = {};
-    const lsAll: ReimbursementListItem[] = [];
-    for (const r of [
-      ...lsDrafts, ...lsPending, ...lsHistory,
-      ...lsTeamPendingApprovals, ...lsTeamPendingCompletion, ...lsTeamHistory,
-    ]) {
-      if (!dictSeen[r.reimbursement_id]) {
-        dictSeen[r.reimbursement_id] = true;
-        lsAll.push(r);
-      }
-    }
+  // function renderExpenseReport() {
+  //   // Combine all buckets, dedup by id
+  //   const dictSeen: Record<string, boolean> = {};
+  //   const lsAll: ReimbursementListItem[] = [];
+  //   for (const r of [
+  //     ...lsDrafts, ...lsPending, ...lsHistory,
+  //     ...lsTeamPendingApprovals, ...lsTeamPendingCompletion, ...lsTeamHistory,
+  //   ]) {
+  //     if (!dictSeen[r.reimbursement_id]) {
+  //       dictSeen[r.reimbursement_id] = true;
+  //       lsAll.push(r);
+  //     }
+  //   }
 
-    // Matrix: category → date → amount
-    interface MatrixRow { strCategory: string; dictDateAmt: Record<string, number> }
-    const dictMatrix: Record<string, MatrixRow> = {};
-    const setDates = new Set<string>();
+  //   // Matrix: category → date → amount
+  //   interface MatrixRow { strCategory: string; dictDateAmt: Record<string, number> }
+  //   const dictMatrix: Record<string, MatrixRow> = {};
+  //   const setDates = new Set<string>();
 
-    for (const r of lsAll) {
-      for (const it of r.items ?? []) {
-        const strDate = it.expense_date ?? '';
-        if (!strDate) continue;
-        if (strReportFrom && strDate < strReportFrom) continue;
-        if (strReportTo && strDate > strReportTo) continue;
-        const strKey = it.category_name || it.category_id || 'Other';
-        if (!dictMatrix[strKey]) dictMatrix[strKey] = { strCategory: strKey, dictDateAmt: {} };
-        dictMatrix[strKey].dictDateAmt[strDate] = (dictMatrix[strKey].dictDateAmt[strDate] || 0) + it.amount;
-        setDates.add(strDate);
-      }
-    }
+  //   for (const r of lsAll) {
+  //     for (const it of r.items ?? []) {
+  //       const strDate = it.expense_date ?? '';
+  //       if (!strDate) continue;
+  //       if (strReportFrom && strDate < strReportFrom) continue;
+  //       if (strReportTo && strDate > strReportTo) continue;
+  //       const strKey = it.category_name || it.category_id || 'Other';
+  //       if (!dictMatrix[strKey]) dictMatrix[strKey] = { strCategory: strKey, dictDateAmt: {} };
+  //       dictMatrix[strKey].dictDateAmt[strDate] = (dictMatrix[strKey].dictDateAmt[strDate] || 0) + it.amount;
+  //       setDates.add(strDate);
+  //     }
+  //   }
 
-    const lsDates = Array.from(setDates).sort();
-    const lsRows = Object.values(dictMatrix).sort((a, b) => a.strCategory.localeCompare(b.strCategory));
+  //   const lsDates = Array.from(setDates).sort();
+  //   const lsRows = Object.values(dictMatrix).sort((a, b) => a.strCategory.localeCompare(b.strCategory));
 
-    if (lsDates.length === 0) {
-      return (
-        <p className="text-gray-400 text-sm italic py-4 text-center">
-          No expense items found for the selected date range.
-        </p>
-      );
-    }
+  //   if (lsDates.length === 0) {
+  //     return (
+  //       <p className="text-gray-400 text-sm italic py-4 text-center">
+  //         No expense items found for the selected date range.
+  //       </p>
+  //     );
+  //   }
 
-    // Compute column totals and grand total
-    const dictColTotals: Record<string, number> = {};
-    let fGrandTotal = 0;
-    for (const d of lsDates) dictColTotals[d] = 0;
-    for (const row of lsRows) {
-      for (const d of lsDates) {
-        const f = row.dictDateAmt[d] || 0;
-        dictColTotals[d] += f;
-        fGrandTotal += f;
-      }
-    }
+  //   // Compute column totals and grand total
+  //   const dictColTotals: Record<string, number> = {};
+  //   let fGrandTotal = 0;
+  //   for (const d of lsDates) dictColTotals[d] = 0;
+  //   for (const row of lsRows) {
+  //     for (const d of lsDates) {
+  //       const f = row.dictDateAmt[d] || 0;
+  //       dictColTotals[d] += f;
+  //       fGrandTotal += f;
+  //     }
+  //   }
 
-    return (
-      <div className="overflow-x-auto custom-scrollbar">
-        <table className="text-xs border-collapse min-w-full">
-          <thead>
-            <tr>
-              <th className="border-l border-r border-gray-300 bg-[#00703C] text-white px-3 py-2.5 text-left font-bold whitespace-nowrap sticky left-0 z-10">
-                Category
-              </th>
-              {lsDates.map((d) => (
-                <th
-                  key={d}
-                  className="border-r border-gray-300 bg-[#00703C] text-white px-2 py-2.5 text-center font-bold whitespace-nowrap"
-                >
-                  {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
-                </th>
-              ))}
-              <th className="border-r border-gray-300 bg-emerald-800 text-white px-3 py-2.5 text-right font-bold whitespace-nowrap">
-                Row Total
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {lsRows.map((row, iIdx) => {
-              const fRowTotal = lsDates.reduce((s, d) => s + (row.dictDateAmt[d] || 0), 0);
-              return (
-                <tr key={row.strCategory} className={iIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="border-l border-r border-gray-200 px-3 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-inherit z-10">
-                    {row.strCategory}
-                  </td>
-                  {lsDates.map((d) => (
-                    <td key={d} className="border-r border-gray-200 px-2 py-2 text-right tabular-nums text-gray-700 whitespace-nowrap">
-                      {row.dictDateAmt[d] ? fmtAmt(row.dictDateAmt[d]) : <span className="text-gray-300">—</span>}
-                    </td>
-                  ))}
-                  <td className="border-r border-gray-300 px-3 py-2 text-right font-bold text-emerald-800 bg-emerald-50 tabular-nums whitespace-nowrap">
-                    {fmtAmt(fRowTotal)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="bg-gray-100">
-              <td className="border-l border-r border-gray-300 px-3 py-2.5 font-bold text-gray-800 sticky left-0 bg-gray-100 z-10 whitespace-nowrap">
-                Daily Total
-              </td>
-              {lsDates.map((d) => (
-                <td key={d} className="border-r border-gray-300 px-2 py-2.5 text-right font-bold tabular-nums text-gray-900 whitespace-nowrap">
-                  {fmtAmt(dictColTotals[d])}
-                </td>
-              ))}
-              <td className="border-r border-gray-300 px-3 py-2.5 text-right font-bold text-white bg-[#00703C] tabular-nums whitespace-nowrap">
-                {fmtAmt(fGrandTotal)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    );
-  }
+  //   return (
+  //     <div className="overflow-x-auto custom-scrollbar">
+  //       <table className="text-xs border-collapse min-w-full">
+  //         <thead>
+  //           <tr>
+  //             <th className="border-l border-r border-gray-300 bg-[#00703C] text-white px-3 py-2.5 text-left font-bold whitespace-nowrap sticky left-0 z-10">
+  //               Category
+  //             </th>
+  //             {lsDates.map((d) => (
+  //               <th
+  //                 key={d}
+  //                 className="border-r border-gray-300 bg-[#00703C] text-white px-2 py-2.5 text-center font-bold whitespace-nowrap"
+  //               >
+  //                 {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+  //               </th>
+  //             ))}
+  //             <th className="border-r border-gray-300 bg-emerald-800 text-white px-3 py-2.5 text-right font-bold whitespace-nowrap">
+  //               Row Total
+  //             </th>
+  //           </tr>
+  //         </thead>
+  //         <tbody>
+  //           {lsRows.map((row, iIdx) => {
+  //             const fRowTotal = lsDates.reduce((s, d) => s + (row.dictDateAmt[d] || 0), 0);
+  //             return (
+  //               <tr key={row.strCategory} className={iIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+  //                 <td className="border-l border-r border-gray-200 px-3 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-inherit z-10">
+  //                   {row.strCategory}
+  //                 </td>
+  //                 {lsDates.map((d) => (
+  //                   <td key={d} className="border-r border-gray-200 px-2 py-2 text-right tabular-nums text-gray-700 whitespace-nowrap">
+  //                     {row.dictDateAmt[d] ? fmtAmt(row.dictDateAmt[d]) : <span className="text-gray-300">—</span>}
+  //                   </td>
+  //                 ))}
+  //                 <td className="border-r border-gray-300 px-3 py-2 text-right font-bold text-emerald-800 bg-emerald-50 tabular-nums whitespace-nowrap">
+  //                   {fmtAmt(fRowTotal)}
+  //                 </td>
+  //               </tr>
+  //             );
+  //           })}
+  //         </tbody>
+  //         <tfoot>
+  //           <tr className="bg-gray-100">
+  //             <td className="border-l border-r border-gray-300 px-3 py-2.5 font-bold text-gray-800 sticky left-0 bg-gray-100 z-10 whitespace-nowrap">
+  //               Daily Total
+  //             </td>
+  //             {lsDates.map((d) => (
+  //               <td key={d} className="border-r border-gray-300 px-2 py-2.5 text-right font-bold tabular-nums text-gray-900 whitespace-nowrap">
+  //                 {fmtAmt(dictColTotals[d])}
+  //               </td>
+  //             ))}
+  //             <td className="border-r border-gray-300 px-3 py-2.5 text-right font-bold text-white bg-[#00703C] tabular-nums whitespace-nowrap">
+  //               {fmtAmt(fGrandTotal)}
+  //             </td>
+  //           </tr>
+  //         </tfoot>
+  //       </table>
+  //     </div>
+  //   );
+  // }
 
   return (
     <>

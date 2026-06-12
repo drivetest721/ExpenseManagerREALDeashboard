@@ -16,26 +16,32 @@ from datetime import datetime
 
 class ApprovalChainNodeSchema(BaseModel):
     """
-    Schema for a single node in the approval chain.
-    Represents one reviewer in the chain.
+    Enhanced schema for a single step in the embedded approval chain.
+    Includes detailed tracking of receivedAt, submittedAt, and bIsReApply.
+
+    Note: step 0 is always the initiator
     """
-    level: int = Field(..., description="Position in chain (1 = first reviewer)")
-    user_id: str = Field(..., description="Reviewer user ID")
-    name: str = Field(..., description="Reviewer full name")
-    email: str = Field(..., description="Reviewer email")
-    role: str = Field(..., description="Reviewer role (manager, owner, ca, etc.)")
-    priority: int = Field(..., description="Priority value from manager hierarchy")
-    approval_type: str = Field(..., description="mandatory | optional")
-    status: str = Field(default="PENDING", description="PENDING | VIEWED | APPROVED | REJECTED | QUERY_RAISED")
-    
-    # Action tracking
-    received_date: Optional[str] = Field(None, description="ISO datetime when reviewer first viewed after assignment")
-    response_date: Optional[str] = Field(None, description="ISO datetime when reviewer took action (approve/reject/query)")
-    action: Optional[str] = Field(None, description="Action taken: APPROVED | REJECTED | QUERY | ASK")
-    
-    # Additional metadata
-    approved_at: Optional[str] = Field(None, description="ISO datetime when approved (legacy)")
-    approved_by: Optional[str] = Field(None, description="User ID who approved (legacy)")
+    step: int = Field(..., description="Step index (0=initiator, 1+=reviewers)")
+    user_id: str = Field(..., description="User ID for this step")
+    username: str = Field(..., description="User full name for display")
+    role: str = Field(..., description="User role (initiator, manager, owner, ca)")
+    current_status: str = Field(..., description="Step status: PENDING | IN_REVIEW | QUERY | ASK | APPROVED | REJECTED | PAID | SUBMITTED | REAPPLIED | ACKNOWLEDGED")
+    receivedAt: Optional[str] = Field(None, description="ISO datetime when user opened reimbursement after assignment")
+    submittedAt: Optional[str] = Field(None, description="ISO datetime when user took action")
+    bIsReApply: bool = Field(default=False, description="True if initiator resubmitted after query/ask (only for step 0)")
+
+    # DEPRECATED: Keep for backward compatibility with old data
+    level: Optional[int] = Field(None, description="DEPRECATED: Use step instead")
+    name: Optional[str] = Field(None, description="DEPRECATED: Use username instead")
+    email: Optional[str] = Field(None, description="DEPRECATED: User email")
+    priority: Optional[int] = Field(None, description="DEPRECATED: Priority value from manager hierarchy")
+    approval_type: Optional[str] = Field(None, description="DEPRECATED: mandatory | optional")
+    status: Optional[str] = Field(None, description="DEPRECATED: Use current_status instead")
+    received_date: Optional[str] = Field(None, description="DEPRECATED: Use receivedAt instead")
+    response_date: Optional[str] = Field(None, description="DEPRECATED: Use submittedAt instead")
+    action: Optional[str] = Field(None, description="DEPRECATED: Action taken")
+    approved_at: Optional[str] = Field(None, description="DEPRECATED")
+    approved_by: Optional[str] = Field(None, description="DEPRECATED")
 
 
 class ApprovalChainResponseSchema(BaseModel):

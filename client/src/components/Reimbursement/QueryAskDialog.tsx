@@ -1,5 +1,6 @@
 ﻿/**
- * QueryAskDialog — modal for approve / query / ask / reapply / CA actions.
+ * QueryAskDialog — modal for approve / query / ask / reapply / acknowledge / reject actions.
+ * UPDATED: Removed CA-specific actions (ca_query, ca_reapply), unified for all reviewer types.
  * Picks valid actions based on reimbursement status + caller's role.
  */
 import { useState, useMemo } from 'react';
@@ -9,8 +10,6 @@ import {
   queryReimbursementApi,
   askReimbursementApi,
   reapplyReimbursementApi,
-  caQueryReimbursementApi,
-  caReapplyReimbursementApi,
   acknowledgePaymentApi,
   rejectReimbursementApi,
 } from '../../utils/approvalApi';
@@ -23,8 +22,6 @@ type ActionType =
   | 'query'
   | 'ask'
   | 'reapply'
-  | 'ca_query'
-  | 'ca_reapply'
   | 'acknowledge'
   | 'reject';
 
@@ -39,6 +36,7 @@ interface QueryAskDialogProps {
   onDeleted?: () => void;
 }
 
+// UPDATED: Removed ca_query and ca_reapply actions (unified with query and reapply)
 const ACTION_META: Record<ActionType, { label: string; clsIdle: string; clsActive: string; needsMessage: boolean }> = {
   submit:      { label: 'Submit for Approval', clsIdle: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200', clsActive: 'bg-emerald-600 text-white', needsMessage: false },
   delete:      { label: 'Delete Draft',         clsIdle: 'bg-red-100 text-red-700 hover:bg-red-200',             clsActive: 'bg-red-600 text-white',     needsMessage: false },
@@ -46,8 +44,6 @@ const ACTION_META: Record<ActionType, { label: string; clsIdle: string; clsActiv
   query:       { label: 'Query',         clsIdle: 'bg-orange-100 text-orange-700 hover:bg-orange-200', clsActive: 'bg-orange-600 text-white', needsMessage: true },
   ask:         { label: 'Private Ask',  clsIdle: 'bg-purple-100 text-purple-700 hover:bg-purple-200', clsActive: 'bg-purple-600 text-white', needsMessage: true },
   reapply:     { label: 'Reapply',       clsIdle: 'bg-blue-100 text-blue-700 hover:bg-blue-200',     clsActive: 'bg-blue-600 text-white',   needsMessage: true },
-  ca_query:    { label: 'CA Query',      clsIdle: 'bg-orange-100 text-orange-700 hover:bg-orange-200', clsActive: 'bg-orange-600 text-white', needsMessage: true },
-  ca_reapply:  { label: 'Respond to CA', clsIdle: 'bg-blue-100 text-blue-700 hover:bg-blue-200',     clsActive: 'bg-blue-600 text-white',   needsMessage: true },
   acknowledge: { label: 'Acknowledge',   clsIdle: 'bg-green-100 text-green-700 hover:bg-green-200',   clsActive: 'bg-green-600 text-white',  needsMessage: false },
   reject:      { label: 'Reject',        clsIdle: 'bg-red-100 text-red-700 hover:bg-red-200',         clsActive: 'bg-red-600 text-white',    needsMessage: true },
 };
@@ -67,30 +63,32 @@ export default function QueryAskDialog({
   const [bIsLoading, setBIsLoading] = useState<boolean>(false);
   const [strError, setStrError] = useState<string>('');
 
-  // Determine which actions are available
+  // UPDATED: Determine which actions are available based on new 9-state workflow
   const lsAvailable = useMemo<ActionType[]>(() => {
     const lsActions: ActionType[] = [];
+
+    // Initiator actions
     if (bIsInitiator && strStatus === 'DRAFT') {
       lsActions.push('submit', 'delete');
     }
-    if (bIsCurrentReviewer && !bIsCA && ['SUBMITTED', 'IN_REVIEW', 'REAPPLIED'].includes(strStatus)) {
+
+    // Current reviewer actions (works for all types: manager, owner, CA)
+    if (bIsCurrentReviewer && ['SUBMITTED', 'IN_REVIEW', 'REAPPLIED'].includes(strStatus)) {
       lsActions.push('approve', 'query', 'ask');
-    }
-    if (bIsCurrentReviewer && bIsCA && ['OWNER_APPROVED', 'CA_PENDING', 'CA_REAPPLIED'].includes(strStatus)) {
-      // OWNER_APPROVED = CA is current_reviewer but not yet CA_PENDING (backward-compat).
-      // Pay handled by separate dialog; expose CA query + ask + reject here.
-      lsActions.push('ca_query', 'ask');
+      // CA and other final reviewers can also reject
       lsActions.push('reject');
     }
-    if (bIsInitiator && ['QUERY_RAISED', 'PRIVATE_ASK'].includes(strStatus)) {
+
+    // Initiator reapply (unified for all query/ask types)
+    if (bIsInitiator && ['QUERY', 'ASK', 'QUERY_RAISED', 'PRIVATE_ASK', 'CA_QUERY'].includes(strStatus)) {
       lsActions.push('reapply');
     }
-    if (bIsInitiator && strStatus === 'CA_QUERY') {
-      lsActions.push('ca_reapply');
-    }
+
+    // Initiator acknowledge payment
     if (bIsInitiator && strStatus === 'PAID') {
       lsActions.push('acknowledge');
     }
+
     return lsActions;
   }, [strStatus, bIsInitiator, bIsCurrentReviewer, bIsCA]);
 
@@ -107,6 +105,7 @@ export default function QueryAskDialog({
     setBIsLoading(true);
     setStrError('');
     try {
+      // UPDATED: Removed ca_query and ca_reapply (now unified with query/reapply)
       const objMap: Record<ActionType, () => Promise<any>> = {
         submit:      () => submitReimbursementApi(strReimbursementId),
         delete:      () => deleteReimbursementApi(strReimbursementId),
@@ -114,8 +113,6 @@ export default function QueryAskDialog({
         query:       () => queryReimbursementApi(strReimbursementId, strMessage),
         ask:         () => askReimbursementApi(strReimbursementId, strMessage),
         reapply:     () => reapplyReimbursementApi(strReimbursementId, strMessage),
-        ca_query:    () => caQueryReimbursementApi(strReimbursementId, strMessage),
-        ca_reapply:  () => caReapplyReimbursementApi(strReimbursementId, strMessage),
         acknowledge: () => acknowledgePaymentApi(strReimbursementId, strMessage || undefined),
         reject:      () => rejectReimbursementApi(strReimbursementId, strMessage),
       };

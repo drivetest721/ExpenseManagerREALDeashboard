@@ -70,7 +70,7 @@ class ApprovalChainEngine:
         if not departments:
             return "employee"
         
-        primary_dept = next((d for d in departments if d.get("is_primary")), departments[0])
+        primary_dept = departments[0]
         return primary_dept.get("role", "employee")
     
     def _is_owner(self, user_doc: Dict) -> bool:
@@ -81,7 +81,10 @@ class ApprovalChainEngine:
     def _is_accountant(self, user_doc: Dict) -> bool:
         """Check if user is Accountant/CA."""
         departments = user_doc.get("departments", [])
-        return any(d.get("role") == "ca" for d in departments)
+        if departments and departments[0]:
+            return departments[0].get("role", "") == "ca"
+        
+        return False
     
     def _build_tree_recursive(self, user_id: str, level: int) -> Optional[ApprovalTreeNode]:
         """
@@ -126,7 +129,7 @@ class ApprovalChainEngine:
 
         # Get managers and sort by priority (lower number = higher priority)
         managers = user_doc.get("managers", [])
-        managers_sorted = sorted(managers, key=lambda m: m.get("priority", 999))
+        managers_sorted = [sorted(managers, key=lambda m: m.get("priority", 999))[0]] if managers else []
 
         # Build child nodes for each manager
         # NOTE: Change This Logic to Only take Lowest Priority Manager Not List Of Mangers. This is because we want a single chain of approval not multiple parallel branches. The leftmost branch will be the one with the highest priority managers.
@@ -274,7 +277,7 @@ class ApprovalChainEngine:
         self.path_stack = []
 
         # Mark initiator as visited (initiator never appears in their own chain)
-        self.visited.add(initiator_id)
+        # self.visited.add(initiator_id)
 
         try:
             # Fetch initiator
@@ -290,7 +293,11 @@ class ApprovalChainEngine:
 
             # Special case: If initiator has no managers and is not Owner, add Owner as fallback
             if not managers and not initiator_is_owner:
-                owner_doc = self.objUsers.find_one({"departments.role": "owner", "is_active": True})
+                owner_doc = self.objUsers.find_one({
+                    "departments.department_id":initiator_doc["departments"][0]["department_id"],
+                    "departments.role": "owner", 
+                    "is_active": True
+                })
                 if owner_doc:
                     managers = [{
                         "manager_id": str(owner_doc["_id"]),
@@ -299,32 +306,35 @@ class ApprovalChainEngine:
                     }]
 
             # Build tree with initiator as implicit root
-            root_children = []
-            #NOTE - Change This Logic to Only take Lowest Priority Manager Not List Of Mangers. This is because we want a single chain of approval not multiple parallel branches. The leftmost branch will be the one with the highest priority managers.
-            managers_sorted = sorted(managers, key=lambda m: m.get("priority", 999))
+            # root = []
+            
+            # NOTE - Change This Logic to Only take Lowest Priority Manager Not List Of Mangers. This is because we want a single chain of approval not multiple parallel branches. The leftmost branch will be the one with the highest priority managers.
+            # managers_sorted = sorted(managers, key=lambda m: m.get("priority", 999))[0]
 
-            for idx, mgr in enumerate(managers_sorted):
-                mgr_id = str(mgr.get("manager_id", ""))
-                if not mgr_id:
-                    continue
+            # for idx, mgr in enumerate(managers_sorted):
+            #     mgr_id = str(mgr.get("manager_id", ""))
+            #     if not mgr_id:
+            #         continue
 
-                child_node = self._build_tree_recursive(mgr_id, level=1)
-                if child_node:
-                    child_node.priority = mgr.get("priority", idx + 1)
-                    child_node.approval_type = mgr.get("approval_type", "mandatory")
-                    root_children.append(child_node)
+            root_node = self._build_tree_recursive(initiator_id, level=0)
+            # root.append(root_node)
+
+            # if child_node:
+            #     child_node.priority = mgr.get("priority", idx + 1)
+            #     child_node.approval_type = mgr.get("approval_type", "mandatory")
+            #     root_children.append(child_node)
 
             # Build tree dict
             tree = {
                 "initiator_id": initiator_id,
                 "initiator_name": initiator_doc.get("name", ""),
-                "branches": [child.to_dict() for child in root_children]
+                "branches": [root_node.to_dict()]
             }
 
             # Extract left-view chain (leftmost branch)
-            chain = []
-            if root_children:
-                chain = self._extract_left_view(root_children[0])
+            # chain = []
+            if root_node:
+                chain = self._extract_left_view(root_node)
 
             # Ensure Owner -> Accountant rule
             chain = self._append_owner_and_accountant(chain, initiator_id)

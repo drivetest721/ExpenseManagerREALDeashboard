@@ -110,7 +110,7 @@ async def triggerSLACheck(
     """
     try:
         objLogger.info(f"🔧 MANUAL SLA RUN requested by {dictCurrentUser.get('user_id')}")
-        dictSummary = runSLACheck()
+        dictSummary = await runSLACheck()
         return {"success": True, **dictSummary}
     except Exception as objErr:
         objLogger.error(f"❌ MANUAL SLA RUN ERROR: {objErr}")

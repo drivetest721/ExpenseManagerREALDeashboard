@@ -22,7 +22,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 strProjectRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, strProjectRoot)
-# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from env_config import objSettings
 from config.mongodb_config import ensure_indexes, ping_mongo
@@ -163,8 +162,8 @@ async def health_check():
     }
 
 # Lib Notification
-from middleware.jwt_middleware import _decodeToken
-from Notification import create_sse_router
+# from middleware.jwt_middleware import _decodeToken
+# from Notification import create_sse_router
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Router includes (one block added per phase)
@@ -178,7 +177,7 @@ from routes.payment_method_routes import router as objPaymentMethodRouter
 from routes.attachment_routes import router as objAttachmentRouter
 from routes.reimbursement_routes import router as objReimbursementRouter
 from routes.approval_routes import router as objApprovalRouter
-# from routes.notification_sse_routes import router as objNotificationSSERouter
+from routes.notification_sse_routes import router as objNotificationSSERouter
 from routes.notification_routes import router as objNotificationRouter
 from routes.sla_routes import router as objSLARouter
 from routes.holiday_routes import router as objHolidayRouter
@@ -193,8 +192,8 @@ objApp.include_router(objPaymentMethodRouter)
 objApp.include_router(objAttachmentRouter)
 objApp.include_router(objReimbursementRouter)
 objApp.include_router(objApprovalRouter)
-# objApp.include_router(objNotificationSSERouter)  # SSE MUST be registered before notification_routes
-objApp.include_router(create_sse_router(fnDecodeToken=_decodeToken))
+objApp.include_router(objNotificationSSERouter)  # SSE MUST be registered before notification_routes
+# objApp.include_router(create_sse_router(fnDecodeToken=_decodeToken))
 objApp.include_router(objNotificationRouter)
 objApp.include_router(objSLARouter)
 objApp.include_router(objHolidayRouter)
