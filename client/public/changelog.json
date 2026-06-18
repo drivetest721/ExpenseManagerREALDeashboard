@@ -6,10 +6,10 @@
       "isLatest": true,
       "tag": "Latest",
       "changes": [
-        "Feature: Department management with role-based access",
-        "Feature: Holiday calendar integration",
-        "Feature: Payment method management (UPI/QR Code)",
-        "UI: Improved mobile responsiveness",
+        "Improvements: Department management with role-based access",
+        "Improvements: Holiday calendar integration",
+        "Improvements: Payment method management (UPI/QR Code)",
+        "Improvements: Improved mobile responsiveness",
         "Fix: Corrected timezone handling in date fields"
       ]
     },
@@ -19,11 +19,11 @@
       "isLatest": false,
       "tag": null,
       "changes": [
-        "Feature: Reimbursements Application & Approval Cycle",
-        "Feature: Approve / Reject / Query / Ask Status For Current State of Reimbursements",
-        "Feature: Activity logs for reimbursement tracking",
-        "Feature: Team & Personal Reimbursements",
-        "UI: Enhanced expense table with inline editing"
+        "Improvements: Reimbursements Application & Approval Cycle",
+        "Improvements: Approve / Reject / Query / Ask Status For Current State of Reimbursements",
+        "Improvements: Activity logs for reimbursement tracking",
+        "Improvements: Team & Personal Reimbursements",
+        "Improvements: Enhanced expense table with inline editing"
       ]
     }
   ]

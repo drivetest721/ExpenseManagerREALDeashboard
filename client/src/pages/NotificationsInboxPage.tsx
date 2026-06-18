@@ -115,9 +115,11 @@ export default function NotificationsInboxPage() {
   }, [bGroup, lsByTab]);
 
   return (
-    <div className='min-h-screen flex flex-col'>
-      <AppHeader />
-      <main className="flex-1 mt-8">
+    <div className="h-screen flex flex-col bg-gray-50">
+        <div className="shrink-0">
+        <AppHeader />
+      </div>
+      <main className="flex-1 overflow-y-auto px-4 py-8">
         <div className="max-w-6xl mx-auto bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 
           {/* ── Page header ── */}
@@ -237,7 +239,9 @@ export default function NotificationsInboxPage() {
           </div>
         </div>
       </main>
-      <Footer />
+       <div className="shrink-0">
+        <Footer />
+      </div>
 
       {objOpen && (
         <NotificationDetailModal

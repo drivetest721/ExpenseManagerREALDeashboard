@@ -78,9 +78,11 @@ export default function SettingsPage() {
   const createCategoryHandlerRef = useRef<(() => void) | undefined>(undefined);
 
   return (
-    <>
-      <AppHeader />
-      <main className="min-h-screen bg-gray-50">
+   <div className="h-screen flex flex-col bg-gray-50">
+        <div className="shrink-0">
+    <AppHeader />
+  </div>
+      <main className="flex-1 overflow-y-auto px-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-4">
           {/* Page heading */}
           <div className="flex items-center justify-between gap-3">
@@ -130,7 +132,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => createCategoryHandlerRef.current?.()}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#00703C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#005a30] transition-all duration-200 shadow-sm"
+                    className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-[#00703C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#005a30] transition-all duration-200 shadow-sm"
                   >
                     <Plus className="w-4 h-4" /> New Category
                   </button>
@@ -240,7 +242,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </main>
-      <Footer />
-    </>
+       <div className="shrink-0">
+        <Footer />
+      </div>
+    </div>
   );
 }

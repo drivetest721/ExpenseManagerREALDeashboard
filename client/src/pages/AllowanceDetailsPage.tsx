@@ -158,9 +158,11 @@ export default function AllowanceDetailsPage() {
   }, [lsCategories]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <AppHeader />
-      <main className="flex-1 mt-8">
+    <div className="h-screen flex flex-col bg-gray-50">
+        <div className="shrink-0">
+    <AppHeader />
+  </div>
+      <main className="flex-1 overflow-y-auto px-4 py-8">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4 cursor-default">
             Allowance Details
@@ -347,7 +349,9 @@ export default function AllowanceDetailsPage() {
           </div>
         </div>
       </main>
-      <Footer />
+       <div className="shrink-0">
+    <Footer />
+  </div>
     </div>
   );
 }

@@ -241,7 +241,7 @@ export default function DataTable<T extends { id?: string; [key: string]: any }>
                     setPageSize_internal(Number(e.target.value));
                     setPageIndex(0);
                   }}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00703C]/30 transition-colors"
+                  className=" cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00703C]/30 transition-colors"
                 >
                   {pageSizeOptions.map((size) => (
                     <option key={size} value={size}>

@@ -214,9 +214,11 @@ export default function ProfilePage() {
   }
 
   return (
-    <>
-      <AppHeader />
-      <main className="min-h-screen bg-gray-50 py-6 px-4">
+    <div className="h-screen flex flex-col bg-gray-50">
+        <div className="shrink-0">
+    <AppHeader />
+  </div>
+      <main className="flex-1 overflow-y-auto px-4 py-8">
         <div className="max-w-5xl mx-auto">
 
           {/* ── Page title ── */}
@@ -648,7 +650,9 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
-      <Footer />
-    </>
+       <div className="shrink-0">
+    <Footer />
+  </div>
+    </div>
   );
 }

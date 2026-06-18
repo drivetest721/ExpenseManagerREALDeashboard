@@ -709,9 +709,11 @@ function renderReimbTable(
   // }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <AppHeader />
-      <main className="flex-1 mt-8">
+    <div className="h-screen flex flex-col bg-gray-50">
+        <div className="shrink-0">
+          <AppHeader />
+        </div>
+      <main className="flex-1 overflow-y-auto px-4 py-8">
         <div className="max-w-[1500px] mx-auto">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div className="min-w-0">
@@ -786,7 +788,7 @@ function renderReimbTable(
                         <h3 className="text-lg font-bold text-gray-900 pr-4">Personal Reimbursement</h3>
                       <InfoButton
                       text="Your own reimbursements grouped by status: drafts you can edit, items awaiting approval, and completed records."
-                      strPlacement="bottom"
+                      strPlacement="right"
                       asDiv
                     />
                       </div>
@@ -871,7 +873,7 @@ function renderReimbTable(
                       </div>
                       <InfoButton
                         text="Reimbursements from your team: items needing your approval, items with other reviewers, and team history."
-                        strPlacement="bottom"
+                        strPlacement="right"
                         asDiv
                       />
                     </div>
@@ -1002,7 +1004,9 @@ function renderReimbTable(
           )}
         </div>
       </main>
-      <Footer />
+       <div className="shrink-0">
+        <Footer />
+      </div>
 
       {/* Modals */}
       {bShowNewModal && (

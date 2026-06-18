@@ -98,19 +98,21 @@ export default function AnalyticsPage() {
   ];
 
   return (
-    <>
-      <AppHeader />
-      <main className="min-h-screen bg-gray-50 pb-10">
+    <div className="h-screen flex flex-col bg-gray-50">
+        <div className="shrink-0">
+    <AppHeader />
+  </div>
+      <main className="flex-1 overflow-y-auto px-4 py-8">
         {/* Hero header */}
         <div className="bg-gradient-to-br from-[#00703C] via-[#005a30] to-[#003d20] text-white shadow-lg">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="w-5 h-5 text-white/80" />
-                  <span className="text-xs uppercase tracking-widest text-white/70 cursor-default">Owner / CA Dashboard</span>
-                </div>
+                  {/* <span className="text-xs uppercase tracking-widest text-white/70 cursor-default">OwnerDashboard</span> */}
+                <TrendingUp className="w-7 h-7 text-white/80" />
                 <h1 className="text-2xl sm:text-3xl font-semibold cursor-default">Analytics Overview</h1>
+                </div>
                 <p className="text-sm text-white/80 mt-1 cursor-default">Real-time spend, approval pipeline and team productivity metrics.</p>
               </div>
               <button onClick={() => setNReloadKey(k => k + 1)} disabled={bIsLoading}
@@ -277,7 +279,9 @@ export default function AnalyticsPage() {
           )}
         </div>
       </main>
-      <Footer />
-    </>
+       <div className="shrink-0">
+    <Footer />
+  </div>
+    </div>
   );
 }

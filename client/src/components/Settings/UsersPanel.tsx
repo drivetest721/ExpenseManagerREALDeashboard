@@ -367,6 +367,9 @@ export default function UsersPanel() {
       if (objForm.password) changes.push(`Password: — → updated`);
       if (objForm.departments.length > 0) changes.push(`Departments: — → ${buildUserDepartmentsLabel(objForm.departments)}`);
       if (objForm.managers.length > 0) changes.push(`Managers: — → ${buildUserManagersLabel(objForm.managers)}`);
+      if (objForm.default_allowances.length > 0) {
+        changes.push(`Default Allowances: — → ${objForm.default_allowances.length} selected`);
+      }
       return changes;
     }
 
@@ -385,6 +388,20 @@ export default function UsersPanel() {
 
     if (original.is_active !== objForm.is_active) {
       changes.push(`Status: ${original.is_active ? 'Active' : 'Inactive'} → ${objForm.is_active ? 'Active' : 'Inactive'}`);
+    }
+
+    // Check for default_allowances changes
+    const origAllowanceIds = new Set(original.default_allowances.map(a => a.category_id));
+    const newAllowanceIds = new Set(objForm.default_allowances.map(a => a.category_id));
+
+    // Check if sets are different
+    const allowancesChanged =
+      origAllowanceIds.size !== newAllowanceIds.size ||
+      Array.from(origAllowanceIds).some(id => !newAllowanceIds.has(id)) ||
+      Array.from(newAllowanceIds).some(id => !origAllowanceIds.has(id));
+
+    if (allowancesChanged) {
+      changes.push(`Default Allowances: ${original.default_allowances.length} → ${objForm.default_allowances.length} selected`);
     }
 
     return changes;
@@ -915,7 +932,7 @@ export default function UsersPanel() {
         <button
           type="button"
           onClick={() => setBDepartmentFilterOpen((prev) => !prev)}
-          className="h-10 px-3 border border-gray-300 rounded-lg text-sm flex items-center gap-2 bg-white hover:bg-gray-50 whitespace-nowrap"
+          className="h-10 px-3 border border-gray-300 rounded-lg text-sm flex items-center gap-2 bg-white hover:bg-gray-50 whitespace-nowrap cursor-pointer"
         >
           <Filter className="w-4 h-4 text-gray-500" />
           <span>{filterDepartments.size > 0 ? `Dept: ${filterDepartments.size}` : 'All Departments'}</span>
@@ -948,7 +965,7 @@ export default function UsersPanel() {
         <button
           type="button"
           onClick={() => setBRoleFilterOpen((prev) => !prev)}
-          className="h-10 px-3 border border-gray-300 rounded-lg text-sm flex items-center gap-2 bg-white hover:bg-gray-50 whitespace-nowrap"
+          className="h-10 px-3 border border-gray-300 rounded-lg text-sm flex items-center gap-2 bg-white hover:bg-gray-50 whitespace-nowrap cursor-pointer"
         >
           <Filter className="w-4 h-4 text-gray-500" />
           <span>{filterRoles.size > 0 ? `Role: ${filterRoles.size}` : 'All Roles'}</span>
@@ -993,7 +1010,7 @@ export default function UsersPanel() {
       {/* New User button */}
       <button
         onClick={openCreate}
-        className="h-10 px-4 inline-flex items-center gap-2 rounded-lg bg-[#00703C] text-white text-sm font-semibold hover:bg-[#005a30] whitespace-nowrap"
+        className="h-10 px-4 inline-flex items-center gap-2 rounded-lg bg-[#00703C] text-white text-sm font-semibold hover:bg-[#005a30] whitespace-nowrap cursor-pointer"
       >
         <Plus className="w-4 h-4" /> New User
       </button>
@@ -1078,7 +1095,7 @@ export default function UsersPanel() {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); toggleActive(user); }}
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'} cursor-pointer`}
                       >
                         {user.is_active ? 'Active' : 'Inactive'}
                       </button>

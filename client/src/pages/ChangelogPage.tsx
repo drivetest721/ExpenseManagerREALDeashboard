@@ -46,15 +46,15 @@ export default function ChangelogPage() {
   const latestVersion = data?.versions.find(v => v.isLatest);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col">
       <AppHeader />
       
       {/* Header Section with Blue Background */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-12 px-4">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-8 px-4">
         <div className="max-w-4xl mx-auto">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-white/90 hover:text-white mb-6 transition-colors"
+            className="flex items-center gap-2 text-white/90 hover:text-white mb-6 transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
             <span className="text-sm font-medium">Back</span>
@@ -63,7 +63,7 @@ export default function ChangelogPage() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Version Change Log</h1>
-              <p className="text-blue-100 text-sm">Track all updates and improvements to Job Lifecycle</p>
+              <p className="text-blue-100 text-sm">Track all updates and improvements to Expense Manager</p>
             </div>
             
             {latestVersion && (
@@ -78,7 +78,7 @@ export default function ChangelogPage() {
       </div>
 
       {/* Content Section */}
-      <div className="flex-1 py-8 px-4">
+      <div className="flex-1 overflow-y-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {loading && (
             <div className="text-center py-12">

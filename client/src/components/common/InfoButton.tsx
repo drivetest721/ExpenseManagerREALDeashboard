@@ -23,7 +23,7 @@ export function InfoButton({
 }: InfoButtonProps) {
   const [bOpen, setBOpen] = useState<boolean>(false);
   const refWrap = useRef<HTMLSpanElement | null>(null);
-  strPlacement = 'right'; // Force right placement for now, as other placements may require more styling adjustments.
+  // strPlacement = 'right'; // Force right placement for now, as other placements may require more styling adjustments.
   useEffect(() => {
     function fnClick(objEvt: MouseEvent) {
       if (refWrap.current && !refWrap.current.contains(objEvt.target as Node)) {

@@ -123,8 +123,8 @@ export default function SignupPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <>
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1 flex items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-md space-y-6">
 
           {/* Brand mark with favicon logo */}
@@ -181,8 +181,8 @@ export default function SignupPage() {
           </div>
         </div>
       </main>
-      <Footer />
-    </>
+        <Footer />
+    </div>
   );
 }
 

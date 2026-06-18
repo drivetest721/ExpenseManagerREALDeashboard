@@ -31,41 +31,36 @@ export function Footer() {
   }, []);
 
   return (
-   <footer className="mt-auto bg-gray-50">
-    <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between text-large text-gray-900">
-      
-      {/* Left */}
-      <Link
-        to="/changelog"
-        className="flex items-center gap-1 text-black hover:text-black"
+<footer className="mt-auto bg-gray-50 border-t border-gray-200">
+  <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
+    
+    <Link
+      to="/changelog"
+      className="flex items-center gap-1 text-black hover:text-black text-lg"
+    >
+      <span className="font-semibold">
+        View Changelog &nbsp;
+      </span>
+
+      <span
+        className="
+          text-blue-600
+          border-b
+          border-dotted
+          border-blue-600
+          font-semibold
+          hover:text-blue-700
+        "
       >
-        <span className="font-semibold">
-          View Changelog &nbsp;
-        </span>
+        {currentVersion}
+      </span>
+    </Link>
 
-        <span
-          className="
-            text-blue-600
-            border-b
-            border-dotted
-            border-blue-600
-            leading-none
-            hover:text-blue-700
-          "
-        >
-          {currentVersion}
-        </span>
-      </Link>
-
-      {/* Center */}
-      <div className="absolute left-1/2 -translate-x-1/2 text-center">
-        © {new Date().getFullYear()} River Edge Analytics Pvt. Ltd. — Real Dashboard
-      </div>
-
-      {/* Right spacer */}
-      <div className="w-32" />
+    <div className="text-center sm:text-right text-gray-600 text-lg">
+      © {new Date().getFullYear()} River Edge Analytics Pvt. Ltd. — Expense Manager
     </div>
-  </footer>
+  </div>
+</footer>
   );
 }
 
