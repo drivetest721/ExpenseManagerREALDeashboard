@@ -97,7 +97,22 @@ async def listCategories(
     """
     try:
         objCats = get_collection("reimbursement_categories")
-        query = {} if include_inactive else {"is_active": True}
+        objUser = get_collection("users")
+
+        lsCurrentUserIds = objUser.find_one({"_id": ObjectId(dictCurrentUser["user_id"])}, {"default_allowances":1})
+        if lsCurrentUserIds is None or len(lsCurrentUserIds) == 0 :
+            raise HTTPException(status_code=500, detail="No Categories Found for your role")
+        category_ids = [
+            ObjectId(item["category_id"])
+            for item in lsCurrentUserIds.get("default_allowances", [])
+        ]
+        query = {
+            "_id": {"$in": category_ids}
+        }
+
+        if not include_inactive:
+            query["is_active"] = True
+        
         lsDocs = list(objCats.find(query))
         return [_docToSchema(d) for d in lsDocs]
 

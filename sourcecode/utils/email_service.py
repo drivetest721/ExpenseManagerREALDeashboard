@@ -27,18 +27,20 @@ from env_config import objSettings
 objLogger = logging.getLogger(__name__)
 
 
-async def sendEmail(strToEmail: str, strSubject: str, strBody: str) -> bool:
+async def sendEmail(strToEmail: str, strSubject: str, strBody: str, bIsHtml: bool = False) -> bool:
     """
-    Purpose : Send a plain-text email via the MAIL_* SMTP credentials in .env.
+    Purpose : Send an email (plain-text or HTML) via the MAIL_* SMTP credentials in .env.
               Falls back to log-only when MAIL_SERVER is empty (dev mode).
 
     Inputs  :   (1) strToEmail : Recipient address (str).
                 (2) strSubject : Email subject (str).
-                (3) strBody    : Plain-text body (str).
+                (3) strBody    : Email body (str) - can be plain text or HTML.
+                (4) bIsHtml    : Whether the body is HTML (bool, default False).
 
     Output  : True on success. Raises RuntimeError on transport failure.
 
     Example : await sendEmail("a@b.com", "Verification Code", "Your code: 123456")
+              await sendEmail("a@b.com", "Welcome", "<h1>Hello!</h1>", bIsHtml=True)
     """
     # ── Resolve effective mail settings ──────────────────────────────────────
     strServer   = objSettings.MAIL_SERVER   or objSettings.SMTP_HOST
@@ -65,7 +67,12 @@ async def sendEmail(strToEmail: str, strSubject: str, strBody: str) -> bool:
     objMessage["From"]    = strFromHeader
     objMessage["To"]      = strToEmail
     objMessage["Subject"] = strSubject
-    objMessage.set_content(strBody)
+
+    # Set content based on type
+    if bIsHtml:
+        objMessage.set_content(strBody, subtype='html')
+    else:
+        objMessage.set_content(strBody)
 
     objLogger.info(
         f"📤 Sending email | server={strServer}:{iPort} "

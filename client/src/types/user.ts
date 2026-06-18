@@ -41,6 +41,7 @@ export interface UserCreateRequest {
   password?: string; // Only for creation
   departments: DepartmentEntry[];
   managers: ManagerEntry[];
+  default_allowances?: CategoryAllowanceEntry[];
 }
 
 export interface UserUpdateRequest {

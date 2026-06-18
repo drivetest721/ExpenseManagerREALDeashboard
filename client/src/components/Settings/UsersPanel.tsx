@@ -21,6 +21,7 @@ const PAGE_SIZE = 10;
 
 interface FormDeptRow {
   department_id: string;
+  department_name?:string;
   role: UserRole;
   is_primary: boolean;
 }
@@ -69,6 +70,7 @@ function buildUserForm(u: User): FormState {
     is_active: u.is_active,
     departments: u.departments.map((d) => ({
       department_id: d.department_id,
+      department_name: d.department_name,
       role: d.role,
       is_primary: d.is_primary,
     })),
@@ -82,8 +84,10 @@ function buildUserForm(u: User): FormState {
 }
 
 function buildUserDepartmentsLabel(rows: FormDeptRow[]) {
+  console.log(rows)
+
   if (rows.length === 0) return 'None';
-  return rows.map((row) => `${row.department_id || '—'} / ${row.role}`).join(', ');
+  return rows.map((row) => `${row.department_name || row.department_id || '—'} / ${row.role}`).join(', ');
 }
 
 function buildUserManagersLabel(rows: FormManagerRow[]) {
@@ -168,7 +172,7 @@ export default function UsersPanel() {
       setObjForm({
         ...EMPTY_FORM,
         employee_id: nextEmployeeId,
-        departments: [{ department_id: '', role: 'employee', is_primary: true }],
+        departments: [{ department_id: '', department_name: undefined, role: 'employee', is_primary: true }],
         managers: [],
       });
       setObjOriginalForm(null);
@@ -210,7 +214,7 @@ export default function UsersPanel() {
   function addFormDeptRow() {
     setObjForm((prev) => ({
       ...prev,
-      departments: [...prev.departments, { department_id: '', role: 'employee', is_primary: false }],
+      departments: [...prev.departments, { department_id: '', department_name: undefined, role: 'employee', is_primary: false }],
     }));
   }
 
@@ -251,15 +255,17 @@ export default function UsersPanel() {
   }
 
   function getDepartmentRoleOptions(deptId: string) {
-    if (!deptId) return ALL_ROLES;
-    const roles = new Set<UserRole>();
-    lsUsers.forEach((user) => {
-      user.departments.forEach((d) => {
-        if (d.department_id === deptId) roles.add(d.role);
-      });
-    });
-    const arr = Array.from(roles) as UserRole[];
-    return arr.length > 0 ? arr : ALL_ROLES;
+    return ALL_ROLES;
+    // console.log(deptId);
+    // const roles = new Set<UserRole>();
+    // lsUsers.forEach((user) => {
+    //   user.departments.forEach((d) => {
+    //     if (d.department_id === deptId) roles.add(d.role);
+    //   });
+    // });
+    // console.log(roles)
+    // const arr = Array.from(roles) as UserRole[];
+    // return arr.length > 0 ? arr : ALL_ROLES;
   }
 
   const lsManagerCandidates = useMemo(() => {
@@ -331,6 +337,7 @@ export default function UsersPanel() {
 
   function buildChangeSummary(): string[] {
     const original = objOriginalForm;
+    console.log(objForm)
     if (!original) {
       const changes: string[] = [];
       if (objForm.name) changes.push(`Name: — → ${objForm.name}`);
@@ -423,6 +430,7 @@ export default function UsersPanel() {
       const allowancePayload = objForm.default_allowances.map((item) => ({ category_id: item.category_id, sub_category: item.sub_category }));
 
       if (bCreating) {
+        console.log(departmentRows)
         const created = await createUserApi({
           employee_id: objForm.employee_id,
           name: objForm.name,
@@ -435,14 +443,14 @@ export default function UsersPanel() {
             priority: m.priority,
             approval_type: m.approval_type,
           })),
+          default_allowances: allowancePayload,
         });
 
+        // Update managers if needed (for manager names resolution)
         if (managerPayload.length > 0) {
           await updateManagersApi(created.user_id, { managers: managerPayload });
         }
-        if (allowancePayload.length > 0) {
-          await updateCategoriesApi(created.user_id, { default_allowances: allowancePayload });
-        }
+        // No need to update categories separately - they're already set during creation
       } else if (expandedUserId) {
         await updateUserApi(expandedUserId, {
           name: objForm.name,
@@ -615,25 +623,33 @@ export default function UsersPanel() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h5 className="text-sm font-semibold text-gray-900">Departments</h5>
-                  <button
+                  {/* <button
                     type="button"
                     onClick={addFormDeptRow}
                     className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
                     <Plus className="w-3 h-3" /> Add Department
-                  </button>
+                  </button> */}
                 </div>
                 <div className="space-y-3 max-h-72 overflow-y-auto">
                   {objForm.departments.map((deptRow, idx) => {
                     const options = getAvailableDepartmentIds(idx);
                     const roleOptions = getDepartmentRoleOptions(deptRow.department_id);
+                    // console.log(options, "and", roleOptions)
                     return (
                       <div key={`${deptRow.department_id}-${idx}`} className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_auto] gap-3 items-end bg-white border border-gray-200 rounded p-3">
                         <div>
                           <label className="text-xs font-semibold text-gray-600">Department</label>
                           <select
                             value={deptRow.department_id}
-                            onChange={(e) => updateFormDept(idx, { department_id: e.target.value, role: deptRow.role })}
+                            onChange={(e) => {
+                              const selectedDept = lsDepts.find(d => d.department_id === e.target.value);
+                              updateFormDept(idx, {
+                                department_id: e.target.value,
+                                department_name: selectedDept?.department_name,
+                                role: deptRow.role
+                              });
+                            }}
                             className="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm"
                           >
                             <option value="">Select department</option>

@@ -632,7 +632,7 @@ async def listMyReimbursements(
         if strBucket == "draft":
             dictFilter["status"] = "DRAFT"
         elif strBucket == "pending":
-            dictFilter["status"] = {"$in": ["SUBMITTED", "IN_REVIEW", "QUERY_RAISED", "PRIVATE_ASK", "REAPPLIED", "OWNER_APPROVED", "CA_PENDING", "CA_QUERY", "CA_REAPPLIED", "PAID"]}
+            dictFilter["status"] = {"$in": ["SUBMITTED", "IN_REVIEW", "QUERY_RAISED","QUERY", "PRIVATE_ASK", "ASK", "REAPPLIED", "OWNER_APPROVED", "CA_PENDING", "CA_QUERY", "CA_REAPPLIED", "PAID"]}
         elif strBucket == "history":
             dictFilter["status"] = {"$in": ["PAYMENT_ACKNOWLEDGED","ACKNOWLEDGED", "REJECTED", "AUTO_REJECTED", "CLOSED"]}
 

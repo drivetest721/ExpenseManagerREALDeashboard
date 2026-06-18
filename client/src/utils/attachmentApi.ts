@@ -122,5 +122,6 @@ export const fetchAttachmentBlobApi = async (
  * Admin-only deletion.
  */
 export const deleteAttachmentApi = async (strId: string): Promise<void> => {
+  console.log(strId)
   await apiClient.delete(`/api/attachments/${strId}`);
 };

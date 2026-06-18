@@ -21,6 +21,11 @@ from env_config import objSettings
 from utils.business_day_utils import getBusinessDayDelta
 # from services.notificationLibService import objNotifService
 from utils.email_service import sendEmail
+from utils.email_template_renderer import (
+    render_sla_auto_rejection_initiator,
+    render_sla_auto_rejection_reviewer,
+    render_sla_reminder
+)
 
 objLogger = logging.getLogger(__name__)
 
@@ -168,25 +173,74 @@ async def runSLACheck() -> dict:
                     #     "visibility": "public", "created_at": dtNowIso,
                     # })
                     
-                    # Notify initiator
+                    # Gather data for email templates
                     objUsers = get_collection("users")
-                    dictInitiator = objUsers.find_one({"_id": ObjectId(strInitiatorId)}, {"email": 1})
-                    dictReviewer = objUsers.find_one({"_id": ObjectId(strCurrentReviewerId)}, {"email": 1, "name": 1}) if strCurrentReviewerId else None
+                    dictInitiator = objUsers.find_one(
+                        {"_id": ObjectId(strInitiatorId)},
+                        {"email": 1, "name": 1, "departments": 1}
+                    )
+                    dictReviewer = objUsers.find_one(
+                        {"_id": ObjectId(strCurrentReviewerId)},
+                        {"email": 1, "name": 1}
+                    ) if strCurrentReviewerId else None
+
+                    # Get initiator department and role
+                    lsDepts = dictInitiator.get("departments", [])
+                    dictPrimaryDept = next((d for d in lsDepts if d.get("is_primary")), lsDepts[0] if lsDepts else {})
+                    strDepartment = dictPrimaryDept.get("department_name", "Unknown")
+                    strInitiatorRole = dictPrimaryDept.get("role", "employee")
+
+                    # Calculate total amount
+                    fTotalAmount = sum(item.get("amount", 0) for item in dictReimb.get("items", []))
+
+                    # Get approval chain
+                    lsApprovalChain = dictReimb.get("approval_chain", [])
+                    iCurrentStep = dictReimb.get("current_step", 0)
+
+                    # Render HTML email for initiator
+                    strInitiatorEmailBody = render_sla_auto_rejection_initiator(
+                        reimbursement_id=strReimbId,
+                        initiator_name=strInitiatorName,
+                        department=strDepartment,
+                        initiator_role=strInitiatorRole,
+                        amount=fTotalAmount,
+                        reviewer_name=dictReviewer.get("name", "Unknown") if dictReviewer else "N/A",
+                        event_type=strEventType,
+                        approval_chain=lsApprovalChain,
+                        current_step=iCurrentStep,
+                    )
+
+                    # Send email to initiator
                     await sendEmail(
                         strToEmail=dictInitiator.get("email", ""),
-                        strSubject="Your reimbursement is due to SLA breach",
-                        strBody=f"Dear {strInitiatorName},\n\nYour reimbursement (ref: {strReimbId[:8]}) was due to SLA breach because the {strEventType} SLA deadline was missed.\n\nPlease contact your administrator for details.\n\nBest,\nExpense Management System"
+                        strSubject="⚠️ Your Reimbursement Was Auto-Rejected Due to SLA Breach",
+                        strBody=strInitiatorEmailBody,
+                        bIsHtml=True
                     )
                     _insertOne(strInitiatorId, "AUTO_REJECTED", "Reimbursement auto-rejected",
                                f"Your reimbursement was auto-rejected because the {strEventType} SLA deadline was missed.",
                                strReimbId)
-                    
+
                     # Notify reviewer if applicable
-                    if strCurrentReviewerId and strCurrentReviewerId != strInitiatorId:
+                    if strCurrentReviewerId and strCurrentReviewerId != strInitiatorId and dictReviewer:
+                        # Render HTML email for reviewer
+                        strReviewerEmailBody = render_sla_auto_rejection_reviewer(
+                            reimbursement_id=strReimbId,
+                            initiator_name=strInitiatorName,
+                            department=strDepartment,
+                            initiator_role=strInitiatorRole,
+                            amount=fTotalAmount,
+                            reviewer_name=dictReviewer.get("name", "Unknown"),
+                            event_type=strEventType,
+                            approval_chain=lsApprovalChain,
+                            current_step=iCurrentStep,
+                        )
+
                         await sendEmail(
                             strToEmail=dictReviewer.get("email", ""),
-                            strSubject="SLA breach — reimbursement auto-rejected",
-                            strBody=f"Dear {dictReviewer.get('name', 'User')},\n\n{strInitiatorName}'s reimbursement was auto-rejected due to SLA timeout.\n\nBest,\nExpense Management System"
+                            strSubject="🚨 SLA Breach - Reimbursement Auto-Rejected",
+                            strBody=strReviewerEmailBody,
+                            bIsHtml=True
                         )
                         _insertOne(strCurrentReviewerId, "INFO", "SLA breach — reimbursement auto-rejected",
                                    f"{strInitiatorName}'s reimbursement was auto-rejected because the {strEventType} SLA deadline was missed.",
@@ -198,16 +252,67 @@ async def runSLACheck() -> dict:
                 # ── Reminder: 0–24 h left ──────────────────────────────────────
                 elif dtDiff <= 86400 and not dictEvent.get("reminder_sent", False):
                     iHoursLeft = max(1, int(dtDiff / 3600))
-                    if strEventType == _REVIEW_PENDING:
+
+                    # Gather data for email template
+                    objUsers = get_collection("users")
+                    dictInitiator = objUsers.find_one(
+                        {"_id": ObjectId(strInitiatorId)},
+                        {"email": 1, "name": 1, "departments": 1}
+                    )
+
+                    # Get initiator department and role
+                    lsDepts = dictInitiator.get("departments", []) if dictInitiator else []
+                    dictPrimaryDept = next((d for d in lsDepts if d.get("is_primary")), lsDepts[0] if lsDepts else {})
+                    strDepartment = dictPrimaryDept.get("department_name", "Unknown")
+                    strInitiatorRole = dictPrimaryDept.get("role", "employee")
+
+                    # Calculate total amount
+                    fTotalAmount = sum(item.get("amount", 0) for item in dictReimb.get("items", []))
+
+                    # Get approval chain
+                    lsApprovalChain = dictReimb.get("approval_chain", [])
+                    iCurrentStep = dictReimb.get("current_step", 0)
+
+                    if strEventType == _REVIEW_PENDING and strCurrentReviewerId:
+                        # Reminder for reviewer
+                        dictReviewer = objUsers.find_one(
+                            {"_id": ObjectId(strCurrentReviewerId)},
+                            {"email": 1, "name": 1}
+                        )
+
+                        if dictReviewer:
+                            strReviewerEmailBody = render_sla_reminder(
+                                reimbursement_id=strReimbId,
+                                initiator_name=strInitiatorName,
+                                department=strDepartment,
+                                initiator_role=strInitiatorRole,
+                                amount=fTotalAmount,
+                                reviewer_name=dictReviewer.get("name", "Unknown"),
+                                hours_left=iHoursLeft,
+                                due_at=strDueAt,
+                                approval_chain=lsApprovalChain,
+                                current_step=iCurrentStep,
+                                review_link=f"{objSettings.FRONTEND_URL}/reimbursements/{strReimbId}",
+                            )
+
+                            await sendEmail(
+                                strToEmail=dictReviewer.get("email", ""),
+                                strSubject=f"⏰ SLA Reminder: {iHoursLeft} Hours to Review Reimbursement",
+                                strBody=strReviewerEmailBody,
+                                bIsHtml=True
+                            )
+
                         _insertOne(strCurrentReviewerId, "SLA_REMINDER",
                                    "Urgent: Approval deadline approaching",
                                    f"{strInitiatorName}'s reimbursement requires your action within ~{iHoursLeft}h or it will be auto-rejected.",
                                    strReimbId)
                     else:
+                        # Reminder for initiator (query response)
                         _insertOne(strInitiatorId, "SLA_REMINDER",
                                    "Urgent: Query response deadline approaching",
                                    f"You must respond to the query on your reimbursement within ~{iHoursLeft}h or it will be auto-rejected.",
                                    strReimbId)
+
                     objSLA.update_one({"_id": dictEvent["_id"]}, {"$set": {"reminder_sent": True}})
                     iReminders += 1
                     objLogger.info(f"🔔 SLA REMINDER SENT for {strReimbId} ({iHoursLeft}h left)")

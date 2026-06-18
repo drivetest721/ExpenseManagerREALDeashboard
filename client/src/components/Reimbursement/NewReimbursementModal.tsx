@@ -8,7 +8,7 @@ import { X, Plus, Trash2, Paperclip, ChevronRight, Check } from 'lucide-react';
 import { InfoButton } from '../common/InfoButton';
 import { createDraftApi, submitReimbursementApi } from '../../utils/reimbursementApi';
 import { listCategoriesApi } from '../../utils/categoryApi';
-import { uploadAttachmentApi } from '../../utils/attachmentApi';
+import { uploadAttachmentApi, deleteAttachmentApi } from '../../utils/attachmentApi';
 import type { Category } from '../../types/category';
 import type { ReimbursementItem, FormType } from '../../types/reimbursement';
 
@@ -18,7 +18,7 @@ interface NewReimbursementModalProps {
 }
 
 interface DraftItem extends ReimbursementItem {
-  _attachmentNames: string[]; // local display only
+  _attachmentName?: string; // local display only - single attachment
 }
 
 type TabId = 'step1' | 'step2' | 'step3';
@@ -27,7 +27,7 @@ function emptyItem(): DraftItem {
   return {
     category_id: '', sub_category: '', amount: 0,
     expense_date: new Date().toISOString().slice(0, 10),
-    description: '', attachments: [], _attachmentNames: [],
+    description: '', attachments: [], _attachmentName: undefined,
   };
 }
 
@@ -56,22 +56,51 @@ export default function NewReimbursementModal({ onClose, onSuccess }: NewReimbur
   async function handleAttachment(iIdx: number, objFile: File) {
     setIUploadingIdx(iIdx); setStrError('');
     try {
+      // If there's already an attachment, delete it from backend first
+      const existingItem = lsItems[iIdx];
+      console.log(existingItem)
+      if (existingItem.attachments.length > 0) {
+        const oldAttachmentId = existingItem.attachments[0];
+        try {
+          await deleteAttachmentApi(oldAttachmentId);
+        } catch (deleteErr) {
+          console.warn('Failed to delete old attachment:', deleteErr);
+          // Continue even if delete fails
+        }
+      }
+
+      // Upload new attachment
       const objResp = await uploadAttachmentApi(objFile);
       setLsItems(ls => ls.map((it, i) => i === iIdx ? {
         ...it,
-        attachments: [...it.attachments, objResp.attachment_id],
-        _attachmentNames: [...it._attachmentNames, objResp.file_name],
+        attachments: [objResp.attachment_id], // Replace with single attachment
+        _attachmentName: objResp.file_name,
       } : it));
     } catch (e: any) {
       setStrError(e.response?.data?.detail || 'Upload failed.');
     } finally { setIUploadingIdx(-1); }
   }
 
-  function removeAttachment(iItem: number, iAtt: number) {
+  async function removeAttachment(iItem: number) {
+    const item = lsItems[iItem];
+    if (item.attachments.length === 0) return;
+
+    const attachmentId = item.attachments[0];
+
+    // Delete from backend
+    try {
+      await deleteAttachmentApi(attachmentId);
+    } catch (err) {
+      console.error('Failed to delete attachment from backend:', err);
+      setStrError('Failed to delete attachment. Please try again.');
+      return;
+    }
+
+    // Update local state
     setLsItems(ls => ls.map((it, i) => i === iItem ? {
       ...it,
-      attachments: it.attachments.filter((_, j) => j !== iAtt),
-      _attachmentNames: it._attachmentNames.filter((_, j) => j !== iAtt),
+      attachments: [],
+      _attachmentName: undefined,
     } : it));
   }
 
@@ -359,26 +388,34 @@ export default function NewReimbursementModal({ onClose, onSuccess }: NewReimbur
                             />
                           </td>
                           <td className="px-3 py-2 min-w-[130px] border-r border-gray-200">
-                            {it._attachmentNames.length > 0 ? (
-                              <div className="flex flex-col gap-1">
-                                {it._attachmentNames.map((nm, j) => (
-                                  <div key={j} className="flex items-center gap-1 text-xs bg-gray-50 px-2 py-1 rounded-lg border border-gray-200">
-                                    <span className="truncate max-w-[80px]" title={nm}>📎 {nm}</span>
-                                    <button onClick={() => removeAttachment(iIdx, j)} className="text-red-400 hover:text-red-600 cursor-pointer flex-shrink-0">
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                ))}
-                                <label className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer text-gray-500 transition-colors">
-                                  <Paperclip className="w-3 h-3" /> Add
-                                  <input type="file" accept="image/*,application/pdf" disabled={iUploadingIdx === iIdx} onChange={e => { const f = e.target.files?.[0]; if (f) { handleAttachment(iIdx, f); e.target.value = ''; } }} className="hidden" />
-                                </label>
+                            {it._attachmentName ? (
+                              <div className="flex items-center gap-1 text-xs bg-gray-50 px-2 py-1 rounded-lg border border-gray-200">
+                                <span className="truncate max-w-[80px]" title={it._attachmentName}>📎 {it._attachmentName}</span>
+                                <button
+                                  onClick={() => removeAttachment(iIdx)}
+                                  className="text-red-400 hover:text-red-600 cursor-pointer flex-shrink-0"
+                                  title="Remove attachment"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
                               </div>
                             ) : (
                               <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold border border-dashed border-gray-400 rounded-lg hover:bg-gray-50 hover:border-[#00703C] cursor-pointer text-gray-600 hover:text-[#00703C] transition-colors whitespace-nowrap">
                                 <Paperclip className="w-3.5 h-3.5" />
                                 {iUploadingIdx === iIdx ? 'Uploading…' : 'Choose File'}
-                                <input type="file" accept="image/*,application/pdf" disabled={iUploadingIdx === iIdx} onChange={e => { const f = e.target.files?.[0]; if (f) { handleAttachment(iIdx, f); e.target.value = ''; } }} className="hidden" />
+                                <input
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  disabled={iUploadingIdx === iIdx}
+                                  onChange={e => {
+                                    const f = e.target.files?.[0];
+                                    if (f) {
+                                      handleAttachment(iIdx, f);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                  className="hidden"
+                                />
                               </label>
                             )}
                           </td>

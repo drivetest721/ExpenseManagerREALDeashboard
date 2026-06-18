@@ -80,6 +80,7 @@ export default function AllowanceDetailsPage() {
       setStrError('');
       try {
         const lsData = await getMyAllowanceApi();
+        console.log(lsData)
         setLsCategories(lsData);
       } catch (objErr: any) {
         setStrError(objErr.response?.data?.detail || 'Failed to load allowances');

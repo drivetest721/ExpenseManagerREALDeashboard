@@ -63,7 +63,6 @@ TRANSITIONS = {
     "ACKNOWLEDGED": {}
 }
 
-
 async def transition(strReimbursementId: str, strActorId: str, strAction: str, dictPayload: dict = None) -> dict:
     """
     Purpose : Execute a state transition on a reimbursement.

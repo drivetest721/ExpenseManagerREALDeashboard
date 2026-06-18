@@ -415,9 +415,9 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
                   className="w-full h-10 border border-gray-300 rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#00703C]"
                 >
                   <option value="UPI">UPI</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
+                  {/* <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cheque">Cheque</option>
-                  <option value="Cash">Cash</option>
+                  <option value="Cash">Cash</option> */}
                 </select>
               </div>
               {/* Proof of payment upload */}

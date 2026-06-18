@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Trash2, Paperclip, X } from 'lucide-react';
 import StyledDropdown from '../common/StyledDropdown';
 import DateInputDDMMYYYY from '../common/DateInputDDMMYYYY';
-import { uploadAttachmentApi } from '../../utils/attachmentApi';
+import { uploadAttachmentApi, deleteAttachmentApi } from '../../utils/attachmentApi';
 import { EXPENSE_LOOKBACK_DAYS } from '../../config/expenseConfig';
 import type { Category } from '../../types/category';
 import type { ReimbursementItem } from '../../types/reimbursement';
@@ -21,9 +21,9 @@ export interface ExpenseRow {
   amount: number;
   expense_date: string;
   description: string;
-  attachments: string[];
+  attachments: string[]; // Keep as array but only allow one item
   useSameInvoice: boolean;
-  _attachmentNames: string[];
+  _attachmentName?: string; // Single attachment name
 }
 
 export interface ErrorField {
@@ -40,7 +40,7 @@ export function createEmptyRow(strCategoryId = ''): ExpenseRow {
     description: '',
     attachments: [],
     useSameInvoice: false,
-    _attachmentNames: [],
+    _attachmentName: undefined,
   };
 }
 
@@ -144,10 +144,24 @@ export default function GeneralExpenseTable({
   const handleInvoiceUpload = async (iIdx: number, objFile: File) => {
     setIUploadingIdx(iIdx);
     try {
+      const existingRow = lsRows[iIdx];
+
+      // If there's already an attachment, delete it from backend first
+      if (existingRow.attachments.length > 0) {
+        const oldAttachmentId = existingRow.attachments[0];
+        try {
+          await deleteAttachmentApi(oldAttachmentId);
+        } catch (deleteErr) {
+          console.warn('Failed to delete old attachment:', deleteErr);
+          // Continue even if delete fails
+        }
+      }
+
+      // Upload new attachment
       const objResp = await uploadAttachmentApi(objFile);
       const lsNew = [...lsRows];
-      lsNew[iIdx].attachments.push(objResp.attachment_id);
-      lsNew[iIdx]._attachmentNames.push(objResp.file_name);
+      lsNew[iIdx].attachments = [objResp.attachment_id]; // Replace with single attachment
+      lsNew[iIdx]._attachmentName = objResp.file_name;
       setLsRows(lsNew);
       onAttachmentsChanged();
       if (objErrorField?.rowIdx === iIdx && objErrorField?.field === 'invoice') {
@@ -160,10 +174,25 @@ export default function GeneralExpenseTable({
     }
   };
 
-  const removeAttachment = (iRowIdx: number, iAttIdx: number) => {
+  const removeAttachment = async (iRowIdx: number) => {
+    const row = lsRows[iRowIdx];
+    if (row.attachments.length === 0) return;
+
+    const attachmentId = row.attachments[0];
+
+    // Delete from backend
+    try {
+      await deleteAttachmentApi(attachmentId);
+    } catch (err) {
+      console.error('Failed to delete attachment from backend:', err);
+      onError('Failed to delete attachment. Please try again.');
+      return;
+    }
+
+    // Update local state
     const lsNew = [...lsRows];
-    lsNew[iRowIdx].attachments.splice(iAttIdx, 1);
-    lsNew[iRowIdx]._attachmentNames.splice(iAttIdx, 1);
+    lsNew[iRowIdx].attachments = [];
+    lsNew[iRowIdx]._attachmentName = undefined;
     setLsRows(lsNew);
     onAttachmentsChanged();
   };
@@ -174,10 +203,10 @@ export default function GeneralExpenseTable({
     lsNew[iIdx].useSameInvoice = bNewVal;
     if (bNewVal && lsAllAttachments.length > 0) {
       lsNew[iIdx].attachments = [lsAllAttachments[0]];
-      lsNew[iIdx]._attachmentNames = ['Shared Invoice'];
+      lsNew[iIdx]._attachmentName = 'Shared Invoice';
     } else {
       lsNew[iIdx].attachments = [];
-      lsNew[iIdx]._attachmentNames = [];
+      lsNew[iIdx]._attachmentName = undefined;
     }
     setLsRows(lsNew);
     onAttachmentsChanged();
@@ -429,25 +458,19 @@ export default function GeneralExpenseTable({
 
                   <td className={`px-3 py-3 border-r border-gray-200 transition-all ${errCell('invoice')}`}>
                     <div className="space-y-2">
-                      {row.attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {row._attachmentNames.map((nm, j) => (
-                            <div
-                              key={j}
-                              className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-green-50 to-emerald-50 px-2.5 py-1.5 rounded-lg border border-green-200 shadow-sm"
-                            >
-                              <Paperclip className="w-3 h-3 text-green-600 flex-shrink-0" />
-                              <span className="truncate max-w-[70px] font-medium text-green-700" title={nm}>
-                                {nm}
-                              </span>
-                              <button
-                                onClick={() => removeAttachment(iActualIdx, j)}
-                                className="text-red-400 hover:text-red-600 hover:scale-110 transition-all"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
+                      {row.attachments.length > 0 && row._attachmentName && (
+                        <div className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-green-50 to-emerald-50 px-2.5 py-1.5 rounded-lg border border-green-200 shadow-sm">
+                          <Paperclip className="w-3 h-3 text-green-600 flex-shrink-0" />
+                          <span className="truncate max-w-[70px] font-medium text-green-700" title={row._attachmentName}>
+                            {row._attachmentName}
+                          </span>
+                          <button
+                            onClick={() => removeAttachment(iActualIdx)}
+                            className="text-red-400 hover:text-red-600 hover:scale-110 transition-all"
+                            title="Remove attachment"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       )}
                       <div className="flex flex-col gap-2">
@@ -458,7 +481,7 @@ export default function GeneralExpenseTable({
                               {iUploadingIdx === iActualIdx
                                 ? 'Uploading…'
                                 : row.attachments.length > 0
-                                ? 'Add Another'
+                                ? 'Replace Invoice'
                                 : 'Upload Invoice'}
                             </span>
                             <input

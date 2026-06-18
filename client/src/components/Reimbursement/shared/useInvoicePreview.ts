@@ -26,7 +26,14 @@ export function useInvoicePreview(
     for (const strId of lsIds) {
       if (strId && !lsUnique.includes(strId)) lsUnique.push(strId);
     }
-    setLsAllAttachments(lsUnique);
+
+    // Only update state if the attachment list actually changed
+    setLsAllAttachments(prev => {
+      if (prev.length !== lsUnique.length) return lsUnique;
+      if (prev.every((id, idx) => id === lsUnique[idx])) return prev;
+      return lsUnique;
+    });
+
     if (lsUnique.length > 0 && iPreviewIdx >= lsUnique.length) {
       setIPreviewIdx(lsUnique.length - 1);
     }

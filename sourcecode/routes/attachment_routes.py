@@ -195,7 +195,7 @@ async def downloadAttachment(
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def deleteAttachment(
     attachment_id: str,
-    dictCurrentUser: dict = Depends(getAdminUserDependency),
+    dictCurrentUser: dict = Depends(getCurrentUserDependency),
 ):
     """
     Purpose : Delete a file from GridFS.
@@ -207,6 +207,7 @@ async def deleteAttachment(
         if not objGridFS.exists(ObjectId(attachment_id)):
             raise HTTPException(status_code=404, detail="Attachment not found")
 
+        print("Delete: ", attachment_id)
         objGridFS.delete(ObjectId(attachment_id))
         objLogger.info(f"🗑️  ATTACHMENT DELETED: {attachment_id} by {dictCurrentUser['user_id']}")
 

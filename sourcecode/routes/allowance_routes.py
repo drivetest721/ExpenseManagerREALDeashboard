@@ -97,13 +97,19 @@ async def getMyAllowance(dictCurrentUser: dict = Depends(getCurrentUserDependenc
         objUsers = get_collection("users")
 
         dictLiveUser = objUsers.find_one({"_id": ObjectId(dictCurrentUser["user_id"])})
+        lsCurrentUserIds = dictLiveUser.get("default_allowances", [])
+        if len(lsCurrentUserIds) == 0 :
+            raise HTTPException(status_code=500, detail="No Categories Found for your role")
+        category_ids = [
+            ObjectId(item["category_id"])
+            for item in lsCurrentUserIds
+        ]
         if not dictLiveUser:
             raise HTTPException(status_code=404, detail="User not found")
 
         lsResult = []
-        for dictCat in objCats.find({"is_active": True}):
-            if _userMatchesCategory(dictLiveUser, dictCat):
-                lsResult.append(CategoryResponseSchema(**_docToCategory(dictCat)))
+        for dictCat in objCats.find({"is_active": True, "_id": {"$in": category_ids}}):
+            lsResult.append(CategoryResponseSchema(**_docToCategory(dictCat)))
 
         return lsResult
 

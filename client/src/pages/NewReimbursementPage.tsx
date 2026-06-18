@@ -1,7 +1,7 @@
 /**
  * NewReimbursementPage — composes the shared ReimbursementShell with the
  * General Expense / Business Trip variants.
- * 
+ *
  * Supports both Create and Edit modes:
  *   Create: /expense/new/:formType
  *   Edit:   /expense/edit/:id
@@ -14,7 +14,7 @@
  *
  * General mode: classic GeneralExpenseTable.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FileText, Plane, CalendarRange, CalendarDays, CalendarCheck2, ChevronLeft, ChevronRight } from 'lucide-react';
 import DateInputDDMMYYYY from '../components/common/DateInputDDMMYYYY';
@@ -299,17 +299,32 @@ export default function NewReimbursementPage() {
     })();
   }, [bIsEdit, id, bIsBusinessTrip]);
 
-  // ── Keep preview's attachment list in sync with active dataset ──
-  useEffect(() => {
+  // ── Memoize attachment IDs to prevent unnecessary API calls ──
+  // Only recompute when actual attachment IDs change, not when other row properties change
+  const lsCurrentAttachmentIds = useMemo(() => {
     if (bShowMatrix) {
-      preview.rebuildFromIds(matrixAllAttachmentIds(lsMatrixRows));
+      return matrixAllAttachmentIds(lsMatrixRows);
     } else {
       const lsIds: string[] = [];
-      for (const r of lsRows) for (const id of r.attachments) lsIds.push(id);
-      preview.rebuildFromIds(lsIds);
+      for (const r of lsRows) {
+        for (const id of r.attachments) {
+          lsIds.push(id);
+        }
+      }
+      return lsIds;
     }
+  }, [
+    bShowMatrix,
+    // Only track attachment changes for general expenses
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bShowMatrix, lsRows, lsMatrixRows]);
+    bShowMatrix ? lsMatrixRows : lsRows.map(r => r.attachments.join(',')).join('|')
+  ]);
+
+  // ── Keep preview's attachment list in sync with active dataset ──
+  useEffect(() => {
+    preview.rebuildFromIds(lsCurrentAttachmentIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lsCurrentAttachmentIds]);
 
   const noopRefresh = () => {
     /* attachments are watched via useEffect above */

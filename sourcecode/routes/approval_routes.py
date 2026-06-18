@@ -201,10 +201,6 @@ async def payReimbursement(
         objLogger.error(f"❌ PAY ERROR: {objErr}")
         raise HTTPException(status_code=500, detail=str(objErr))
 
-
-
-
-
 @router.post("/{reimbursement_id}/acknowledge", status_code=status.HTTP_200_OK)
 async def acknowledgePayment(
     reimbursement_id: str,

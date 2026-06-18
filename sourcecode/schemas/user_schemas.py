@@ -27,6 +27,7 @@ class UserCreateRequest(BaseModel):
     password: str = Field(..., min_length=6)
     departments: List[DepartmentEntrySchema] = Field(default_factory=list)
     managers: List[ManagerEntrySchema] = Field(default_factory=list)
+    default_allowances: List[CategoryAllowanceEntrySchema] = Field(default_factory=list)
 
 
 class UserUpdateRequest(BaseModel):

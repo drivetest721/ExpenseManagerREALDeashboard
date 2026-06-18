@@ -101,20 +101,43 @@ async def createUser(
     """
     try:
         objUsers = get_collection("users")
+        objCategories = get_collection("reimbursement_categories")
 
         if objUsers.find_one({"email": objRequest.email.lower()}):
             raise HTTPException(status_code=400, detail="User with this email already exists")
 
         if objUsers.find_one({"employee_id": objRequest.employee_id}):
             raise HTTPException(status_code=400, detail="User with this employee ID already exists")
-
         dictNewUser = objRequest.model_dump()
         dictNewUser["email"] = dictNewUser["email"].lower()
         dictNewUser["password_hash"] = _hashPassword(dictNewUser.pop("password"))
         dictNewUser["is_active"] = True
         dictNewUser["has_payment_method"] = False
-        dictNewUser.setdefault("default_allowances", [])
+        category_ids = [
+            ObjectId(item["category_id"])
+            for item in dictNewUser.get("default_allowances", [])
+        ]
 
+        # dictNewUser["default_allowances"] = [
+        #     allowance["category_id"]
+        #     for allowance in dictNewUser.get("default_allowances", [])
+        # ]
+        categories = objCategories.find(
+            {"_id": {"$in": category_ids}},
+            {
+                "_id": 1,
+                "name": 1,
+                "sub_categories": 1
+            }
+        )
+        dictNewUser["default_allowances"] = [
+            {
+                "category_id": str(category["_id"]),
+                "category_name": category.get("name"),
+                "sub_category": ", ".join(category.get("sub_categories", []))
+            }
+            for category in categories
+        ]
         objResult = objUsers.insert_one(dictNewUser)
         strId = str(objResult.inserted_id)
 

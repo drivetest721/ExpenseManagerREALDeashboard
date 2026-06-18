@@ -102,7 +102,7 @@ class ApprovalChainEngine:
 
         # Fetch user document
         try:
-            user_doc = self.objUsers.find_one({"_id": ObjectId(user_id)})
+            user_doc = self.objUsers.find_one({"_id": ObjectId(user_id), "departments.role": {"$ne": "owner"}})
         except Exception as e:
             objLogger.error(f"Invalid user_id format: {user_id} - {e}")
             return None
@@ -124,7 +124,7 @@ class ApprovalChainEngine:
             role=user_role,
             priority=0,  # Will be set by parent
             approval_type="mandatory",
-            level=level
+            level=level,
         )
 
         # Get managers and sort by priority (lower number = higher priority)
@@ -149,10 +149,13 @@ class ApprovalChainEngine:
 
         return node
 
-    def _extract_left_view(self, root: ApprovalTreeNode) -> List[Dict]:
+    def lsDist(self, root: ApprovalTreeNode) -> List[Dict]:
         """
-        Extract left-view chain from the tree.
-        Left-view = leftmost path from root to leaf.
+        purpose: convert the ApprovalTreeNode Tree Data structure to List of Dictionary Data Structure.
+
+        Input: root = Head Point of ApprovalTreeNode Tree.
+
+        Output: Serialized List of ApprovalTreeNode Tree
         """
         chain = []
         current = root
@@ -216,13 +219,20 @@ class ApprovalChainEngine:
 
         # Extract user_ids already in chain
         chain_user_ids = {node["user_id"] for node in chain}
+        dictInitiatorDoc = self.objUsers.find_one({"_id":ObjectId(initiator_id)})
+
+        lsDepartment = dictInitiatorDoc.get("departments")
+        strDepartment = None
+        if len(lsDepartment) > 0 :
+            strDepartment = lsDepartment[0]["department_id"]
+
 
         # Add Owner if not already in chain and initiator is not Owner
         if not initiator_is_owner:
             owner_in_chain = any(node["role"] == "owner" for node in chain)
             if not owner_in_chain:
                 # Find first active Owner
-                owner_doc = self.objUsers.find_one({"departments.role": "owner", "is_active": True})
+                owner_doc = self.objUsers.find_one({"departments.role": "owner","departments.department_id":strDepartment, "is_active": True})
                 if owner_doc:
                     owner_id = str(owner_doc["_id"])
                     if owner_id not in chain_user_ids:
@@ -305,24 +315,7 @@ class ApprovalChainEngine:
                         "approval_type": "mandatory",
                     }]
 
-            # Build tree with initiator as implicit root
-            # root = []
-            
-            # NOTE - Change This Logic to Only take Lowest Priority Manager Not List Of Mangers. This is because we want a single chain of approval not multiple parallel branches. The leftmost branch will be the one with the highest priority managers.
-            # managers_sorted = sorted(managers, key=lambda m: m.get("priority", 999))[0]
-
-            # for idx, mgr in enumerate(managers_sorted):
-            #     mgr_id = str(mgr.get("manager_id", ""))
-            #     if not mgr_id:
-            #         continue
-
             root_node = self._build_tree_recursive(initiator_id, level=0)
-            # root.append(root_node)
-
-            # if child_node:
-            #     child_node.priority = mgr.get("priority", idx + 1)
-            #     child_node.approval_type = mgr.get("approval_type", "mandatory")
-            #     root_children.append(child_node)
 
             # Build tree dict
             tree = {
@@ -332,9 +325,8 @@ class ApprovalChainEngine:
             }
 
             # Extract left-view chain (leftmost branch)
-            # chain = []
             if root_node:
-                chain = self._extract_left_view(root_node)
+                chain = self.lsDist(root_node)
 
             # Ensure Owner -> Accountant rule
             chain = self._append_owner_and_accountant(chain, initiator_id)

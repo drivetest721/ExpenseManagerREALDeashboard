@@ -115,11 +115,11 @@ def _get_approval_history(dictReimbursement: dict) -> List[Dict]:
 
     # Add approved reviewers
     for dictStep in lsChain:
-        if dictStep.get("status") == "APPROVED":
+        if dictStep.get("current_status") == "APPROVED":
             lsHistory.append({
-                "reviewer_name": dictStep.get("name", ""),
-                "received_date": dictStep.get("received_date", "-"),
-                "approved_date": dictStep.get("approved_at", "-")
+                "reviewer_name": dictStep.get("username", ""),
+                "received_date": dictStep.get("receivedAt", "-"),
+                "approved_date": dictStep.get("submittedAt", "-")
             })
 
     return lsHistory
