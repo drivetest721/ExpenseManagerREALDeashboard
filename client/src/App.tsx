@@ -15,6 +15,7 @@ import ReimbursementDetailPage from './pages/ReimbursementDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import NotificationsInboxPage from './pages/NotificationsInboxPage';
+import ChangelogPage from './pages/ChangelogPage';
 
 function App() {
   return (
@@ -96,6 +97,14 @@ function App() {
         element={
           <ProtectedRoute>
             <NotificationsInboxPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/changelog"
+        element={
+          <ProtectedRoute>
+            <ChangelogPage />
           </ProtectedRoute>
         }
       />

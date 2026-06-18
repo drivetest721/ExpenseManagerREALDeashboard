@@ -1,0 +1,30 @@
+{
+  "versions": [
+    {
+      "version": "v1.2",
+      "date": "June 18, 2026",
+      "isLatest": true,
+      "tag": "Latest",
+      "changes": [
+        "Feature: Department management with role-based access",
+        "Feature: Holiday calendar integration",
+        "Feature: Payment method management (UPI/QR Code)",
+        "UI: Improved mobile responsiveness",
+        "Fix: Corrected timezone handling in date fields"
+      ]
+    },
+    {
+      "version": "v1.1",
+      "date": "June 12, 2026",
+      "isLatest": false,
+      "tag": null,
+      "changes": [
+        "Feature: Reimbursements Application & Approval Cycle",
+        "Feature: Approve / Reject / Query / Ask Status For Current State of Reimbursements",
+        "Feature: Activity logs for reimbursement tracking",
+        "Feature: Team & Personal Reimbursements",
+        "UI: Enhanced expense table with inline editing"
+      ]
+    }
+  ]
+}

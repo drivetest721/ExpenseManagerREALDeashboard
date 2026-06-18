@@ -32,7 +32,6 @@ from middleware.security_middleware import (
     installGlobalExceptionHandler,
 )
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Logging setup (rotating file + console)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -62,12 +61,10 @@ if not objRootLogger.handlers:
 
 objLogger = logging.getLogger(__name__)
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Lifespan: startup/shutdown hooks
 # ──────────────────────────────────────────────────────────────────────────────
 _objScheduler = BackgroundScheduler(timezone="UTC")
-
 
 @asynccontextmanager
 async def lifespan(objApp: FastAPI):

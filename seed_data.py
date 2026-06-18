@@ -28,8 +28,8 @@ from env_config import objSettings  # noqa: E402
 # ── Constants ──────────────────────────────────────────────────────────────────
 _PASSWORD       = "Test@1234"
 _RESET_TAG      = "seed_v1"            # marker stored on every seeded doc
-
-
+DOMAIN = "@riveredgeanalytics.com"
+DOMAIN2 = "@accountprism.com"
 def _hash(password: str) -> str:
     b = password.encode("utf-8")[:72]
     return bcrypt.hashpw(b, bcrypt.gensalt(rounds=12)).decode("utf-8")
@@ -71,12 +71,14 @@ def seed(db):
 
     # ── 2. Pre-allocate user IDs ────────────────────────────────────────────────
     owner_id   = _id()
+    owner_id2   = _id()
     ca_id      = _id()
     smgr_id    = _id()
     mgr_id     = _id()
     emp1_id    = _id()
     emp2_id    = _id()
     intern_id  = _id()
+    intern_id2  = _id()
 
     ph = _hash(_PASSWORD)
 
@@ -90,8 +92,16 @@ def seed(db):
     users = [
         {
             "_id": owner_id,
-            "employee_id": "EMP001", "name": "Rajesh Kumar (Owner)",
-            "email": "owner@techcorp.com", "password_hash": ph,
+            "employee_id": "EMP001", "name": "Anirudh Sureka",
+            "email": f"anirudh{DOMAIN}", "password_hash": ph,
+            "departments": [dept_entry(eng_id, "Engineering", "owner")],
+            "managers": [],
+            "is_active": True, "has_payment_method": False, "created_at": _now(), "_seed": _RESET_TAG,
+        },
+        {
+            "_id": owner_id2,
+            "employee_id": "EMP001", "name": "Anirudh Sureka",
+            "email": f"smeeta{DOMAIN2}", "password_hash": ph,
             "departments": [dept_entry(eng_id, "Engineering", "owner")],
             "managers": [],
             "is_active": True, "has_payment_method": False, "created_at": _now(), "_seed": _RESET_TAG,
@@ -99,7 +109,7 @@ def seed(db):
         {
             "_id": ca_id,
             "employee_id": "EMP002", "name": "Priya Sharma (CA)",
-            "email": "ca@techcorp.com", "password_hash": ph,
+            "email": f"murari{DOMAIN}", "password_hash": ph,
             "departments": [dept_entry(fin_id, "Finance", "ca")],
             "managers": [],
             "is_active": True, "has_payment_method": False, "created_at": _now(), "_seed": _RESET_TAG,
@@ -107,7 +117,7 @@ def seed(db):
         {
             "_id": smgr_id,
             "employee_id": "EMP003", "name": "Vikram Singh (Sr. Manager)",
-            "email": "smanager@techcorp.com", "password_hash": ph,
+            "email": f"bhoomi.joshi{DOMAIN}", "password_hash": ph,
             "departments": [dept_entry(eng_id, "Engineering", "senior_manager")],
             "managers": [mgr_entry(owner_id, "Rajesh Kumar (Owner)", 1)],
             "is_active": True, "has_payment_method": False, "created_at": _now(), "_seed": _RESET_TAG,
@@ -115,7 +125,7 @@ def seed(db):
         {
             "_id": mgr_id,
             "employee_id": "EMP004", "name": "Anita Patel (Manager)",
-            "email": "manager@techcorp.com", "password_hash": ph,
+            "email": f"parth{DOMAIN}", "password_hash": ph,
             "departments": [dept_entry(eng_id, "Engineering", "manager")],
             "managers": [
                 mgr_entry(smgr_id, "Vikram Singh (Sr. Manager)", 1),
@@ -126,7 +136,7 @@ def seed(db):
         {
             "_id": emp1_id,
             "employee_id": "EMP005", "name": "Rohit Gupta (Employee)",
-            "email": "employee@techcorp.com", "password_hash": ph,
+            "email": f"mansi{DOMAIN}", "password_hash": ph,
             "departments": [dept_entry(eng_id, "Engineering", "employee")],
             "managers": [
                 mgr_entry(mgr_id,   "Anita Patel (Manager)",       1),
@@ -137,7 +147,7 @@ def seed(db):
         {
             "_id": emp2_id,
             "employee_id": "EMP006", "name": "Sneha Desai (Employee 2)",
-            "email": "employee2@techcorp.com", "password_hash": ph,
+            "email": f"nisarg{DOMAIN}", "password_hash": ph,
             "departments": [dept_entry(eng_id, "Engineering", "employee")],
             "managers": [mgr_entry(mgr_id, "Anita Patel (Manager)", 1)],
             "is_active": True, "has_payment_method": True, "created_at": _now(), "_seed": _RESET_TAG,
@@ -145,7 +155,15 @@ def seed(db):
         {
             "_id": intern_id,
             "employee_id": "EMP007", "name": "Arjun Mehta (Intern)",
-            "email": "intern@techcorp.com", "password_hash": ph,
+            "email": f"aryan.intern{DOMAIN}", "password_hash": ph,
+            "departments": [dept_entry(eng_id, "Engineering", "intern")],
+            "managers": [mgr_entry(mgr_id, "Anita Patel (Manager)", 1)],
+            "is_active": True, "has_payment_method": False, "created_at": _now(), "_seed": _RESET_TAG,
+        },
+        {
+            "_id": intern_id2,
+            "employee_id": "EMP007", "name": "Arjun Mehta (Intern)",
+            "email": f"khushi.intern{DOMAIN}", "password_hash": ph,
             "departments": [dept_entry(eng_id, "Engineering", "intern")],
             "managers": [mgr_entry(mgr_id, "Anita Patel (Manager)", 1)],
             "is_active": True, "has_payment_method": False, "created_at": _now(), "_seed": _RESET_TAG,

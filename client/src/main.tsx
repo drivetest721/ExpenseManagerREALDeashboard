@@ -8,7 +8,6 @@ import { AuthProvider } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 createRoot(document.getElementById('root')!).render(
-  // <StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
@@ -17,5 +16,4 @@ createRoot(document.getElementById('root')!).render(
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
-  // </StrictMode>,
 );

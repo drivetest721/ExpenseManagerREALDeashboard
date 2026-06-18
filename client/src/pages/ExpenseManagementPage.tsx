@@ -709,9 +709,9 @@ function renderReimbTable(
   // }
 
   return (
-    <>
+    <div className="min-h-screen flex flex-col">
       <AppHeader />
-      <main className="min-h-screen bg-gray-50 py-6 px-4">
+      <main className="flex-1 mt-8">
         <div className="max-w-[1500px] mx-auto">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div className="min-w-0">
@@ -1011,6 +1011,6 @@ function renderReimbTable(
           onClose={() => setBShowNewModal(false)}
         />
       )}
-    </>
+    </div>
   );
 }

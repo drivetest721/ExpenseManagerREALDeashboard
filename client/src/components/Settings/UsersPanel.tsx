@@ -14,6 +14,7 @@ import { getAllAllowanceApi } from '../../utils/allowanceApi';
 import type { User,  UserRole } from '../../types/user';
 import type { Department } from '../../types/department';
 import type { AllowanceWithAssignees } from '../../types/category';
+import { useAuth } from '../../hooks/useAuth';
 
 const ALL_ROLES: UserRole[] = ['owner', 'senior_manager', 'manager', 'ca', 'intern'];
 const MANAGER_ROLES: UserRole[] = ['owner', 'senior_manager', 'manager'];
@@ -106,6 +107,7 @@ function buildUserManagersLabel(rows: FormManagerRow[]) {
 // }
 
 export default function UsersPanel() {
+  const { objUser: currentUser } = useAuth();
   const [lsUsers, setLsUsers] = useState<User[]>([]);
   const [lsDepts, setLsDepts] = useState<Department[]>([]);
   // const [bLoading, setBLoading] = useState(false);
@@ -268,13 +270,33 @@ export default function UsersPanel() {
     // return arr.length > 0 ? arr : ALL_ROLES;
   }
 
+  // Get department IDs from the current form (user being edited/created)
+  const formDepartmentIds = useMemo(() => {
+    return new Set(objForm.departments.map(d => d.department_id).filter(Boolean));
+  }, [objForm.departments]);
+
   const lsManagerCandidates = useMemo(() => {
-    return lsUsers.filter((user) =>
-      user.is_active &&
-      user.user_id !== expandedUserId &&
-      user.departments.some((d) => MANAGER_ROLES.includes(d.role))
-    );
-  }, [lsUsers, expandedUserId]);
+    return lsUsers.filter((user) => {
+      // Exclude self
+      if (user.user_id === expandedUserId) return false;
+
+      // Only active users
+      if (!user.is_active) return false;
+
+      // Must have a manager role
+      if (!user.departments.some((d) => MANAGER_ROLES.includes(d.role))) return false;
+
+      // Always include CA role users
+      const hasCARole = user.departments.some((d) => d.role === 'ca');
+      if (hasCARole) return true;
+
+      // For other roles, check if they share at least one department with the form user
+      const userDepartmentIds = new Set(user.departments.map(d => d.department_id));
+      const hasCommonDepartment = Array.from(formDepartmentIds).some(deptId => userDepartmentIds.has(deptId));
+
+      return hasCommonDepartment;
+    });
+  }, [lsUsers, expandedUserId, formDepartmentIds]);
 
   const selectedManagerIds = useMemo(() => new Set(objForm.managers.map((mgr) => mgr.manager_id).filter(Boolean)), [objForm.managers]);
 

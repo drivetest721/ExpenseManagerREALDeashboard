@@ -432,7 +432,7 @@ export default function ProfilePage() {
           </div>
 
           {/* ── Activity Logging ── */}
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mt-6">
+          {/* <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mt-6">
             <div
               role="button"
               tabIndex={0}
@@ -455,7 +455,6 @@ export default function ProfilePage() {
 
             {bActivityExpanded && (
               <>
-                {/* Filter tabs */}
                 <div className="flex gap-2 mb-4 pb-3 border-b border-gray-200">
                   {(['all', 'edits', 'messages', 'views'] as const).map((filter) => (
                     <button
@@ -472,7 +471,6 @@ export default function ProfilePage() {
                   ))}
                 </div>
 
-                {/* Activity list */}
                 {lsFilteredActivityLogs.length === 0 ? (
                   <div className="flex items-center justify-center py-6">
                     <p className="text-sm text-gray-500 cursor-default">No {strActivityFilter === 'all' ? 'activity' : strActivityFilter} yet.</p>
@@ -498,7 +496,7 @@ export default function ProfilePage() {
                 )}
               </>
             )}
-          </div>
+          </div> */}
 
           {/* ── Approval Chain ── */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 mt-6">

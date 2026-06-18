@@ -691,6 +691,7 @@ async def listTeamReimbursements(
         elif bucket == "pending-completion":
             dictFilter = {
                 "approval_chain.user_id": strUserId,
+                "approval_chain.current_status": {"$ne":"PENDING"}, # This prevent The Reimb. Not visible to Next manager
                 "current_reviewer_id": {"$ne": strUserId},
                 "status": {"$nin": lsTerminal},
             }
