@@ -64,6 +64,7 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
   const [bIsUploadingProof, setBIsUploadingProof] = useState(false);
   const [strProofFileName, setStrProofFileName] = useState('');
   const [strProofAttachmentId, setStrProofAttachmentId] = useState('');
+  const [objConfirmModal, setObjConfirmModal] = useState<{ bIsOpen: boolean; strType: 'delete' | 'reject' | null; }>({ bIsOpen: false, strType: null });
 
   // Determine user permissions
   const bIsInitiator = objUser?.user_id === objReimbursement.initiator_id;
@@ -170,10 +171,12 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
       setStrError('Transaction reference is required');
       return;
     }
-    if (strSelectedAction === 'delete' && !window.confirm('Delete this draft? This cannot be undone.')) {
+    if (strSelectedAction === 'delete') {
+      setObjConfirmModal({ bIsOpen: true, strType: 'delete' });
       return;
     }
-    if (strSelectedAction === 'reject' && !window.confirm('Are you sure you want to reject this reimbursement?')) {
+    if (strSelectedAction === 'reject') {
+      setObjConfirmModal({ bIsOpen: true, strType: 'reject' });
       return;
     }
     
@@ -215,6 +218,39 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
       setBIsSubmitting(false);
     }
   }
+  // Handle confirmed delete/reject action
+  const handleConfirmAction = async () => {
+    if (!objConfirmModal.strType) return;
+    
+    const actionType = objConfirmModal.strType === 'delete' ? 'delete' : 'reject';
+    setObjConfirmModal({ bIsOpen: false, strType: null });
+    
+    setBIsSubmitting(true);
+    setStrError('');
+    
+    try {
+      const objMap: Record<'delete' | 'reject', () => Promise<any>> = {
+        delete:      () => deleteReimbursementApi(objReimbursement.reimbursement_id),
+        reject:      () => rejectReimbursementApi(objReimbursement.reimbursement_id, strMessage),
+      };
+      
+      await objMap[actionType]();
+      
+      // Reset form
+      setStrSelectedAction('');
+      setStrMessage('');
+      setStrTxRef('');
+      setStrError('');
+      
+      // Notify parent to refresh
+      if (onActionSuccess) onActionSuccess();
+    } catch (objErr: any) {
+      setStrError(objErr.response?.data?.detail || 'Action failed');
+    } finally {
+      setBIsSubmitting(false);
+    }
+  }
+
   console.log({ bIsInitiator, bIsCurrentReviewer, bIsCA, lsAvailableActions });
   return (
     <div className="h-full flex flex-col bg-white">
@@ -469,6 +505,53 @@ export default function ReimbursementDetailsPanel({ objReimbursement, strCurrent
               {bIsSubmitting ? 'Processing...' : `Confirm ${ACTION_META[strSelectedAction as ActionType]?.label}`}
             </button>
           )}
+        </div>
+      )}
+      
+      {/* Confirmation Modal */}
+      {objConfirmModal.bIsOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+            {/* Header */}
+            <div className={`bg-gradient-to-r ${objConfirmModal.strType === 'delete' ? 'from-red-50 to-orange-50 border-red-100' : 'from-orange-50 to-red-50 border-red-100'} border-b px-6 py-4 flex items-center gap-3`}>
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">
+                  {objConfirmModal.strType === 'delete' ? 'Delete Draft?' : 'Reject Reimbursement?'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">This action cannot be undone</p>
+              </div>
+            </div>
+            {/* Body */}
+            <div className="px-6 py-4">
+              <p className="text-sm text-gray-600">
+                {objConfirmModal.strType === 'delete' 
+                  ? 'This draft reimbursement will be permanently deleted and cannot be recovered.'
+                  : 'This reimbursement will be rejected. The initiator will be notified and can reapply.'}
+              </p>
+            </div>
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setObjConfirmModal({ bIsOpen: false, strType: null })}
+                disabled={bIsSubmitting}
+                className="px-4 py-2 rounded-xl border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAction}
+                disabled={bIsSubmitting}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bIsSubmitting ? 'Processing...' : (objConfirmModal.strType === 'delete' ? 'Delete Draft' : 'Reject')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

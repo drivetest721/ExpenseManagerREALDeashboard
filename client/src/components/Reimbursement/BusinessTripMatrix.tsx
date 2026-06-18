@@ -297,11 +297,38 @@ export default function BusinessTripMatrix({
                     <StyledDropdown
                       value={row.category_id}
                       onChange={val => {
-                        updateRow(iIdx, r => ({ ...r, category_id: val, sub_category: '' }));
-                        if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'category') {
-                          setObjErrorField(null);
-                        }
-                      }}
+                          updateRow(iIdx, r => ({
+                            ...r,
+                            category_id: val,
+                            sub_category: '',
+                          }));
+
+                          const objNewCat = lsCategories.find(
+                            c => c.category_id === val
+                          );
+
+                          if (!objNewCat) {
+                            return;
+                          }
+
+                          for (const dateKey of lsDateRange) {
+                            const cell = getCell(row, dateKey);
+
+                            if (cell.amount > objNewCat.max_limit) {
+                              setObjErrorField({
+                                rowIdx: iActualIdx,
+                                field: 'amount',
+                                dateKey,
+                              });
+
+                              onError(
+                                `Amount on ${dateKey} exceeds limit of ₹${objNewCat.max_limit.toLocaleString('en-IN')}`
+                              );
+
+                              break;
+                            }
+                          }
+                        }}
                       options={lsCategories.map(c => ({
                         value: c.category_id,
                         label: `${c.name} (₹${c.max_limit.toLocaleString('en-IN')})`,
@@ -325,11 +352,20 @@ export default function BusinessTripMatrix({
 
                   {lsDateRange.map(k => {
                     const cell = getCell(row, k);
+                    const bAmountExceeded =
+                        objCat &&
+                        cell.amount > objCat.max_limit;
                     const strUploadId = `${iIdx}-${k}`;
                     return (
                       <td
                         key={k}
-                        className={`px-2 py-2 border-r border-gray-200 transition-all align-top ${errCell(iActualIdx, 'amount', k)} ${errCell(iActualIdx, 'invoice', k)}`}
+                       className={`px-2 py-2 border-r border-gray-200 transition-all align-top
+                        ${
+                          bAmountExceeded
+                            ? 'bg-red-50 ring-2 ring-red-500/50'
+                            : ''
+                        }
+                        ${errCell(iActualIdx, 'invoice', k)}`}
                       >
                         <div className="flex flex-col gap-1.5">
                           <div className="relative">
@@ -342,8 +378,31 @@ export default function BusinessTripMatrix({
                               step="1"
                               value={cell.amount || ''}
                               onChange={e => {
-                                const iVal = parseInt(e.target.value);
-                                setCell(iActualIdx, k, { amount: !isNaN(iVal) && iVal > 0 ? iVal : 0 });
+                              const val = Number(e.target.value || 0);
+
+                              setCell(iIdx, k, {
+                                amount: val,
+                              });
+
+                              const objCat = lsCategories.find(
+                                c => c.category_id === row.category_id
+                              );
+
+                              if (!objCat) {
+                                return;
+                              }
+
+                              if (val > objCat.max_limit) {
+                                setObjErrorField({
+                                  rowIdx: iActualIdx,
+                                  field: 'amount',
+                                  dateKey: k,
+                                });
+
+                                onError(
+                                  `Maximum allowed for ${objCat.name} is ₹${objCat.max_limit.toLocaleString('en-IN')}`
+                                );
+                              } else {
                                 if (
                                   objErrorField?.rowIdx === iActualIdx &&
                                   objErrorField?.field === 'amount' &&
@@ -351,8 +410,16 @@ export default function BusinessTripMatrix({
                                 ) {
                                   setObjErrorField(null);
                                 }
-                              }}
-                              className="w-full px-2 pl-5 py-1.5 border border-gray-300 rounded text-xs text-right focus:outline-none focus:ring-2 focus:ring-[#00703C] focus:border-[#00703C] hover:border-[#00703C]/50"
+                              }
+                            }}
+                              className={`w-full px-2 pl-5 py-1.5 border rounded text-xs text-right
+                              focus:outline-none focus:ring-2 focus:ring-[#00703C]
+                              focus:border-[#00703C] hover:border-[#00703C]/50
+                              ${
+                                bAmountExceeded
+                                  ? 'border-red-500 bg-red-50'
+                                  : 'border-gray-300'
+                              }`}
                               placeholder="-"
                             />
                           </div>

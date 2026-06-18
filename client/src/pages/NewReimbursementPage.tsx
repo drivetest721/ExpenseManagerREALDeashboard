@@ -48,6 +48,58 @@ import type { FooterMode } from '../components/Reimbursement/shared/Reimbursemen
 
 type RouteFormType = 'general' | 'business-trip';
 
+
+
+function CancelConfirmModal({ bIsOpen, onConfirm, onCancel }: {
+  bIsOpen: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!bIsOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      {/* Modal */}
+      <div className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100 px-6 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-gray-900">Discard Changes?</h3>
+            <p className="text-xs text-gray-500 mt-0.5">This action cannot be undone</p>
+          </div>
+        </div>
+        {/* Body */}
+        <div className="px-6 py-4">
+          <p className="text-sm text-gray-600">
+            All unsaved data including expense rows, amounts, and uploaded invoices will be permanently lost.
+          </p>
+        </div>
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-xl border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            Keep Editing
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+          >
+            Discard & Leave
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NewReimbursementPage() {
   const { formType, id } = useParams<{ formType?: RouteFormType; id?: string }>();
   const navigate = useNavigate();
@@ -57,6 +109,7 @@ export default function NewReimbursementPage() {
   // For create mode it comes straight from the URL param.
   const [bIsBusinessTrip, setBIsBusinessTrip] = useState(formType === 'business-trip');
   const strFormTypeEnum: FormType = bIsBusinessTrip ? 'business_trip' : 'general';
+  const [bShowCancelModal, setBShowCancelModal] = useState(false);
 
   // ── State ──
   const [bIsLoading, setBIsLoading] = useState(bIsEdit);
@@ -371,17 +424,21 @@ export default function NewReimbursementPage() {
   };
 
   const handleCancel = () => {
-    const bGeneralHasData = lsRows.some(
-      r => r.category_id || r.amount || r.expense_date || r.attachments.length > 0,
-    );
-    const bMatrixHasData = lsMatrixRows.some(
-      r => r.category_id || Object.values(r.cells).some(c => c.amount > 0 || c.attachments.length > 0),
-    );
-    const bHasData =
-      (bIsBusinessTrip ? bMatrixHasData : bGeneralHasData) || strDescription.trim().length > 0;
-    if (bHasData && !window.confirm('Are you sure you want to discard all data?')) return;
-    navigate('/expense');
-  };
+  const bGeneralHasData = lsRows.some(
+    r => r.category_id || r.amount || r.expense_date || r.attachments.length > 0,
+  );
+  const bMatrixHasData = lsMatrixRows.some(
+    r => r.category_id || Object.values(r.cells).some(c => c.amount > 0 || c.attachments.length > 0),
+  );
+  const bHasData =
+    (bIsBusinessTrip ? bMatrixHasData : bGeneralHasData) || strDescription.trim().length > 0;
+
+  if (bHasData) {
+    setBShowCancelModal(true); // show custom modal
+  } else {
+    navigate('/expense'); // nothing to lose, just leave
+  }
+};
 
   // ── Pre-step (trip dates) ──
   const preStep = bIsBusinessTrip ? (
@@ -514,6 +571,7 @@ export default function NewReimbursementPage() {
   const bAnySaving = bIsSaving || bIsReApplying;
 
   return (
+    <>
     <ReimbursementShell
       icon={bIsBusinessTrip ? <Plane className="w-8 h-8" /> : <FileText className="w-8 h-8" />}
       title={strTitle}
@@ -542,5 +600,11 @@ export default function NewReimbursementPage() {
       onReApply={handleReApply}
       bInitialRightCollapsed={true}
     />
+    <CancelConfirmModal
+      bIsOpen={bShowCancelModal}
+      onConfirm={() => { setBShowCancelModal(false); navigate('/expense'); }}
+      onCancel={() => setBShowCancelModal(false)}
+    />
+    </>
   );
 }

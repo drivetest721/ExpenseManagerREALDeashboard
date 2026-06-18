@@ -113,6 +113,17 @@ export default function ReimbursementShell(props: Props) {
           </h1>
           {subtitle && <p className="text-sm text-white/80 mt-1.5 ml-12">{subtitle}</p>}
         </div>
+        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => window.open('/profile', '_blank')}
+          className="inline-flex items-center gap-3 h-12 px-4 mr-4 rounded-lg border border-[#00703C] text-[#00703C] bg-white text-md font-semibold hover:bg-green-50 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Payment Method
+        </button>
         <button
           onClick={onCancel}
           className="w-11 h-11 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white hover:scale-110 transition-all"
@@ -120,6 +131,7 @@ export default function ReimbursementShell(props: Props) {
         >
           <X className="w-6 h-6" />
         </button>
+      </div>
       </div>
 
       <ErrorToast message={strError} onClose={onClearError} />

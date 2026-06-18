@@ -275,12 +275,37 @@ export default function GeneralExpenseTable({
                   <td className={`px-3 py-3 border-r border-gray-200 transition-all ${errCell('category')}`}>
                     <StyledDropdown
                       value={row.category_id}
-                      onChange={val => {
-                        updateRow(iIdx, { category_id: val, sub_category: '' });
-                        if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'category') {
+                      onChange={(val) => {
+                      const objCat = lsCategories.find(
+                        c => c.category_id === val
+                      );
+
+                      updateRow(iIdx, {
+                        category_id: val,
+                        sub_category: '',
+                      });
+
+                      if (
+                        objCat &&
+                        row.amount > objCat.max_limit
+                      ) {
+                        setObjErrorField({
+                          rowIdx: iActualIdx,
+                          field: 'amount',
+                        });
+
+                        onError(
+                          `Amount exceeds category limit of ₹${objCat.max_limit.toLocaleString('en-IN')}`
+                        );
+                      } else {
+                        if (
+                          objErrorField?.rowIdx === iActualIdx &&
+                          objErrorField?.field === 'amount'
+                        ) {
                           setObjErrorField(null);
                         }
-                      }}
+                      }
+                    }}
                       options={lsCategories.map(c => ({
                         value: c.category_id,
                         label: `${c.name} (₹${c.max_limit.toLocaleString('en-IN')})`,
@@ -328,16 +353,49 @@ export default function GeneralExpenseTable({
                       <input
                         type="text"
                         value={row.amount ? row.amount.toLocaleString('en-IN') : ''}
-                        onChange={e => {
-                          const str = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '');
-                          const iVal = parseInt(str || '0');
-                          if (!isNaN(iVal) && iVal >= 0) {
-                            updateRow(iIdx, { amount: iVal });
-                            if (objErrorField?.rowIdx === iActualIdx && objErrorField?.field === 'amount') {
+                        onChange={(e) => {
+                          const strValue = e.target.value.replace(/,/g, '');
+
+                          if (!/^\d*$/.test(strValue)) {
+                            return;
+                          }
+
+                          const numAmount = Number(strValue || 0);
+
+                          updateRow(iIdx, {
+                            amount: numAmount,
+                          });
+
+                          const objCat = lsCategories.find(
+                            c => c.category_id === row.category_id
+                          );
+
+                          if (!objCat) return;
+
+                          const bExceeded = numAmount > objCat.max_limit;
+
+                          if (bExceeded) {
+                            const bAlreadyShowing =
+                              objErrorField?.rowIdx === iActualIdx &&
+                              objErrorField?.field === 'amount';
+
+                            if (!bAlreadyShowing) {
+                              setObjErrorField({
+                                rowIdx: iActualIdx,
+                                field: 'amount',
+                              });
+
+                              onError(
+                                `Maximum allowed for ${objCat.name} is ₹${objCat.max_limit.toLocaleString('en-IN')}`
+                              );
+                            }
+                          } else {
+                            if (
+                              objErrorField?.rowIdx === iActualIdx &&
+                              objErrorField?.field === 'amount'
+                            ) {
                               setObjErrorField(null);
                             }
-                          } else if (e.target.value === '') {
-                            updateRow(iIdx, { amount: 0 });
                           }
                         }}
                         onBlur={e => {
